@@ -1,10 +1,40 @@
 # Basics CRM
 
-A full-featured CRM built with React, shadcn-admin-kit, and Supabase.
+A full-featured CRM built with React, shadcn-admin-kit, and Postgres.
 
-<https://github.com/user-attachments/assets/0d7554b5-49ef-41c6-bcc9-a76214fc5c99>
+<https://github.com/user-attachments/assets/0d7554b5-41c6-bcc9-a76214fc5c99>
 
 Basics CRM is free and open-source. You can test it online at <https://marmelab.com/atomic-crm-demo>.
+
+## Quick Start
+
+Get up and running in under 5 minutes.
+
+**Prerequisites:** Node 22+, pnpm, Docker
+
+```sh
+# 1. Clone and install
+git clone https://github.com/[username]/atomic-crm.git
+cd atomic-crm
+pnpm install
+
+# 2. Start Postgres
+docker compose up -d
+
+# 3. Configure and migrate
+cd packages/server && cp .env.example .env
+# Edit .env: set BETTER_AUTH_SECRET (min 32 chars). Example: openssl rand -base64 32
+pnpm db:migrate
+pnpm db:seed
+
+# 4. Run the app (from repo root)
+cd ../..
+pnpm run dev:rest
+```
+
+Open **http://localhost:5173** and log in with `admin@example.com` / `admin123`.
+
+---
 
 ## Features
 
@@ -14,110 +44,67 @@ Basics CRM is free and open-source. You can test it online at <https://marmelab.
 - ✉️ **Capture Emails**: CC Basics CRM to automatically save communications as notes.
 - 📊 **Manage Deals**: Visualize and track your sales pipeline in a Kanban board.
 - 🔄 **Import & Export Data**: Easily transfer contacts in and out of the system.
-- 🔐 **Control Access**: Log in with Google, Azure, Keycloak, and Auth0.
+- 🔐 **Authentication**: Email/password signup and login via Better Auth.
 - 📜 **Track Activity History**: View all interactions in aggregated activity logs.
-- 🔗 **Integrate via API**: Connect seamlessly with other systems using our API.
+- 🔗 **Integrate via API**: Connect seamlessly with other systems using our REST API.
 - 🛠️ **Customize Everything**: Add custom fields, change the theme, and replace any component to fit your needs.
 
-## Installation
+## Setup Details
 
-To run this project locally, you will need the following tools installed on your computer:
+### Environment
 
-- Make
-- Node 22 LTS
-- Docker (required by Supabase)
+`packages/server/.env`:
 
-### Postgres + REST mode (alternative to Supabase)
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `DATABASE_URL` | Yes | `postgresql://postgres:postgres@localhost:5435/crm` | Postgres connection string |
+| `BETTER_AUTH_SECRET` | Yes | — | Min 32 chars. Generate with `openssl rand -base64 32` |
+| `BETTER_AUTH_URL` | No | `http://localhost:5173` | Frontend URL (for auth redirects) |
+| `PORT` | No | `3001` | API server port |
 
-You can run the CRM with a local Postgres database and REST API instead of Supabase:
+### Commands
 
-1. Start Postgres: `make docker-up` (or `docker compose up -d`)
-2. Configure server: `cd packages/server && cp .env.example .env`
-   - Set `BETTER_AUTH_SECRET` (e.g. `openssl rand -base64 32`)
-   - `DATABASE_URL`, `BETTER_AUTH_URL`, `PORT` have defaults
-3. Run migrations: `make db-migrate`
-4. Seed demo data: `make db-seed` (creates `admin@example.com` / `admin123`)
-5. Start app + server: `make start-rest` (or `pnpm run dev:rest`)
+| Command | Description |
+|---------|-------------|
+| `pnpm run dev:rest` | Start frontend + API (recommended) |
+| `pnpm run dev:server` | Start API only |
+| `pnpm run dev` | Start frontend only (Supabase mode) |
+| `make docker-up` | Start Postgres container |
+| `make db-migrate` | Run database migrations |
+| `make db-seed` | Seed demo data |
+| `make start-rest` | Alias for `pnpm run dev:rest` |
 
-Open [http://localhost:5173/](http://localhost:5173/) and log in with `admin@example.com` / `admin123`.
+### Import Sample Data
 
-### BasicOS AI Assistant (optional)
+After logging in, go to **Contacts → Import CSV** and select `test-data/contacts.csv` to import 500 sample contacts and companies.
 
-The AI assistant requires a separate API. To run it:
+## Optional: Supabase Mode
 
-1. `cd packages/api && cp .env.example .env`
-2. Set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (from `supabase start`)
-3. `npm run dev:api` (or `make start-api`)
-
-See [packages/api/README.md](packages/api/README.md) for details.
-
-### OpenChat UI (optional)
-
-A ChatGPT-style chat interface is available as a clone of [OpenOrca/openchat-ui](https://github.com/OpenOrca/openchat-ui):
+For the original Supabase-backed setup:
 
 ```sh
-git clone https://github.com/OpenOrca/openchat-ui.git
-make start-chat-ui
-```
-
-See [openchat-ui/README.atomic-crm.md](openchat-ui/README.atomic-crm.md) for configuration.
-
-Fork the [`marmelab/atomic-crm`](https://github.com/marmelab/atomic-crm) repository to your user/organization, then clone it locally:
-
-```sh
-git clone https://github.com/[username]/atomic-crm.git
-```
-
-Install dependencies:
-
-```sh
-cd atomic-crm
-make install
-```
-
-This will install the dependencies for the frontend and the backend, including a local Supabase instance.
-
-Once your app is configured, start the app locally with the following command:
-
-```sh
+npx supabase start
 make start
 ```
 
-This will start the Vite dev server for the frontend, the local Supabase instance for the API, and a Postgres database (thanks to Docker).
+See the [doc/](doc/) directory for Supabase configuration, SSO, and more.
 
-You can then access the app via [http://localhost:5173/](http://localhost:5173/). You will be prompted to create the first user.
+## Optional: AI Assistant
 
-If you need debug the backend, you can access the following services:
-
-- Supabase dashboard: [http://localhost:54323/](http://localhost:54323/)
-- REST API: [http://127.0.0.1:54321](http://127.0.0.1:54321)
-- Attachments storage: [http://localhost:54323/project/default/storage/buckets/attachments](http://localhost:54323/project/default/storage/buckets/attachments)
-- Inbucket email testing service: [http://localhost:54324/](http://localhost:54324/)
-
-## Documentation
-
-The user and developer documentation for this project is available [in the `doc/` directory](./doc/). You can also read it online at [https://marmelab.com/atomic-crm/doc/](https://marmelab.com/atomic-crm/doc/).
-
-## Testing Changes
-
-This project contains unit tests. Run them with the following command:
+The AI assistant requires a separate API:
 
 ```sh
-make test
+cd packages/api && cp .env.example .env
+# Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY
+pnpm run dev
 ```
 
-You can add your own unit tests powered by Jest anywhere in the `src` directory. The test files should be named `*.test.tsx` or `*.test.ts`.
+## Testing
 
-## Registry
-
-Basics CRM components are published as a Shadcn Registry file:
-
-- The `registry.json` file is automatically generated by the `scripts/generate-registry.mjs` script as a pre-commit hook.
-- The `http://marmelab.com/atomic-crm/r/atomic-crm.json` file is automatically published by the CI/CD pipeline
-
-> [!WARNING]  
-> If the `registry.json` misses some changes you made, you MUST update the `scripts/generate-registry.mjs` to include those changes.
+```sh
+pnpm test
+```
 
 ## License
 
-This project is licensed under the MIT License, courtesy of [Marmelab](https://marmelab.com). See the [LICENSE.md](./LICENSE.md) file for details.
+MIT License, courtesy of [Marmelab](https://marmelab.com). See [LICENSE.md](./LICENSE.md).
