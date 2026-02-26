@@ -25,14 +25,18 @@ docker compose up -d
 cd packages/server && cp .env.example .env
 # Edit .env: set BETTER_AUTH_SECRET (min 32 chars). Example: openssl rand -base64 32
 pnpm db:migrate
-pnpm db:seed
+pnpm db:seed   # creates admin@example.com / admin123 + demo data
 
 # 4. Run the app (from repo root)
 cd ../..
 pnpm run dev:rest
 ```
 
-Open **http://localhost:5173** and log in with `admin@example.com` / `admin123`.
+Open **http://localhost:5173**. Log in with the seed user:
+
+| Email | Password |
+|-------|----------|
+| `admin@example.com` | `admin123` |
 
 ---
 
