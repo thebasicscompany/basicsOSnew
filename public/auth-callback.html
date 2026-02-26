@@ -8,7 +8,7 @@
         />
         <meta name="theme-color" content="#000000" />
         <link rel="manifest" href="./manifest.json" />
-        <link rel="shortcut icon" href="./favicon.ico" />
+        <link rel="icon" href="./logos/icon.svg" type="image/svg+xml" />
         <title>Basics CRM</title>
         <style>
             body {
@@ -129,9 +129,12 @@
         };
 
         function interceptAuthCallback() {
-                const hash = window.location.hash;
                 const {access_token, refresh_token, type} = getUrlParams();
-                window.location.href = `./#/auth-callback?access_token=${access_token}&refresh_token=${refresh_token}&type=${type}`;
+                if (!access_token || !refresh_token) {
+                    window.location.href = './#/login';
+                    return;
+                }
+                window.location.href = `./#/auth-callback?access_token=${encodeURIComponent(access_token)}&refresh_token=${encodeURIComponent(refresh_token)}&type=${encodeURIComponent(type || '')}`;
         }
     
         // Call the function to intercept the auth callback

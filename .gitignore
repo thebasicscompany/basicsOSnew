@@ -99,3 +99,4 @@ storybook-static/
 # Package manager lockfiles in nested packages (use root lockfile)
 packages/*/package-lock.json
 packages/*/.package-lock.json
+

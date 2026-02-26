@@ -1,12 +1,23 @@
 import { Hono } from "hono";
 import { z } from "zod";
+import { createClient } from "@supabase/supabase-js";
 import type { ContextDbAdapter } from "../adapters/types.js";
 import type { Env } from "../env.js";
+import {
+  ASSISTANT_TOOLS,
+  executeAssistantTool,
+} from "../assistant/tools.js";
 
 const assistantSchema = z.object({
   message: z.string().min(1),
   messages: z.array(z.object({ role: z.string(), content: z.string() })).optional(),
 });
+
+type ChatMessage =
+  | { role: "system"; content: string }
+  | { role: "user"; content: string }
+  | { role: "assistant"; content: string | null; tool_calls?: Array<{ id: string; type: "function"; function: { name: string; arguments: string } }> }
+  | { role: "tool"; tool_call_id: string; content: string };
 
 export function createAssistantRoutes(
   db: ContextDbAdapter,
@@ -14,6 +25,9 @@ export function createAssistantRoutes(
 ) {
   const app = new Hono();
   const basicosApiUrl = env.BASICOS_API_URL;
+  const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+    auth: { persistSession: false },
+  });
 
   app.post("/", async (c) => {
     const authHeader = c.req.header("Authorization");
@@ -72,41 +86,100 @@ export function createAssistantRoutes(
     // 3. Build messages for chat
     const systemPrompt = `You are an AI assistant for a CRM. Answer the user's question using the following context from their CRM when relevant. If the context doesn't contain relevant information, say so.
 
+You have access to tools: create_task (add a task for a contact), add_note (add a note to a contact or deal), update_deal (update a deal's stage). Use these when the user asks you to perform actions like "create a task for John" or "add a note to this deal". When using tools, you must have the correct entity IDs from the context.
+
 Context from CRM:
 ${contextText}`;
 
-    const chatMessages = [
+    let chatMessages: ChatMessage[] = [
       { role: "system" as const, content: systemPrompt },
       ...history.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
       { role: "user" as const, content: message },
     ];
 
-    // 4. Stream chat from basicsAdmin
-    const streamRes = await fetch(`${basicosApiUrl}/v1/chat/completions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${salesInfo.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: "basics-chat-smart",
-        messages: chatMessages,
-        stream: true,
-      }),
-    });
+    // 4. Chat loop: handle tool calls (use stream: false to parse tool_calls)
+    let finalContent = "";
+    let iterations = 0;
+    const maxIterations = 5;
 
-    if (!streamRes.ok) {
-      const errText = await streamRes.text();
-      console.error("[assistant] basicsAdmin error:", streamRes.status, errText);
-      return c.json(
-        { error: "AI service error", details: errText.slice(0, 200) },
-        502
-      );
+    while (iterations < maxIterations) {
+      iterations++;
+      const res = await fetch(`${basicosApiUrl}/v1/chat/completions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${salesInfo.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "basics-chat-smart",
+          messages: chatMessages,
+          tools: ASSISTANT_TOOLS,
+          stream: false,
+        }),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        console.error("[assistant] basicsAdmin error:", res.status, errText);
+        return c.json(
+          { error: "AI service error", details: errText.slice(0, 200) },
+          502
+        );
+      }
+
+      const json = (await res.json()) as {
+        choices?: Array<{
+          message?: {
+            content?: string | null;
+            tool_calls?: Array<{
+              id: string;
+              type: "function";
+              function: { name: string; arguments: string };
+            }>;
+          };
+        }>;
+      };
+
+      const choice = json.choices?.[0];
+      const msg = choice?.message;
+      const toolCalls = msg?.tool_calls;
+
+      if (toolCalls && toolCalls.length > 0) {
+        chatMessages.push({
+          role: "assistant",
+          content: msg?.content ?? null,
+          tool_calls: toolCalls,
+        });
+
+        for (const tc of toolCalls) {
+          let args: Record<string, unknown> = {};
+          try {
+            args = JSON.parse(tc.function.arguments || "{}");
+          } catch {
+            // ignore
+          }
+          const result = await executeAssistantTool(
+            supabase,
+            salesInfo.salesId,
+            tc.function.name,
+            args
+          );
+          chatMessages.push({
+            role: "tool",
+            tool_call_id: tc.id,
+            content: result,
+          });
+        }
+        continue;
+      }
+
+      finalContent = msg?.content ?? "";
+      break;
     }
 
-    return new Response(streamRes.body, {
+    return new Response(createStreamChunk(finalContent), {
       headers: {
-        "Content-Type": streamRes.headers.get("Content-Type") ?? "text/event-stream",
+        "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
         Connection: "keep-alive",
       },
@@ -114,6 +187,21 @@ ${contextText}`;
   });
 
   return app;
+}
+
+function createStreamChunk(content: string): ReadableStream {
+  const data = JSON.stringify({
+    id: "chatcmpl-" + Date.now(),
+    choices: [{ delta: { content }, index: 0 }],
+  });
+  const encoder = new TextEncoder();
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+      controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+      controller.close();
+    },
+  });
 }
 
 async function resolveUserIdFromJwt(

@@ -19,6 +19,8 @@ import { SSOAuthButton } from "./SSOAuthButton";
 export const SignupPage = () => {
   const queryClient = useQueryClient();
   const dataProvider = useDataProvider<CrmDataProvider>();
+  const login = useLogin();
+  const notify = useNotify();
   const {
     darkModeLogo: logo,
     title,
@@ -66,9 +68,6 @@ export const SignupPage = () => {
       notify(error.message);
     },
   });
-
-  const login = useLogin();
-  const notify = useNotify();
 
   const {
     register,

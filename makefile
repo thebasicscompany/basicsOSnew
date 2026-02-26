@@ -24,7 +24,26 @@ start-app: ## start the app locally
 start-api: ## start the BasicOS API (AI assistant backend)
 	npm run dev:api
 
+start-chat-ui: ## start the OpenChat UI (clone from github.com/OpenOrca/openchat-ui)
+	cd openchat-ui && npm install && npm run dev
+
 start: start-supabase start-app ## start the stack locally
+
+# --- Postgres + REST mode (no Supabase) ---
+docker-up: ## start Postgres (port 5435) for REST mode
+	docker compose up -d
+
+docker-down: ## stop Postgres
+	docker compose down
+
+db-migrate: ## run Drizzle migrations (packages/server)
+	cd packages/server && pnpm db:migrate
+
+db-seed: ## seed demo data (admin@example.com / admin123)
+	cd packages/server && pnpm db:seed
+
+start-rest: ## start app + server (Postgres/REST mode)
+	pnpm run dev:rest
 
 start-demo: ## start the app locally in demo mode
 	npm run dev:demo

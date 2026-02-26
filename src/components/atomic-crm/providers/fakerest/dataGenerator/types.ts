@@ -10,6 +10,17 @@ import type {
 } from "../../../types";
 import type { ConfigurationContextValue } from "../../../root/ConfigurationContext";
 
+export interface AutomationRule {
+  id: number;
+  sales_id: number;
+  name: string;
+  enabled: boolean;
+  trigger_type: string;
+  trigger_config: Record<string, unknown>;
+  action_type: string;
+  action_config: Record<string, unknown>;
+}
+
 export interface Db {
   companies: Required<Company>[];
   contacts: Required<Contact>[];
@@ -20,4 +31,5 @@ export interface Db {
   tags: Tag[];
   tasks: Task[];
   configuration: Array<{ id: number; config: ConfigurationContextValue }>;
+  automation_rules: AutomationRule[];
 }

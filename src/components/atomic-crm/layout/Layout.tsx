@@ -11,6 +11,7 @@ import { RefreshButton } from "@/components/admin/refresh-button";
 
 import { useConfigurationLoader } from "../root/useConfigurationLoader";
 import { CRMSidebar } from "./CRMSidebar";
+import { AssistantChatButton } from "../assistant";
 
 export const Layout = ({ children }: { children: ReactNode }) => {
   useConfigurationLoader();
@@ -43,6 +44,7 @@ export const Layout = ({ children }: { children: ReactNode }) => {
           </div>
         </div>
       </main>
+      <AssistantChatButton />
       <Notification />
     </SidebarProvider>
   );

@@ -125,6 +125,13 @@ export const authProvider: AuthProvider = {
     ) {
       return;
     }
+    // Users are on the OAuth consent page, nothing to do
+    if (
+      window.location.pathname === "/oauth/consent" ||
+      window.location.hash.includes("#/oauth/consent")
+    ) {
+      return;
+    }
 
     const isInitialized = await getIsInitialized();
 

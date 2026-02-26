@@ -13,6 +13,7 @@ import { SimpleFormIterator } from "@/components/admin/simple-form-iterator";
 import { TextInput } from "@/components/admin/text-input";
 
 import ImageEditorField from "../misc/ImageEditorField";
+import { AutomationRulesSection } from "./AutomationRulesSection";
 import {
   useConfigurationContext,
   useConfigurationUpdater,
@@ -26,6 +27,7 @@ const SECTIONS = [
   { id: "deals", label: "Deals" },
   { id: "notes", label: "Notes" },
   { id: "tasks", label: "Tasks" },
+  { id: "automations", label: "Automations" },
 ];
 
 /** Ensure every item in a { value, label } array has a value (slug from label). */

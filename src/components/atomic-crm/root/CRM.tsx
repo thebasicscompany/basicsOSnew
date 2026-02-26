@@ -26,9 +26,17 @@ import { SignupPage } from "../login/SignupPage";
 import { ConfirmationRequired } from "../login/ConfirmationRequired";
 import { ImportPage } from "../misc/ImportPage";
 import {
-  authProvider as defaultAuthProvider,
-  dataProvider as defaultDataProvider,
+  authProvider as supabaseAuthProvider,
+  dataProvider as supabaseDataProvider,
 } from "../providers/supabase";
+import {
+  authProvider as restAuthProvider,
+  dataProvider as restDataProvider,
+} from "../providers/rest";
+
+const useRest = import.meta.env.VITE_USE_REST === "true";
+const defaultAuthProvider = useRest ? restAuthProvider : supabaseAuthProvider;
+const defaultDataProvider = useRest ? restDataProvider : supabaseDataProvider;
 import sales from "../sales";
 import { ProfilePage } from "../settings/ProfilePage";
 import { SettingsPage } from "../settings/SettingsPage";
@@ -248,6 +256,7 @@ const DesktopAdmin = (props: CoreAdminProps) => {
       <Resource name="contact_notes" />
       <Resource name="deal_notes" />
       <Resource name="tasks" />
+      <Resource name="automation_rules" />
       <Resource name="sales" {...sales} />
       <Resource name="tags" />
     </Admin>
@@ -293,6 +302,11 @@ const MobileAdmin = (props: CoreAdminProps) => {
             element={<ForgotPasswordPage />}
           />
           <Route path={OAuthConsentPage.path} element={<OAuthConsentPage />} />
+        </CustomRoutes>
+        <CustomRoutes>
+          <Route path={ProfilePage.path} element={<ProfilePage />} />
+          <Route path={SettingsPage.path} element={<SettingsPage />} />
+          <Route path={ImportPage.path} element={<ImportPage />} />
         </CustomRoutes>
         <Resource
           name="contacts"

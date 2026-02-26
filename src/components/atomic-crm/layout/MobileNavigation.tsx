@@ -1,5 +1,5 @@
 import { HugeiconsIcon } from "@hugeicons/react";
-import { Add01Icon, Home01Icon, Logout01Icon, Settings01Icon, SmartPhone01Icon, Sun01Icon, TaskEdit01Icon, UserGroupIcon } from "@hugeicons/core-free-icons";
+import { Add01Icon, Home01Icon, Logout01Icon, Settings01Icon, SmartPhone01Icon, Sun01Icon, TaskEdit01Icon, UserGroupIcon, UserIcon } from "@hugeicons/core-free-icons";
 import { useTheme } from "@/components/admin/use-theme";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
-import { Translate, useAuthProvider, useGetIdentity, useLogout } from "ra-core";
+import { CanAccess, Translate, useAuthProvider, useGetIdentity, useLogout } from "ra-core";
 import { Link, matchPath, useLocation, useMatch } from "react-router";
 import { ContactCreateSheet } from "../contacts/ContactCreateSheet";
 import { useState } from "react";
@@ -51,9 +51,8 @@ export const MobileNavigation = () => {
         // So we manually add some padding to avoid the navigation being too close to the home bar
         paddingBottom: isPwa && isWebiOS ? 15 : undefined,
         // We use box-sizing: border-box, so the height contains the padding.
-        // To actually increase the padding, we need to increase the height as well
-        height:
-          "calc(var(--spacing)) * 6" + (isPwa && isWebiOS ? " + 15px" : ""),
+        // To actually increase the height, we need to account for the extra padding on iOS PWA
+        height: isPwa && isWebiOS ? "calc(3.5rem + 15px)" : undefined,
       }}
     >
       <div className="flex justify-center">
@@ -198,6 +197,21 @@ const SettingsButton = () => {
             </p>
           </div>
         </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild className="h-12 px-4 text-base cursor-pointer">
+          <Link to="/profile" className="flex items-center">
+            <HugeiconsIcon icon={UserIcon} className="mr-2 size-5" />
+            Profile
+          </Link>
+        </DropdownMenuItem>
+        <CanAccess resource="configuration" action="edit">
+          <DropdownMenuItem asChild className="h-12 px-4 text-base cursor-pointer">
+            <Link to="/settings" className="flex items-center">
+              <HugeiconsIcon icon={Settings01Icon} className="mr-2 size-5" />
+              Settings
+            </Link>
+          </DropdownMenuItem>
+        </CanAccess>
         <DropdownMenuSeparator />
         <ThemeMenu />
         <DropdownMenuSeparator />

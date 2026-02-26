@@ -25,6 +25,7 @@ export default (): Db => {
       config: {} as Db["configuration"][number]["config"],
     },
   ];
+  db.automation_rules = [];
   finalize(db);
 
   return db;

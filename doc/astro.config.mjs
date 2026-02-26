@@ -16,11 +16,11 @@ export default defineConfig({
   integrations: [
     starlight({
       title: "Basics CRM",
-      favicon: "./public/favicon.svg",
+      favicon: "./public/icon.svg",
       customCss: ["./src/styles/global.css"],
       logo: {
-        dark: "./public/logo_atomic_crm_dark.svg",
-        light: "./public/logo_atomic_crm_light.svg",
+        dark: "./public/icon.svg",
+        light: "./public/icon.svg",
       },
       head: [
         {

@@ -27,6 +27,20 @@ To run this project locally, you will need the following tools installed on your
 - Node 22 LTS
 - Docker (required by Supabase)
 
+### Postgres + REST mode (alternative to Supabase)
+
+You can run the CRM with a local Postgres database and REST API instead of Supabase:
+
+1. Start Postgres: `make docker-up` (or `docker compose up -d`)
+2. Configure server: `cd packages/server && cp .env.example .env`
+   - Set `BETTER_AUTH_SECRET` (e.g. `openssl rand -base64 32`)
+   - `DATABASE_URL`, `BETTER_AUTH_URL`, `PORT` have defaults
+3. Run migrations: `make db-migrate`
+4. Seed demo data: `make db-seed` (creates `admin@example.com` / `admin123`)
+5. Start app + server: `make start-rest` (or `pnpm run dev:rest`)
+
+Open [http://localhost:5173/](http://localhost:5173/) and log in with `admin@example.com` / `admin123`.
+
 ### BasicOS AI Assistant (optional)
 
 The AI assistant requires a separate API. To run it:
@@ -36,6 +50,17 @@ The AI assistant requires a separate API. To run it:
 3. `npm run dev:api` (or `make start-api`)
 
 See [packages/api/README.md](packages/api/README.md) for details.
+
+### OpenChat UI (optional)
+
+A ChatGPT-style chat interface is available as a clone of [OpenOrca/openchat-ui](https://github.com/OpenOrca/openchat-ui):
+
+```sh
+git clone https://github.com/OpenOrca/openchat-ui.git
+make start-chat-ui
+```
+
+See [openchat-ui/README.atomic-crm.md](openchat-ui/README.atomic-crm.md) for configuration.
 
 Fork the [`marmelab/atomic-crm`](https://github.com/marmelab/atomic-crm) repository to your user/organization, then clone it locally:
 

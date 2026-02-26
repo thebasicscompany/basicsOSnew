@@ -137,7 +137,10 @@ export function useContactImport() {
                 last_seen: last_seen
                   ? new Date(last_seen).toISOString()
                   : today,
-                has_newsletter,
+                has_newsletter:
+                  has_newsletter === "true" ||
+                  has_newsletter === true ||
+                  has_newsletter === "1",can 
                 status,
                 company_id: company?.id,
                 tags: tagList.map((tag) => tag.id),

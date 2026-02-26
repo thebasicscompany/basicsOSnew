@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "dev:api": "cd packages/api && npm run dev",
+    "dev:server": "cd packages/server && pnpm run dev",
+    "dev:rest": "concurrently -n server,app -c blue,green \"pnpm run dev:server\" \"cross-env VITE_USE_REST=true pnpm run dev\"",
     "test": "vitest",
     "dev": "vite --force",
     "dev:demo": "vite --config vite.demo.config --force",
@@ -23,6 +25,7 @@
     "prepare": "husky"
   },
   "dependencies": {
+    "@ai-sdk/react": "^1.2.12",
     "@hello-pangea/dnd": "^18.0.1",
     "@hugeicons/core-free-icons": "^3.3.0",
     "@hugeicons/react": "^1.1.5",
@@ -53,6 +56,13 @@
     "@tanstack/react-table": "^8.21.3",
     "@tanstack/table-core": "^8.21.3",
     "@types/qs": "^6.14.0",
+    "ai": "^4.3.19",
+    "@better-auth/core": "^1.4.19",
+    "@better-auth/utils": "^0.3.0",
+    "@better-fetch/fetch": "^1.1.21",
+    "better-auth": "^1.4.19",
+    "defu": "^6.1.4",
+    "nanostores": "^1.1.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -84,6 +94,7 @@
     "react-error-boundary": "^6.1.1",
     "react-hook-form": "^7.71.1",
     "react-router": "^7.13.0",
+    "react-router-dom": "^7.13.0",
     "rollup-plugin-visualizer": "^6.0.3",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.1",
@@ -93,6 +104,8 @@
     "zod": "^4.1.12"
   },
   "devDependencies": {
+    "concurrently": "^9.1.0",
+    "cross-env": "^7.0.3",
     "@eslint/js": "^9.22.0",
     "@inquirer/prompts": "^8.2.0",
     "@testing-library/jest-dom": "^6.6.3",
@@ -122,5 +135,12 @@
     "vite-plugin-pwa": "^1.2.0",
     "vite-plugin-simple-html": "^1.0.1",
     "vitest": "^3.2.4"
+  },
+  "pnpm": {
+    "peerDependencyRules": {
+      "allowedVersions": {
+        "zod": "4"
+      }
+    }
   }
 }
