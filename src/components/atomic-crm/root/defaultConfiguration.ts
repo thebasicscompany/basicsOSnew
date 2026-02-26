@@ -1,7 +1,7 @@
 import type { ConfigurationContextValue } from "./ConfigurationContext";
 
-export const defaultDarkModeLogo = "./logos/icon.svg";
-export const defaultLightModeLogo = "./logos/icon.svg";
+export const defaultDarkModeLogo = "./logos/Basics.png";
+export const defaultLightModeLogo = "./logos/Basics.png";
 
 export const defaultTitle = "Basics CRM";
 
