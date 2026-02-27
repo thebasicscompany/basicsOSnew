@@ -1,5 +1,4 @@
 export { DataTable } from "./data-table/data-table";
-export { DataTableRA } from "./data-table/data-table-ra";
 export { DataTableToolbar } from "./data-table/data-table-toolbar";
 export { DataTableViewOptions } from "./data-table/data-table-view-options";
 export { DataTableColumnHeader } from "./data-table/data-table-column-header";

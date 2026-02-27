@@ -13,6 +13,7 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  SidebarTrigger,
 } from "basics-os/src/components/ui/sidebar";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
@@ -60,11 +61,15 @@ export function HubSidebar() {
       <SidebarHeader className="border-b border-[var(--twenty-border-light)]">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild className="data-[slot=sidebar-menu-button]:!p-2">
-              <Link to={ROUTES.CRM}>
-                <span className="text-base font-semibold truncate">Basics Hub</span>
+            <div className="flex items-center justify-between gap-1 px-1 py-1">
+              <Link
+                to={ROUTES.CRM}
+                className="text-base font-semibold truncate group-data-[state=collapsed]:hidden"
+              >
+                Basics Hub
               </Link>
-            </SidebarMenuButton>
+              <SidebarTrigger className="ml-auto shrink-0" />
+            </div>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>

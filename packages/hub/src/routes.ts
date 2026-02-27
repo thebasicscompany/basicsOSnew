@@ -1,5 +1,5 @@
 export const ROUTES = {
-  CRM: "/",
+  CRM: "/dashboard",
   CRM_COMPANIES: "/companies",
   CRM_CONTACTS: "/contacts",
   CRM_DEALS: "/deals",

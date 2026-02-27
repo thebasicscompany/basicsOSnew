@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import {
   flexRender,
   getCoreRowModel,
+  getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
@@ -18,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
 import { DataTablePagination } from "@/components/tablecn/data-table/data-table-pagination";
 import { DataTableViewOptions } from "@/components/tablecn/data-table/data-table-view-options";
 import { cn } from "@/lib/utils";
@@ -25,7 +27,8 @@ import { cn } from "@/lib/utils";
 interface DataTableProps<TData extends { id?: unknown }> {
   columns: ColumnDef<TData>[];
   data: TData[];
-  /** Rendered in the toolbar, to the left of the Columns dropdown. */
+  searchPlaceholder?: string;
+  /** Rendered in the toolbar, to the right of the search bar. */
   toolbar?: React.ReactNode;
   /** Called when a row is clicked. */
   onRowClick?: (row: TData) => void;
@@ -33,17 +36,19 @@ interface DataTableProps<TData extends { id?: unknown }> {
 }
 
 /**
- * Self-contained DataTable with sorting, pagination, and column visibility.
+ * Self-contained DataTable with search, sorting, pagination, and column visibility.
  * Takes `columns` + `data` — no external table instance required.
  */
 export function DataTable<TData extends { id?: unknown }>({
   columns,
   data,
+  searchPlaceholder = "Search...",
   toolbar,
   onRowClick,
   className,
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
+  const [globalFilter, setGlobalFilter] = useState("");
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 
@@ -51,12 +56,14 @@ export function DataTable<TData extends { id?: unknown }>({
     data,
     columns,
     getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     onSortingChange: setSorting,
+    onGlobalFilterChange: setGlobalFilter,
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
-    state: { sorting, columnVisibility, rowSelection },
+    state: { sorting, globalFilter, columnVisibility, rowSelection },
     initialState: { pagination: { pageSize: 25 } },
   });
 
@@ -70,9 +77,17 @@ export function DataTable<TData extends { id?: unknown }>({
   return (
     <div className={cn("flex w-full flex-col gap-3", className)}>
       {/* Toolbar */}
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">{toolbar}</div>
-        <DataTableViewOptions table={table} />
+      <div className="flex items-center gap-2">
+        <Input
+          placeholder={searchPlaceholder}
+          value={globalFilter}
+          onChange={(e) => setGlobalFilter(e.target.value)}
+          className="h-8 max-w-sm"
+        />
+        <div className="ml-auto flex items-center gap-2">
+          {toolbar}
+          <DataTableViewOptions table={table} />
+        </div>
       </div>
 
       {/* Table */}

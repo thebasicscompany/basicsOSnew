@@ -11,6 +11,7 @@ import { SignupPage } from "@/components/auth/signup-page";
 import { ContactsPage } from "@/components/pages/ContactsPage";
 import { CompaniesPage } from "@/components/pages/CompaniesPage";
 import { DealsPage } from "@/components/pages/DealsPage";
+import { DashboardPage } from "@/components/pages/DashboardPage";
 import { ProfilePage } from "@/components/pages/ProfilePage";
 import { SettingsPage } from "@/components/pages/SettingsPage";
 import { ImportPage } from "@/components/pages/ImportPage";
@@ -49,6 +50,7 @@ const App = () => (
             </ProtectedRoute>
           }
         >
+          <Route path={ROUTES.CRM} element={<DashboardPage />} />
           <Route path={ROUTES.CRM_CONTACTS} element={<ContactsPage />} />
           <Route path={ROUTES.CRM_COMPANIES} element={<CompaniesPage />} />
           <Route path={ROUTES.CRM_DEALS} element={<DealsPage />} />
@@ -58,8 +60,8 @@ const App = () => (
           <Route path={ROUTES.PROFILE} element={<ProfilePage />} />
           <Route path={ROUTES.SETTINGS} element={<SettingsPage />} />
           <Route path={ROUTES.IMPORT} element={<ImportPage />} />
-          {/* Catch-all: redirect to contacts */}
-          <Route path="*" element={<Navigate to={ROUTES.CRM_CONTACTS} replace />} />
+          {/* Catch-all: redirect to dashboard */}
+          <Route path="*" element={<Navigate to={ROUTES.CRM} replace />} />
         </Route>
       </Routes>
     </BrowserRouter>

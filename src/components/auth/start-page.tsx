@@ -30,7 +30,7 @@ export function StartPage() {
   if (sessionPending || (!session?.user && initPending)) return null;
 
   // Already authenticated
-  if (session?.user) return <Navigate to="/contacts" replace />;
+  if (session?.user) return <Navigate to="/dashboard" replace />;
 
   // First-time setup
   if (!isInitialized) return <Navigate to="/sign-up" replace />;
