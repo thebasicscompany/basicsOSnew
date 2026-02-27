@@ -7,6 +7,8 @@ import * as schema from "../db/schema/index.js";
 import {
   eq,
   and,
+  or,
+  ilike,
   sql,
   desc,
   asc,
@@ -146,8 +148,9 @@ export function createCrmRoutes(
     const range = c.req.query("range");
     const sortParam = c.req.query("sort");
     const orderParam = c.req.query("order");
+    const filterParam = c.req.query("filter");
 
-    let [start, end] = [0, 9];
+    let [start, end] = [0, 24];
     if (range) {
       try {
         const parsed = JSON.parse(range) as [number, number];
@@ -161,7 +164,29 @@ export function createCrmRoutes(
     const limit = Math.max(0, end - start + 1);
     const offset = start;
 
+    let filter: Record<string, unknown> = {};
+    if (filterParam) {
+      try {
+        filter = JSON.parse(filterParam) as Record<string, unknown>;
+      } catch {
+        /* ignore */
+      }
+    }
+    const q = typeof filter.q === "string" ? filter.q.trim() : null;
+
     if (resource === "companies_summary") {
+      const companyConds: SQL[] = [eq(schema.companies.salesId, salesId)];
+      if (q) {
+        companyConds.push(
+          or(
+            ilike(schema.companies.name, `%${q}%`),
+            ilike(schema.companies.city, `%${q}%`),
+            ilike(schema.companies.sector, `%${q}%`),
+          ) as SQL,
+        );
+      }
+      if (filter.sector) companyConds.push(eq(schema.companies.sector, filter.sector as string));
+
       const rows = await db
         .select({
           ...schema.companies,
@@ -171,7 +196,7 @@ export function createCrmRoutes(
         .from(schema.companies)
         .leftJoin(schema.deals, eq(schema.companies.id, schema.deals.companyId))
         .leftJoin(schema.contacts, eq(schema.companies.id, schema.contacts.companyId))
-        .where(eq(schema.companies.salesId, salesId))
+        .where(and(...companyConds))
         .groupBy(schema.companies.id)
         .limit(limit)
         .offset(offset);
@@ -179,13 +204,29 @@ export function createCrmRoutes(
       const [{ count: total }] = await db
         .select({ count: sql<number>`count(*)::int` })
         .from(schema.companies)
-        .where(eq(schema.companies.salesId, salesId));
+        .where(and(...companyConds));
 
       c.header("Content-Range", `companies_summary ${start}-${start + rows.length - 1}/${total}`);
       return c.json(rows);
     }
 
     if (resource === "contacts_summary") {
+      const contactConds: SQL[] = [eq(schema.contacts.salesId, salesId)];
+      if (q) {
+        contactConds.push(
+          or(
+            ilike(schema.contacts.firstName, `%${q}%`),
+            ilike(schema.contacts.lastName, `%${q}%`),
+            ilike(schema.contacts.email, `%${q}%`),
+            ilike(schema.companies.name, `%${q}%`),
+          ) as SQL,
+        );
+      }
+      if (filter.status) contactConds.push(eq(schema.contacts.status, filter.status as string));
+      if (filter.company_id) {
+        contactConds.push(eq(schema.contacts.companyId, Number(filter.company_id)));
+      }
+
       const rows = await db
         .select({
           ...schema.contacts,
@@ -195,15 +236,18 @@ export function createCrmRoutes(
         .from(schema.contacts)
         .leftJoin(schema.tasks, eq(schema.contacts.id, schema.tasks.contactId))
         .leftJoin(schema.companies, eq(schema.contacts.companyId, schema.companies.id))
-        .where(eq(schema.contacts.salesId, salesId))
+        .where(and(...contactConds))
         .groupBy(schema.contacts.id, schema.companies.name)
         .limit(limit)
         .offset(offset);
 
-      const [{ count: total }] = await db
-        .select({ count: sql<number>`count(*)::int` })
+      // Count uses same filters (re-run on contacts table; q on company name requires a join)
+      const countRows = await db
+        .select({ count: sql<number>`count(distinct ${schema.contacts.id})::int` })
         .from(schema.contacts)
-        .where(eq(schema.contacts.salesId, salesId));
+        .leftJoin(schema.companies, eq(schema.contacts.companyId, schema.companies.id))
+        .where(and(...contactConds));
+      const total = countRows[0]?.count ?? 0;
 
       c.header("Content-Range", `contacts_summary ${start}-${start + rows.length - 1}/${total}`);
       return c.json(rows);
@@ -217,6 +261,14 @@ export function createCrmRoutes(
       if (orgId) conditions.push(eq(schema.sales.organizationId, orgId));
     } else if (hasSalesId(resource)) {
       conditions.push(eq((table as typeof schema.companies).salesId, salesId));
+    }
+
+    // Apply generic field filters for deals
+    if (resource === "deals") {
+      if (q) conditions.push(ilike(schema.deals.name, `%${q}%`));
+      if (filter.stage) conditions.push(eq(schema.deals.stage, filter.stage as string));
+      if (filter.category) conditions.push(eq(schema.deals.category, filter.category as string));
+      if (filter.company_id) conditions.push(eq(schema.deals.companyId, Number(filter.company_id)));
     }
 
     const orderByCol = sortParam ? (table as Record<string, unknown>)[sortParam] : null;

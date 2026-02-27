@@ -140,7 +140,7 @@ export function useContactImport() {
                 has_newsletter:
                   has_newsletter === "true" ||
                   has_newsletter === true ||
-                  has_newsletter === "1",can 
+                  has_newsletter === "1",
                 status,
                 company_id: company?.id,
                 tags: tagList.map((tag) => tag.id),

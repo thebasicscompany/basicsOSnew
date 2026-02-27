@@ -15,7 +15,19 @@ export function createApp(db: Db, env: Env) {
   app.use(
     "/*",
     cors({
-      origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+      origin: (origin) => {
+        // Allow localhost on any port (web dev, Electron dev server)
+        if (!origin) return null;
+        try {
+          const url = new URL(origin);
+          const allowed =
+            (url.hostname === "localhost" || url.hostname === "127.0.0.1") &&
+            (url.protocol === "http:" || url.protocol === "https:");
+          return allowed ? origin : null;
+        } catch {
+          return null;
+        }
+      },
       allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowHeaders: ["Content-Type", "Authorization"],
       credentials: true,

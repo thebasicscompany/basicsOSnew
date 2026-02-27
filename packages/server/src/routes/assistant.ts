@@ -1,18 +1,13 @@
 import { Hono } from "hono";
-import { z } from "zod";
 import type { Db } from "../db/client.js";
 import type { Env } from "../env.js";
 import type { createAuth } from "../auth.js";
 import * as schema from "../db/schema/index.js";
 import { eq, sql } from "drizzle-orm";
 import { ASSISTANT_TOOLS, executeAssistantToolDrizzle } from "../assistant/tools.js";
+import { assistantSchema } from "@basics-os/shared/schemas";
 
 type BetterAuthInstance = ReturnType<typeof createAuth>;
-
-const assistantSchema = z.object({
-  message: z.string().min(1),
-  messages: z.array(z.object({ role: z.string(), content: z.string() })).optional(),
-});
 
 type ChatMessage =
   | { role: "system"; content: string }

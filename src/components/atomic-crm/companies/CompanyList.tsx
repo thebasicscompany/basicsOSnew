@@ -9,7 +9,7 @@ import { TextField } from "@/components/admin/text-field";
 import { DateField } from "@/components/admin/date-field";
 import { NumberField } from "@/components/admin/number-field";
 
-import { CRMListTable } from "../CRMListTable";
+import { TablecnListTable } from "../table/TablecnListTable";
 import { CompanyEmpty } from "./CompanyEmpty";
 import { CompanyListFilter } from "./CompanyListFilter";
 import { CompanyAvatar } from "./CompanyAvatar";
@@ -128,7 +128,7 @@ const CompanyListLayout = () => {
   if (!data?.length && !hasFilters) return <CompanyEmpty />;
 
   return (
-    <CRMListTable
+    <TablecnListTable
       columns={companyColumns}
       sortFields={["name", "created_at", "nb_contacts"]}
       toolbarActions={

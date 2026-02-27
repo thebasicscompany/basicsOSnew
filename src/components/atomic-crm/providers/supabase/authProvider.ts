@@ -1,7 +1,7 @@
 import type { AuthProvider } from "ra-core";
 import { supabaseAuthProvider } from "ra-supabase-core";
 
-import { canAccess } from "../commons/canAccess";
+import { canAccess } from "@basics-os/shared/auth";
 import { supabase } from "./supabase";
 
 const baseAuthProvider = supabaseAuthProvider(supabase, {

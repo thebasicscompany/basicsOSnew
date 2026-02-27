@@ -72,6 +72,7 @@ export type CRMProps = {
   authProvider?: AuthProvider;
   disableTelemetry?: boolean;
   store?: CoreAdminProps["store"];
+  hubRoutes?: React.ReactNode;
 } & Partial<ConfigurationContextValue>;
 
 /**
@@ -130,6 +131,7 @@ export const CRM = ({
   disableEmailPasswordAuthentication = import.meta.env
     .VITE_DISABLE_EMAIL_PASSWORD_AUTHENTICATION === "true",
   disableTelemetry,
+  hubRoutes,
   ...rest
 }: CRMProps) => {
   useEffect(() => {
@@ -143,7 +145,7 @@ export const CRM = ({
       return;
     }
     const img = new Image();
-    img.src = `https://atomic-crm-telemetry.marmelab.com/atomic-crm-telemetry?domain=${window.location.hostname}`;
+    img.src = `https://basics-os-telemetry.marmelab.com/basics-os-telemetry?domain=${window.location.hostname}`;
   }, [disableTelemetry]);
 
   // Seed the store with CRM prop values if not already stored
@@ -223,14 +225,16 @@ export const CRM = ({
       loginPage={StartPage}
       requireAuth
       disableTelemetry
+      hubRoutes={hubRoutes}
       {...rest}
     />
   );
 };
 
-const DesktopAdmin = (props: CoreAdminProps) => {
+const DesktopAdmin = (props: CoreAdminProps & { hubRoutes?: React.ReactNode }) => {
+  const { hubRoutes, layout, ...adminProps } = props;
   return (
-    <Admin layout={Layout} dashboard={Dashboard} {...props}>
+    <Admin layout={layout ?? Layout} dashboard={Dashboard} {...adminProps}>
       <CustomRoutes noLayout>
         <Route path={SignupPage.path} element={<SignupPage />} />
         <Route
@@ -250,6 +254,7 @@ const DesktopAdmin = (props: CoreAdminProps) => {
         <Route path={SettingsPage.path} element={<SettingsPage />} />
         <Route path={ImportPage.path} element={<ImportPage />} />
       </CustomRoutes>
+      {hubRoutes}
       <Resource name="deals" {...deals} />
       <Resource name="contacts" {...contacts} />
       <Resource name="companies" {...companies} />

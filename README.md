@@ -4,7 +4,7 @@ A full-featured CRM built with React, shadcn-admin-kit, and Postgres.
 
 <https://github.com/user-attachments/assets/0d7554b5-41c6-bcc9-a76214fc5c99>
 
-Basics CRM is free and open-source. You can test it online at <https://marmelab.com/atomic-crm-demo>.
+BasicsOS is free and open-source. You can test it online at <https://marmelab.com/atomic-crm-demo>.
 
 ## Quick Start
 
@@ -32,7 +32,7 @@ cd ../..
 pnpm run dev:rest
 ```
 
-Open **http://localhost:5173**. Log in with the seed user:
+Open **http://localhost:5173**. Log in with the seed user. (In Electron dev, use `pnpm dev:all`; the app uses the Vite proxy so auth cookies work.)
 
 | Email | Password |
 |-------|----------|

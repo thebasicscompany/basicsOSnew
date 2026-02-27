@@ -1,7 +1,7 @@
 import type { AuthProvider } from "ra-core";
 
 import type { Sale } from "../../types";
-import { canAccess } from "../commons/canAccess";
+import { canAccess } from "@basics-os/shared/auth";
 import { dataProvider } from "./dataProvider";
 
 export const DEFAULT_USER = {

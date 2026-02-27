@@ -56,6 +56,13 @@ export default defineConfig({
         }
       : undefined,
   base: "./",
+  optimizeDeps: {
+    esbuildOptions: {
+      loader: {
+        ".csv": "text",
+      },
+    },
+  },
   esbuild: {
     keepNames: true,
   },
@@ -66,6 +73,7 @@ export default defineConfig({
     preserveSymlinks: true,
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "basics-os/src": path.resolve(__dirname, "./src"),
     },
   },
 });

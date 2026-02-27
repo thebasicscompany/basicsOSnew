@@ -100,3 +100,6 @@ storybook-static/
 packages/*/package-lock.json
 packages/*/.package-lock.json
 
+# Tablecn reference (cloned for integration)
+tablecn-reference/
+

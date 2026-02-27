@@ -1,10 +1,10 @@
 {
   "$schema": "https://ui.shadcn.com/schema/registry.json",
-  "name": "atomic-crm",
-  "homepage": "https://marmelab.com/atomic-crm/",
+  "name": "basics-os",
+  "homepage": "https://marmelab.com/basics-os/",
   "items": [
     {
-      "name": "atomic-crm",
+      "name": "basics-os",
       "type": "registry:block",
       "title": "Basics CRM",
       "description": "A fully fledged CRM application built with Shadcn Admin Kit",

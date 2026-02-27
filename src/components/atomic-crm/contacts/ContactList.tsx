@@ -31,7 +31,7 @@ import {
 import { InfinitePagination } from "../misc/InfinitePagination";
 import MobileHeader from "../layout/MobileHeader";
 import { MobileContent } from "../layout/MobileContent";
-import { CRMListTable } from "../CRMListTable";
+import { TablecnListTable } from "../table/TablecnListTable";
 import { Avatar } from "./Avatar";
 import { Status } from "../misc/Status";
 
@@ -208,7 +208,7 @@ const ContactListLayoutDesktop = () => {
   if (!data?.length && !hasFilters) return <ContactEmpty />;
 
   return (
-    <CRMListTable
+    <TablecnListTable
       columns={contactColumns}
       sortFields={["first_name", "last_name", "last_seen"]}
       toolbarActions={

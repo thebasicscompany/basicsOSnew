@@ -1,17 +1,12 @@
 import { Hono } from "hono";
-import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
+import { assistantSchema } from "@basics-os/shared/schemas";
 import type { ContextDbAdapter } from "../adapters/types.js";
 import type { Env } from "../env.js";
 import {
   ASSISTANT_TOOLS,
   executeAssistantTool,
 } from "../assistant/tools.js";
-
-const assistantSchema = z.object({
-  message: z.string().min(1),
-  messages: z.array(z.object({ role: z.string(), content: z.string() })).optional(),
-});
 
 type ChatMessage =
   | { role: "system"; content: string }
@@ -93,7 +88,7 @@ ${contextText}`;
 
     let chatMessages: ChatMessage[] = [
       { role: "system" as const, content: systemPrompt },
-      ...history.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+      ...history.map((m: { role: string; content: string }) => ({ role: m.role as "user" | "assistant", content: m.content })),
       { role: "user" as const, content: message },
     ];
 

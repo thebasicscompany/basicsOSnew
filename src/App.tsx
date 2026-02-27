@@ -1,29 +1,69 @@
-import { CRM } from "@/components/atomic-crm/root/CRM";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { HubLayout, ROUTES } from "@basics-os/hub";
+import { AutomationsApp } from "@basics-os/automations";
+import { VoiceApp } from "@basics-os/voice";
+import { MCPViewerApp } from "@basics-os/mcp-viewer";
+
+import { ProtectedRoute } from "@/lib/auth";
+import { StartPage } from "@/components/auth/start-page";
+import { SignupPage } from "@/components/auth/signup-page";
+import { ContactsPage } from "@/components/pages/ContactsPage";
+import { CompaniesPage } from "@/components/pages/CompaniesPage";
+import { DealsPage } from "@/components/pages/DealsPage";
+import { ProfilePage } from "@/components/pages/ProfilePage";
+import { SettingsPage } from "@/components/pages/SettingsPage";
+import { ImportPage } from "@/components/pages/ImportPage";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60 * 1000, // 1 minute
+      retry: 1,
+    },
+  },
+});
 
 /**
- * Application entry point
+ * Application entry point.
  *
- * Customize Basics CRM by passing props to the CRM component:
- *  - companySectors
- *  - darkTheme
- *  - dealCategories
- *  - dealPipelineStatuses
- *  - dealStages
- *  - lightTheme
- *  - logo
- *  - noteStatuses
- *  - taskTypes
- *  - title
- * ... as well as all the props accepted by shadcn-admin-kit's <Admin> component.
- *
- * @example
- * const App = () => (
- *    <CRM
- *       logo="./img/logo.png"
- *       title="Acme CRM"
- *    />
- * );
+ * Architecture:
+ *   - QueryClientProvider: shared TanStack Query client
+ *   - BrowserRouter: top-level router
+ *   - Public routes: / (StartPage), /sign-up (SignupPage)
+ *   - Protected routes: inside HubLayout via ProtectedRoute
  */
-const App = () => <CRM />;
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <BrowserRouter>
+      <Routes>
+        {/* Public */}
+        <Route path="/" element={<StartPage />} />
+        <Route path="/sign-up" element={<SignupPage />} />
+
+        {/* Protected — all inside HubLayout */}
+        <Route
+          element={
+            <ProtectedRoute>
+              <HubLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route path={ROUTES.CRM_CONTACTS} element={<ContactsPage />} />
+          <Route path={ROUTES.CRM_COMPANIES} element={<CompaniesPage />} />
+          <Route path={ROUTES.CRM_DEALS} element={<DealsPage />} />
+          <Route path={ROUTES.AUTOMATIONS} element={<AutomationsApp />} />
+          <Route path={ROUTES.VOICE} element={<VoiceApp />} />
+          <Route path={ROUTES.MCP} element={<MCPViewerApp />} />
+          <Route path={ROUTES.PROFILE} element={<ProfilePage />} />
+          <Route path={ROUTES.SETTINGS} element={<SettingsPage />} />
+          <Route path={ROUTES.IMPORT} element={<ImportPage />} />
+          {/* Catch-all: redirect to contacts */}
+          <Route path="*" element={<Navigate to={ROUTES.CRM_CONTACTS} replace />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
+  </QueryClientProvider>
+);
 
 export default App;

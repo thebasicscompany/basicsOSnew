@@ -3,7 +3,7 @@ import { useCallback } from "react";
 import { useSupabaseSession } from "@/hooks/useSupabaseSession";
 import { useNotify } from "ra-core";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
+const API_URL = import.meta.env.VITE_API_URL ?? "";
 
 export function useAssistantChat() {
   const session = useSupabaseSession();

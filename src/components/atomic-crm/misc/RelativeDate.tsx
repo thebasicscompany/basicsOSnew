@@ -1,12 +1,14 @@
 import { differenceInDays, formatRelative } from "date-fns";
 
-export function RelativeDate({ date }: { date: string }) {
+export function RelativeDate({ date }: { date?: string | null }) {
+  if (date == null || date === "") return <span>—</span>;
   const dateObj = new Date(date);
-  const now = new Date();
+  if (Number.isNaN(dateObj.getTime())) return <span>—</span>;
 
+  const now = new Date();
   if (differenceInDays(now, dateObj) > 6) {
-    return dateObj.toLocaleDateString();
+    return <span>{dateObj.toLocaleDateString()}</span>;
   }
 
-  return formatRelative(dateObj, now);
+  return <span>{formatRelative(dateObj, now)}</span>;
 }
