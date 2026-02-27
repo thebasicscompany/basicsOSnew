@@ -27,18 +27,19 @@ import {
   Building02Icon,
   Agreement01Icon,
   Logout01Icon,
+  AiChat01Icon,
 } from "@hugeicons/core-free-icons";
 import { authClient } from "basics-os/src/lib/auth";
 import { ROUTES } from "./routes";
 
 const CRM_NAV_ITEMS = [
-  { path: ROUTES.CRM, label: "Dashboard", icon: Home01Icon },
   { path: ROUTES.CRM_COMPANIES, label: "Companies", icon: Building02Icon },
   { path: ROUTES.CRM_CONTACTS, label: "Contacts", icon: UserIcon },
   { path: ROUTES.CRM_DEALS, label: "Deals", icon: Agreement01Icon },
 ] as const;
 
 const HUB_NAV_ITEMS = [
+  { path: ROUTES.CHAT, label: "AI Chat", icon: AiChat01Icon },
   { path: ROUTES.AUTOMATIONS, label: "Automations", icon: TaskEdit01Icon },
   { path: ROUTES.VOICE, label: "Launch Voice Native", icon: CameraMicrophone01Icon },
   { path: ROUTES.MCP, label: "View Custom MCP", icon: PlugIcon },

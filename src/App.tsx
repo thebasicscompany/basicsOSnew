@@ -15,6 +15,7 @@ import { DashboardPage } from "@/components/pages/DashboardPage";
 import { ProfilePage } from "@/components/pages/ProfilePage";
 import { SettingsPage } from "@/components/pages/SettingsPage";
 import { ImportPage } from "@/components/pages/ImportPage";
+import { ChatPage } from "@/components/pages/ChatPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -57,6 +58,7 @@ const App = () => (
           <Route path={ROUTES.AUTOMATIONS} element={<AutomationsApp />} />
           <Route path={ROUTES.VOICE} element={<VoiceApp />} />
           <Route path={ROUTES.MCP} element={<MCPViewerApp />} />
+          <Route path={ROUTES.CHAT} element={<ChatPage />} />
           <Route path={ROUTES.PROFILE} element={<ProfilePage />} />
           <Route path={ROUTES.SETTINGS} element={<SettingsPage />} />
           <Route path={ROUTES.IMPORT} element={<ImportPage />} />

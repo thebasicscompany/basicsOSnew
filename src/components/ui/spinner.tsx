@@ -1,52 +1,16 @@
-import { HugeiconsIcon } from "@hugeicons/react";
-import { Loading02Icon } from "@hugeicons/core-free-icons";
+import { Loader2Icon } from "lucide-react"
+
 import { cn } from "@/lib/utils"
-import type { VariantProps } from "class-variance-authority"
-import { cva } from "class-variance-authority"
-import React from "react"
 
-const spinnerVariants = cva("flex-col items-center justify-center", {
-  variants: {
-    show: {
-      true: "flex",
-      false: "hidden",
-    },
-  },
-  defaultVariants: {
-    show: true,
-  },
-})
-
-const loaderVariants = cva("animate-spin text-primary", {
-  variants: {
-    size: {
-      small: "size-6",
-      medium: "size-8",
-      large: "size-12",
-    },
-  },
-  defaultVariants: {
-    size: "medium",
-  },
-})
-
-interface SpinnerContentProps
-  extends VariantProps<typeof spinnerVariants>,
-    VariantProps<typeof loaderVariants> {
-  className?: string
-  children?: React.ReactNode
-}
-
-export function Spinner({
-  size,
-  show,
-  children,
-  className,
-}: SpinnerContentProps) {
+function Spinner({ className, ...props }: React.ComponentProps<"svg">) {
   return (
-    <span className={spinnerVariants({ show })}>
-      <HugeiconsIcon icon={Loading02Icon} className={cn(loaderVariants({ size }), className)} />
-      {children}
-    </span>
+    <Loader2Icon
+      role="status"
+      aria-label="Loading"
+      className={cn("size-4 animate-spin", className)}
+      {...props}
+    />
   )
 }
+
+export { Spinner }

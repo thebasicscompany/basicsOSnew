@@ -6,6 +6,7 @@ export const ROUTES = {
   AUTOMATIONS: "/automations",
   VOICE: "/voice",
   MCP: "/mcp",
+  CHAT: "/chat",
   PROFILE: "/profile",
   SETTINGS: "/settings",
   IMPORT: "/import",
