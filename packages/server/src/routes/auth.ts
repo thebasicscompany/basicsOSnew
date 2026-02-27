@@ -17,6 +17,18 @@ export function createAuthRoutes(
     return c.json({ initialized: orgs.length > 0 });
   });
 
+  app.get("/gateway-token", authMiddleware(auth), async (c) => {
+    const session = c.get("session") as {
+      user?: { id: string };
+      session?: { token?: string; id?: string };
+    };
+    const token = session?.session?.token ?? session?.session?.id;
+    if (!token) {
+      return c.json({ error: "No session token" }, 401);
+    }
+    return c.json({ token });
+  });
+
   app.get("/me", authMiddleware(auth), async (c) => {
     const session = c.get("session");
     if (!session?.user) {

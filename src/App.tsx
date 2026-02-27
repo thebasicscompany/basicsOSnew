@@ -5,6 +5,7 @@ import { AutomationsApp } from "@basics-os/automations";
 import { VoiceApp } from "@basics-os/voice";
 import { MCPViewerApp } from "@basics-os/mcp-viewer";
 
+import { GatewayProvider } from "@/providers/GatewayProvider";
 import { ProtectedRoute } from "@/lib/auth";
 import { StartPage } from "@/components/auth/start-page";
 import { SignupPage } from "@/components/auth/signup-page";
@@ -38,6 +39,7 @@ const queryClient = new QueryClient({
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <BrowserRouter>
+      <GatewayProvider>
       <Routes>
         {/* Public */}
         <Route path="/" element={<StartPage />} />
@@ -66,6 +68,7 @@ const App = () => (
           <Route path="*" element={<Navigate to={ROUTES.CRM} replace />} />
         </Route>
       </Routes>
+      </GatewayProvider>
     </BrowserRouter>
   </QueryClientProvider>
 );

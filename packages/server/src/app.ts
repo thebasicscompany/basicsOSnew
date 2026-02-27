@@ -6,6 +6,7 @@ import type { Env } from "./env.js";
 import { createAssistantRoutes } from "./routes/assistant.js";
 import { createAuthRoutes } from "./routes/auth.js";
 import { createCrmRoutes } from "./routes/crm.js";
+import { createGatewayChatRoutes } from "./routes/gateway-chat.js";
 
 export function createApp(db: Db, env: Env) {
   const auth = createAuth(db, env.BETTER_AUTH_URL, env.BETTER_AUTH_SECRET);
@@ -29,7 +30,7 @@ export function createApp(db: Db, env: Env) {
         }
       },
       allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-      allowHeaders: ["Content-Type", "Authorization"],
+      allowHeaders: ["Content-Type", "Authorization", "x-basics-api-key"],
       credentials: true,
     })
   );
@@ -41,6 +42,9 @@ export function createApp(db: Db, env: Env) {
 
   // Auth routes (signup, me)
   app.route("/api", createAuthRoutes(db, auth, env));
+
+  // Gateway chat — must be before CRM so POST /api/:resource doesn't swallow it
+  app.route("/api/gateway-chat", createGatewayChatRoutes(db, auth, env));
 
   // CRM REST API
   app.route("/api", createCrmRoutes(db, auth, env));

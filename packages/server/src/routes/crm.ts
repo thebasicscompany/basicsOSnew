@@ -270,6 +270,15 @@ export function createCrmRoutes(
       if (filter.category) conditions.push(eq(schema.deals.category, filter.category as string));
       if (filter.company_id) conditions.push(eq(schema.deals.companyId, Number(filter.company_id)));
     }
+    if (resource === "tasks" && filter.contact_id != null) {
+      conditions.push(eq(schema.tasks.contactId, Number(filter.contact_id)));
+    }
+    if (resource === "contact_notes" && filter.contact_id != null) {
+      conditions.push(eq(schema.contactNotes.contactId, Number(filter.contact_id)));
+    }
+    if (resource === "deal_notes" && filter.deal_id != null) {
+      conditions.push(eq(schema.dealNotes.dealId, Number(filter.deal_id)));
+    }
 
     const orderByCol = sortParam ? (table as Record<string, unknown>)[sortParam] : null;
     const orderDir = orderParam === "DESC" ? desc : asc;

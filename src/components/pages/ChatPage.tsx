@@ -35,9 +35,19 @@ import {
   usePromptInputAttachments,
 } from "@/components/ai-elements/prompt-input";
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
-import { useAssistantChatForHub } from "@/hooks/useAssistantChatForHub";
+import { useGatewayChat } from "@/hooks/useGatewayChat";
+import { useGateway } from "@/hooks/useGateway";
 
-function getTextContent(content: unknown): string {
+function getTextContent(
+  msg: { content?: unknown; parts?: Array<{ type: string; text?: string }> }
+): string {
+  if (msg.parts) {
+    return msg.parts
+      .filter((p) => p.type === "text")
+      .map((p) => p.text ?? "")
+      .join("");
+  }
+  const content = msg.content;
   if (typeof content === "string") return content;
   if (Array.isArray(content)) {
     return (content as Array<{ type: string; text?: string }>)
@@ -81,10 +91,15 @@ function PromptInputAttachmentsDisplay() {
 }
 
 export function ChatPage() {
-  const { messages, append, status, stop } = useAssistantChatForHub();
+  const { hasKey } = useGateway();
+  const { messages, append, status, stop } = useGatewayChat();
 
   const handleSubmit = useCallback(
     async (message: PromptInputMessage, _event: React.FormEvent<HTMLFormElement>) => {
+      if (!hasKey) {
+        toast.error("Add your Basics API key in Settings to use the assistant");
+        return;
+      }
       const hasText = Boolean(message.text?.trim());
       const hasAttachments = Boolean(message.files?.length);
 
@@ -105,7 +120,7 @@ export function ChatPage() {
         content: text,
       });
     },
-    [append]
+    [append, hasKey]
   );
 
   const handleSuggestionClick = useCallback(
@@ -128,9 +143,15 @@ export function ChatPage() {
           <ConversationContent>
             {messages.filter((m) => m.role === "user" || m.role === "assistant").length === 0 && (
               <div className="flex size-full flex-col items-center justify-center gap-3 p-8 text-center">
-                <p className="text-muted-foreground text-sm">
-                  Ask about your CRM — create tasks, add notes, or update deals.
-                </p>
+                {!hasKey ? (
+                  <p className="text-muted-foreground text-sm">
+                    Add your Basics API key in Settings to use the assistant.
+                  </p>
+                ) : (
+                  <p className="text-muted-foreground text-sm">
+                    Ask about your CRM — create tasks, add notes, or update deals.
+                  </p>
+                )}
               </div>
             )}
             {messages
@@ -138,7 +159,7 @@ export function ChatPage() {
               .map((m) => (
                 <Message key={m.id} from={m.role as "user" | "assistant"}>
                   <MessageContent>
-                    <MessageResponse>{getTextContent(m.content)}</MessageResponse>
+                    <MessageResponse>{getTextContent(m)}</MessageResponse>
                   </MessageContent>
                 </Message>
               ))}

@@ -57,6 +57,25 @@ export default defineConfig({
       : undefined,
   base: "./",
   optimizeDeps: {
+    exclude: [
+      // ESM-only packages whose transitive deps pnpm doesn't hoist to root —
+      // Vite's esbuild pre-bundler can't find them, but the dev server can
+      // serve them natively at runtime without pre-bundling.
+      "unified",
+      "hast-util-to-jsx-runtime",
+      "remark-gfm",
+      "remark-parse",
+      "remark-rehype",
+      "rehype-sanitize",
+      "rehype-raw",
+      "unist-util-visit",
+      "unist-util-visit-parents",
+      "streamdown",
+      "@streamdown/cjk",
+      "@streamdown/code",
+      "@streamdown/math",
+      "@streamdown/mermaid",
+    ],
     esbuildOptions: {
       loader: {
         ".csv": "text",
