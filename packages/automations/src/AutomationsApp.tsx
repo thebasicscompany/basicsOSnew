@@ -1,16 +1,12 @@
-import { Card, CardContent, CardHeader, CardTitle } from "basics-os/src/components/ui/card";
+import { useRoutes } from "react-router";
+import { AutomationListPage } from "./AutomationListPage";
+import { AutomationBuilderPage } from "./AutomationBuilderPage";
 
 export function AutomationsApp() {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Automations</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-muted-foreground">
-          Automation rules, triggers, and actions. Full implementation coming soon.
-        </p>
-      </CardContent>
-    </Card>
-  );
+  const routes = useRoutes([
+    { index: true, element: <AutomationListPage /> },
+    { path: "create", element: <AutomationBuilderPage /> },
+    { path: ":id", element: <AutomationBuilderPage /> },
+  ]);
+  return routes;
 }

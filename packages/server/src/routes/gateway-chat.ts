@@ -10,7 +10,7 @@ import { buildCrmSummary, retrieveRelevantContext } from "../lib/context.js";
 type BetterAuthInstance = ReturnType<typeof createAuth>;
 
 const BASE_SYSTEM_PROMPT =
-  "You are an AI assistant for a CRM. Help the user manage contacts, deals, companies, tasks, and notes. Be concise and helpful.";
+  "You are an AI assistant for a CRM. Help the user manage contacts, deals, companies, tasks, and notes. Be concise and helpful.\n\nIMPORTANT: You have tools to query live CRM data. ALWAYS use tools when the user asks about specific records, lists, or details — even if you have some summary context. The summary context is only aggregates; tools return the actual records.";
 
 // CRM tool definitions sent to gateway (OpenAI function format)
 const CRM_TOOLS = [
@@ -314,10 +314,6 @@ export function createGatewayChatRoutes(
       systemPrompt += `\n\n## Relevant context\n${ragContext}`;
     }
 
-    // Note: CRM_TOOLS are defined above but omitted for now because Gemini 2.5 Pro
-    // (basics-chat-smart) returns empty responses when tools are included (reasoning-only bug).
-    // Tool calling will be re-enabled once the gateway model is updated.
-    void CRM_TOOLS;
     let gatewayRes: Response;
     try {
       gatewayRes = await fetch(
@@ -334,6 +330,8 @@ export function createGatewayChatRoutes(
               { role: "system", content: systemPrompt },
               ...openAIMessages,
             ],
+            tools: CRM_TOOLS,
+            tool_choice: "auto",
             stream: true,
           }),
         }

@@ -57,7 +57,7 @@ const App = () => (
           <Route path={ROUTES.CRM_CONTACTS} element={<ContactsPage />} />
           <Route path={ROUTES.CRM_COMPANIES} element={<CompaniesPage />} />
           <Route path={ROUTES.CRM_DEALS} element={<DealsPage />} />
-          <Route path={ROUTES.AUTOMATIONS} element={<AutomationsApp />} />
+          <Route path={`${ROUTES.AUTOMATIONS}/*`} element={<AutomationsApp />} />
           <Route path={ROUTES.VOICE} element={<VoiceApp />} />
           <Route path={ROUTES.MCP} element={<MCPViewerApp />} />
           <Route path={ROUTES.CHAT} element={<ChatPage />} />

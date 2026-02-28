@@ -49,9 +49,8 @@ node_modules/
 supabase/.branches
 supabase/.temp
 
-# Supabase Edge Functions env (contains secrets - use .env.example as template)
-supabase/functions/.env
-supabase/functions/.env.development
+# Exception: keep supabase/functions/.env (template)
+!supabase/functions/.env
 
 # =============================================================================
 # Testing & coverage
@@ -99,7 +98,3 @@ storybook-static/
 # Package manager lockfiles in nested packages (use root lockfile)
 packages/*/package-lock.json
 packages/*/.package-lock.json
-
-# Tablecn reference (cloned for integration)
-tablecn-reference/
-

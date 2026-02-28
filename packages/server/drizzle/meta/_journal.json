@@ -8,6 +8,13 @@
       "when": 1772144992898,
       "tag": "0000_lying_puck",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1772200000000,
+      "tag": "0001_automation_workflow",
+      "breakpoints": true
     }
   ]
 }

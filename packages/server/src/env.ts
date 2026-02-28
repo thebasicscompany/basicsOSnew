@@ -7,6 +7,7 @@ const envSchema = z.object({
   BETTER_AUTH_SECRET: z.string().min(32),
   BETTER_AUTH_URL: z.string().url().default("http://localhost:5173"),
   BASICOS_API_URL: z.string().url().default("https://api.basics.so"),
+  EXA_API_KEY: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -21,6 +21,7 @@ import {
   upsertEntityEmbedding,
   deleteEntityEmbedding,
 } from "../lib/embeddings.js";
+import { fireEvent } from "../lib/automation-engine.js";
 
 type BetterAuthInstance = ReturnType<typeof createAuth>;
 
@@ -410,6 +411,12 @@ export function createCrmRoutes(
       upsertEntityEmbedding(db, env.BASICOS_API_URL, apiKey, salesId, entityType, (inserted as { id: number }).id, chunkText).catch(() => {});
     }
 
+    // Fire-and-forget: trigger automations
+    const eventResource = ["deals", "contacts", "tasks"].includes(resource) ? resource : null;
+    if (eventResource) {
+      fireEvent(`${eventResource.replace(/s$/, "")}.created`, inserted as Record<string, unknown>, salesId).catch(() => {});
+    }
+
     return c.json(inserted, 201);
   });
 
@@ -457,6 +464,12 @@ export function createCrmRoutes(
       upsertEntityEmbedding(db, env.BASICOS_API_URL, apiKeyU, salesId, entityTypeU, id, chunkText).catch(() => {});
     }
 
+    // Fire-and-forget: trigger automations
+    const eventResourceU = ["deals", "contacts"].includes(resource) ? resource : null;
+    if (eventResourceU) {
+      fireEvent(`${eventResourceU.replace(/s$/, "")}.updated`, updated as Record<string, unknown>, salesId).catch(() => {});
+    }
+
     return c.json(updated);
   });
 
@@ -495,6 +508,12 @@ export function createCrmRoutes(
     const entityTypeDel = getEntityType(resource);
     if (entityTypeDel) {
       deleteEntityEmbedding(db, salesId, entityTypeDel, id).catch(() => {});
+    }
+
+    // Fire-and-forget: trigger automations
+    const eventResourceDel = ["deals", "contacts"].includes(resource) ? resource : null;
+    if (eventResourceDel) {
+      fireEvent(`${eventResourceDel.replace(/s$/, "")}.deleted`, deleted as Record<string, unknown>, salesId).catch(() => {});
     }
 
     return c.json(deleted);

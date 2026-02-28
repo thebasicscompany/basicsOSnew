@@ -5,6 +5,7 @@ import type { Db } from "./db/client.js";
 import type { Env } from "./env.js";
 import { createAssistantRoutes } from "./routes/assistant.js";
 import { createAuthRoutes } from "./routes/auth.js";
+import { createAutomationRunsRoutes } from "./routes/automation-runs.js";
 import { createCrmRoutes } from "./routes/crm.js";
 import { createGatewayChatRoutes } from "./routes/gateway-chat.js";
 
@@ -46,6 +47,9 @@ export function createApp(db: Db, env: Env) {
 
   // Gateway chat — must be before CRM so POST /api/:resource doesn't swallow it
   app.route("/api/gateway-chat", createGatewayChatRoutes(db, auth, env));
+
+  // Automation runs — must be before CRM generic routes
+  app.route("/api/automation-runs", createAutomationRunsRoutes(db, auth, env));
 
   // CRM REST API
   app.route("/api", createCrmRoutes(db, auth, env));
