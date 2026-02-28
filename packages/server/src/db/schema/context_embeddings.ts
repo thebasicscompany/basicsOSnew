@@ -20,7 +20,7 @@ export const contextEmbeddings = pgTable(
     entityType: varchar("entity_type", { length: 64 }).notNull(),
     entityId: bigint("entity_id", { mode: "number" }).notNull(),
     chunkText: text("chunk_text").notNull(),
-    embedding: vector("embedding", { dimensions: 1536 }),
+    embedding: vector("embedding", { dimensions: 3072 }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },

@@ -37,6 +37,7 @@ export function createApp(db: Db, env: Env) {
 
   app.get("/health", (c) => c.json({ status: "ok" }));
 
+
   // Better Auth
   app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));
 

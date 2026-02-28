@@ -125,7 +125,7 @@ CREATE TABLE IF NOT EXISTS "context_embeddings" (
 	"entity_type" varchar(64) NOT NULL,
 	"entity_id" bigint NOT NULL,
 	"chunk_text" text NOT NULL,
-	"embedding" vector(1536),
+	"embedding" vector(3072),
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -320,7 +320,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS "context_embeddings_sales_entity_idx" ON "cont
 --> statement-breakpoint
 CREATE OR REPLACE FUNCTION "public"."match_context_embeddings"(
   p_sales_id bigint,
-  p_query_embedding vector(1536),
+  p_query_embedding vector(3072),
   p_match_count int DEFAULT 5
 )
 RETURNS TABLE (

@@ -2,6 +2,7 @@
 
 import { useCallback } from "react";
 import { toast } from "sonner";
+import { Shimmer } from "@/components/ai-elements/shimmer";
 import {
   Attachment,
   AttachmentPreview,
@@ -133,6 +134,29 @@ export function ChatPage() {
     [append]
   );
 
+  // All user/assistant messages visible in the conversation
+  const allVisible = messages.filter(
+    (m) => m.role === "user" || m.role === "assistant"
+  );
+
+  // Detect the brief window where an assistant message exists but has no text yet
+  const lastMsg = allVisible.at(-1);
+  const lastAssistantIsEmpty =
+    lastMsg?.role === "assistant" && !getTextContent(lastMsg);
+
+  // Show "Thinking..." when submitted (no reply yet) or streaming with no text yet
+  const isThinking =
+    status === "submitted" ||
+    (status === "streaming" && lastAssistantIsEmpty);
+
+  // Drop the empty assistant placeholder while the thinking indicator is shown
+  const displayMessages =
+    isThinking && lastAssistantIsEmpty
+      ? allVisible.slice(0, -1)
+      : allVisible;
+
+  const isEmpty = allVisible.length === 0;
+
   return (
     <div
       className="-m-4 flex min-h-0 flex-col overflow-hidden"
@@ -141,7 +165,7 @@ export function ChatPage() {
       <PromptInputProvider>
         <Conversation className="min-h-0 flex-1 border-b">
           <ConversationContent>
-            {messages.filter((m) => m.role === "user" || m.role === "assistant").length === 0 && (
+            {isEmpty && status === "idle" && (
               <div className="flex size-full flex-col items-center justify-center gap-3 p-8 text-center">
                 {!hasKey ? (
                   <p className="text-muted-foreground text-sm">
@@ -154,28 +178,35 @@ export function ChatPage() {
                 )}
               </div>
             )}
-            {messages
-              .filter((m) => m.role === "user" || m.role === "assistant")
-              .map((m) => (
-                <Message key={m.id} from={m.role as "user" | "assistant"}>
-                  <MessageContent>
-                    <MessageResponse>{getTextContent(m)}</MessageResponse>
-                  </MessageContent>
-                </Message>
-              ))}
+            {displayMessages.map((m) => (
+              <Message key={m.id} from={m.role as "user" | "assistant"}>
+                <MessageContent>
+                  <MessageResponse>{getTextContent(m)}</MessageResponse>
+                </MessageContent>
+              </Message>
+            ))}
+            {isThinking && (
+              <Message from="assistant">
+                <MessageContent>
+                  <Shimmer className="text-sm">Thinking...</Shimmer>
+                </MessageContent>
+              </Message>
+            )}
           </ConversationContent>
           <ConversationScrollButton />
         </Conversation>
         <div className="shrink-0 space-y-4 pt-4">
-          <Suggestions className="px-4">
-            {SUGGESTIONS.map((suggestion) => (
-              <Suggestion
-                key={suggestion}
-                suggestion={suggestion}
-                onClick={handleSuggestionClick}
-              />
-            ))}
-          </Suggestions>
+          {isEmpty && (
+            <Suggestions className="px-4">
+              {SUGGESTIONS.map((suggestion) => (
+                <Suggestion
+                  key={suggestion}
+                  suggestion={suggestion}
+                  onClick={handleSuggestionClick}
+                />
+              ))}
+            </Suggestions>
+          )}
           <div className="w-full px-4 pb-4">
             <PromptInput globalDrop multiple onSubmit={handleSubmit}>
               <PromptInputHeader>

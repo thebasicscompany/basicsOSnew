@@ -15,6 +15,12 @@ import {
   type SQL,
 } from "drizzle-orm";
 import type { PgTableWithColumns } from "drizzle-orm/pg-core";
+import {
+  buildEntityText,
+  getEntityType,
+  upsertEntityEmbedding,
+  deleteEntityEmbedding,
+} from "../lib/embeddings.js";
 
 type BetterAuthInstance = ReturnType<typeof createAuth>;
 
@@ -395,6 +401,15 @@ export function createCrmRoutes(
 
     const [inserted] = await db.insert(table).values(body).returning();
     if (!inserted) return c.json({ error: "Insert failed" }, 500);
+
+    // Fire-and-forget: generate and store embedding for searchable entities
+    const entityType = getEntityType(resource);
+    const apiKey = salesRow[0]?.basicsApiKey;
+    if (entityType && apiKey && inserted && typeof (inserted as { id?: unknown }).id === "number") {
+      const chunkText = buildEntityText(entityType, inserted as Record<string, unknown>);
+      upsertEntityEmbedding(db, env.BASICOS_API_URL, apiKey, salesId, entityType, (inserted as { id: number }).id, chunkText).catch(() => {});
+    }
+
     return c.json(inserted, 201);
   });
 
@@ -433,6 +448,15 @@ export function createCrmRoutes(
 
     const [updated] = await db.update(table).set(body).where(and(...conditions)).returning();
     if (!updated) return c.json({ error: "Not found" }, 404);
+
+    // Fire-and-forget: refresh embedding for updated entity
+    const entityTypeU = getEntityType(resource);
+    const apiKeyU = salesRow[0]?.basicsApiKey;
+    if (entityTypeU && apiKeyU && typeof id === "number") {
+      const chunkText = buildEntityText(entityTypeU, updated as Record<string, unknown>);
+      upsertEntityEmbedding(db, env.BASICOS_API_URL, apiKeyU, salesId, entityTypeU, id, chunkText).catch(() => {});
+    }
+
     return c.json(updated);
   });
 
@@ -466,6 +490,13 @@ export function createCrmRoutes(
 
     const [deleted] = await db.delete(table).where(and(...conditions)).returning();
     if (!deleted) return c.json({ error: "Not found" }, 404);
+
+    // Remove embedding for deleted entity
+    const entityTypeDel = getEntityType(resource);
+    if (entityTypeDel) {
+      deleteEntityEmbedding(db, salesId, entityTypeDel, id).catch(() => {});
+    }
+
     return c.json(deleted);
   });
 

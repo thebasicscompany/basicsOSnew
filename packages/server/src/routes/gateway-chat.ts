@@ -5,11 +5,12 @@ import type { Env } from "../env.js";
 import type { createAuth } from "../auth.js";
 import * as schema from "../db/schema/index.js";
 import { eq } from "drizzle-orm";
+import { buildCrmSummary, retrieveRelevantContext } from "../lib/context.js";
 
 type BetterAuthInstance = ReturnType<typeof createAuth>;
 
-const SYSTEM_PROMPT =
-  "You are an AI assistant for a CRM. Help the user manage contacts, deals, companies, tasks, and notes. Use the available tools to search, create, update, and list CRM data. Be concise and helpful.";
+const BASE_SYSTEM_PROMPT =
+  "You are an AI assistant for a CRM. Help the user manage contacts, deals, companies, tasks, and notes. Be concise and helpful.";
 
 // CRM tool definitions sent to gateway (OpenAI function format)
 const CRM_TOOLS = [
@@ -291,7 +292,28 @@ export function createGatewayChatRoutes(
     // Convert UIMessage[] → OpenAI format
     const openAIMessages = toOpenAIMessages(uiMessages);
 
-    // Call gateway directly with raw fetch — no AI SDK on server
+    // Extract last user message text for RAG query
+    const lastUserMsg = [...uiMessages]
+      .reverse()
+      .find((m: unknown) => (m as { role: string }).role === "user");
+    const queryText =
+      typeof (lastUserMsg as { content?: unknown } | undefined)?.content === "string"
+        ? ((lastUserMsg as { content: string }).content as string)
+        : "";
+
+    // Build context in parallel — both degrade gracefully on failure
+    const [crmSummary, ragContext] = await Promise.all([
+      buildCrmSummary(db, sale.id),
+      retrieveRelevantContext(db, env.BASICOS_API_URL, apiKey, sale.id, queryText),
+    ]);
+
+    // Compose system prompt with live CRM context
+    let systemPrompt = BASE_SYSTEM_PROMPT;
+    systemPrompt += `\n\n## Your CRM\n${crmSummary}`;
+    if (ragContext) {
+      systemPrompt += `\n\n## Relevant context\n${ragContext}`;
+    }
+
     // Note: CRM_TOOLS are defined above but omitted for now because Gemini 2.5 Pro
     // (basics-chat-smart) returns empty responses when tools are included (reasoning-only bug).
     // Tool calling will be re-enabled once the gateway model is updated.
@@ -309,7 +331,7 @@ export function createGatewayChatRoutes(
           body: JSON.stringify({
             model: "basics-chat-smart",
             messages: [
-              { role: "system", content: SYSTEM_PROMPT },
+              { role: "system", content: systemPrompt },
               ...openAIMessages,
             ],
             stream: true,
