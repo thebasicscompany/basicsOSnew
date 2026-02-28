@@ -32,4 +32,5 @@ export const contacts = pgTable("contacts", {
   }),
   salesId: bigint("sales_id", { mode: "number" }).references(() => sales.id),
   linkedinUrl: varchar("linkedin_url", { length: 512 }),
+  customFields: jsonb("custom_fields").$type<Record<string, unknown>>().default({}).notNull(),
 });

@@ -26,4 +26,5 @@ export const deals = pgTable("deals", {
   expectedClosingDate: timestamp("expected_closing_date", { withTimezone: true }),
   salesId: bigint("sales_id", { mode: "number" }).references(() => sales.id),
   index: smallint("index"),
+  customFields: jsonb("custom_fields").$type<Record<string, unknown>>().default({}).notNull(),
 });

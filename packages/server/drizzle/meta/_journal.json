@@ -15,6 +15,13 @@
       "when": 1772200000000,
       "tag": "0001_automation_workflow",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1730246400000,
+      "tag": "0002_custom_fields",
+      "breakpoints": true
     }
   ]
 }

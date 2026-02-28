@@ -7,6 +7,7 @@ import { createAssistantRoutes } from "./routes/assistant.js";
 import { createAuthRoutes } from "./routes/auth.js";
 import { createAutomationRunsRoutes } from "./routes/automation-runs.js";
 import { createCrmRoutes } from "./routes/crm.js";
+import { createCustomFieldRoutes } from "./routes/custom-fields.js";
 import { createGatewayChatRoutes } from "./routes/gateway-chat.js";
 
 export function createApp(db: Db, env: Env) {
@@ -50,6 +51,9 @@ export function createApp(db: Db, env: Env) {
 
   // Automation runs — must be before CRM generic routes
   app.route("/api/automation-runs", createAutomationRunsRoutes(db, auth, env));
+
+  // Custom field definitions
+  app.route("/api/custom_field_defs", createCustomFieldRoutes(db, auth));
 
   // CRM REST API
   app.route("/api", createCrmRoutes(db, auth, env));

@@ -31,4 +31,5 @@ export const companies = pgTable("companies", {
   logo: jsonb("logo"), // { src: string }
   salesId: bigint("sales_id", { mode: "number" }).references(() => sales.id),
   contextLinks: json("context_links"),
+  customFields: jsonb("custom_fields").$type<Record<string, unknown>>().default({}).notNull(),
 });

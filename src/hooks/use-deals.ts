@@ -16,6 +16,7 @@ export interface Deal {
   expectedClosingDate: string | null;
   salesId: number | null;
   index: number | null;
+  customFields?: Record<string, unknown>;
 }
 
 export function useDeals(params: ListParams = {}) {
@@ -25,11 +26,11 @@ export function useDeals(params: ListParams = {}) {
   });
 }
 
-export function useDeal(id: number) {
+export function useDeal(id: number | null) {
   return useQuery({
     queryKey: ["deals", id],
-    queryFn: () => getOne<Deal>("deals", id),
-    enabled: !!id,
+    queryFn: () => getOne<Deal>("deals", id!),
+    enabled: id != null,
   });
 }
 
@@ -48,8 +49,9 @@ export function useUpdateDeal() {
   return useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<Deal> }) =>
       update<Deal>("deals", id, data),
-    onSuccess: () => {
+    onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ["deals"] });
+      queryClient.invalidateQueries({ queryKey: ["deals", id] });
     },
   });
 }

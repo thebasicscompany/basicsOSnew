@@ -9,7 +9,9 @@
   },
   "dependencies": {
     "react": "^19.1.0",
+    "react-router": "^7.13.0",
     "react-router-dom": "^7.13.0",
+    "react-error-boundary": "^6.1.1",
     "@hugeicons/react": "^1.1.5",
     "@hugeicons/core-free-icons": "^3.3.0"
   },

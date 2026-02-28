@@ -20,6 +20,11 @@ export interface CompanySummary {
   salesId: number | null;
   nbDeals: number;
   nbContacts: number;
+  customFields?: Record<string, unknown>;
+}
+
+export interface Company extends Omit<CompanySummary, "nbDeals" | "nbContacts"> {
+  customFields?: Record<string, unknown>;
 }
 
 export function useCompanies(params: ListParams = {}) {
@@ -29,21 +34,22 @@ export function useCompanies(params: ListParams = {}) {
   });
 }
 
-export function useCompany(id: number) {
+export function useCompany(id: number | null) {
   return useQuery({
-    queryKey: ["companies_summary", id],
-    queryFn: () => getOne<CompanySummary>("companies_summary", id),
-    enabled: !!id,
+    queryKey: ["companies", id],
+    queryFn: () => getOne<Company>("companies", id!),
+    enabled: id != null,
   });
 }
 
 export function useCreateCompany() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: Partial<CompanySummary>) =>
-      create<CompanySummary>("companies", data),
+    mutationFn: (data: Partial<Company>) =>
+      create<Company>("companies", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["companies_summary"] });
+      queryClient.invalidateQueries({ queryKey: ["companies"] });
     },
   });
 }
@@ -51,10 +57,11 @@ export function useCreateCompany() {
 export function useUpdateCompany() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<CompanySummary> }) =>
-      update<CompanySummary>("companies", id, data),
-    onSuccess: () => {
+    mutationFn: ({ id, data }: { id: number; data: Partial<Company> }) =>
+      update<Company>("companies", id, data),
+    onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ["companies_summary"] });
+      queryClient.invalidateQueries({ queryKey: ["companies", id] });
     },
   });
 }
@@ -62,9 +69,10 @@ export function useUpdateCompany() {
 export function useDeleteCompany() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => remove<CompanySummary>("companies", id),
+    mutationFn: (id: number) => remove<Company>("companies", id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["companies_summary"] });
+      queryClient.invalidateQueries({ queryKey: ["companies"] });
     },
   });
 }

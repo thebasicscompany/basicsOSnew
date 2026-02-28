@@ -22,6 +22,11 @@ export interface ContactSummary {
   linkedinUrl: string | null;
   tags: number[] | null;
   salesId: number | null;
+  customFields?: Record<string, unknown>;
+}
+
+export interface Contact extends Omit<ContactSummary, "companyName" | "nbTasks"> {
+  customFields?: Record<string, unknown>;
 }
 
 export function useContacts(params: ListParams = {}) {
@@ -31,21 +36,22 @@ export function useContacts(params: ListParams = {}) {
   });
 }
 
-export function useContact(id: number) {
+export function useContact(id: number | null) {
   return useQuery({
-    queryKey: ["contacts_summary", id],
-    queryFn: () => getOne<ContactSummary>("contacts_summary", id),
-    enabled: !!id,
+    queryKey: ["contacts", id],
+    queryFn: () => getOne<Contact>("contacts", id!),
+    enabled: id != null,
   });
 }
 
 export function useCreateContact() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: Partial<ContactSummary>) =>
-      create<ContactSummary>("contacts", data),
+    mutationFn: (data: Partial<Contact>) =>
+      create<Contact>("contacts", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["contacts_summary"] });
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
     },
   });
 }
@@ -53,10 +59,11 @@ export function useCreateContact() {
 export function useUpdateContact() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<ContactSummary> }) =>
-      update<ContactSummary>("contacts", id, data),
-    onSuccess: () => {
+    mutationFn: ({ id, data }: { id: number; data: Partial<Contact> }) =>
+      update<Contact>("contacts", id, data),
+    onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ["contacts_summary"] });
+      queryClient.invalidateQueries({ queryKey: ["contacts", id] });
     },
   });
 }
@@ -64,9 +71,10 @@ export function useUpdateContact() {
 export function useDeleteContact() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: number) => remove<ContactSummary>("contacts", id),
+    mutationFn: (id: number) => remove<Contact>("contacts", id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["contacts_summary"] });
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
     },
   });
 }

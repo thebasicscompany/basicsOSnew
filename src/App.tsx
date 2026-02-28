@@ -1,11 +1,13 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ErrorBoundary } from "react-error-boundary";
 import { HubLayout, ROUTES } from "@basics-os/hub";
 import { AutomationsApp } from "@basics-os/automations";
 import { VoiceApp } from "@basics-os/voice";
 import { MCPViewerApp } from "@basics-os/mcp-viewer";
 
 import { GatewayProvider } from "@/providers/GatewayProvider";
+import { ErrorFallback } from "@/components/error-fallback";
 import { ProtectedRoute } from "@/lib/auth";
 import { StartPage } from "@/components/auth/start-page";
 import { SignupPage } from "@/components/auth/signup-page";
@@ -36,9 +38,10 @@ const queryClient = new QueryClient({
  *   - Public routes: / (StartPage), /sign-up (SignupPage)
  *   - Protected routes: inside HubLayout via ProtectedRoute
  */
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <BrowserRouter>
+function AppRoutes() {
+  const location = useLocation();
+  return (
+    <ErrorBoundary FallbackComponent={ErrorFallback} resetKeys={[location.pathname]}>
       <GatewayProvider>
       <Routes>
         {/* Public */}
@@ -69,6 +72,14 @@ const App = () => (
         </Route>
       </Routes>
       </GatewayProvider>
+    </ErrorBoundary>
+  );
+}
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <BrowserRouter>
+      <AppRoutes />
     </BrowserRouter>
   </QueryClientProvider>
 );
