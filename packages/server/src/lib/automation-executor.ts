@@ -84,14 +84,16 @@ export async function executeWorkflow(
       }
 
       case "action_web_search": {
-        const results = await executeWebSearch(data, context, env);
+        const results = await executeWebSearch(data, context, env, apiKey);
         context.web_results = results;
         break;
       }
 
-      case "action_crm":
-        await executeCrmAction(data, context, db, sales.id);
+      case "action_crm": {
+        const crmResult = await executeCrmAction(data, context, db, sales.id);
+        context.crm_result = crmResult.crm_result;
         break;
+      }
 
       case "action_slack": {
         const slackResult = await executeSlack(data, context, apiKey, env);

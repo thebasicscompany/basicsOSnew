@@ -1,25 +1,28 @@
-import { Exa } from "exa-js";
-
 export async function executeWebSearch(
   config: Record<string, unknown>,
   _context: Record<string, unknown>,
-  env: { EXA_API_KEY?: string },
+  env: { BASICOS_API_URL: string },
+  apiKey: string,
 ): Promise<Array<{ title: string; url: string; text?: string }>> {
   const { query, numResults = 5 } = config as {
     query: string;
     numResults?: number;
   };
 
-  if (!env.EXA_API_KEY) {
-    throw new Error("EXA_API_KEY is not configured");
+  const res = await fetch(`${env.BASICOS_API_URL}/v1/execute/web/search`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({ query, numResults }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Web search failed: ${res.status} ${text}`);
   }
 
-  const exa = new Exa(env.EXA_API_KEY);
-  const results = await exa.search(query, { numResults: numResults as number });
-
-  return results.results.map((r) => ({
-    title: r.title ?? "",
-    url: r.url,
-    text: (r as { text?: string }).text,
-  }));
+  const data = (await res.json()) as { results: Array<{ title: string; url: string; text?: string }> };
+  return data.results;
 }

@@ -557,60 +557,123 @@ function ConfigPanel({
 
   if (type === "action_crm") {
     const action = (data.action as string) || "create_task";
-    const params = (data.params as { text?: string; type?: string; contactId?: number }) ?? {};
+    const params = (data.params as Record<string, unknown>) ?? {};
     return (
       <div className="space-y-4">
         <div className="space-y-2">
           <Label>Action</Label>
-          <Select value={action} onValueChange={(v: string) => onUpdate({ action: v, params: { ...params } })}>
+          <Select value={action} onValueChange={(v: string) => onUpdate({ action: v, params: {} })}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="create_task">Create task</SelectItem>
+              <SelectItem value="create_contact">Create contact</SelectItem>
+              <SelectItem value="create_note">Create note</SelectItem>
             </SelectContent>
           </Select>
         </div>
+
         {action === "create_task" && (
           <>
             <div className="space-y-2">
               <Label>Task text</Label>
               <Input
-                value={params.text ?? ""}
+                value={(params.text as string) ?? ""}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   onUpdate({ params: { ...params, text: e.target.value } })
                 }
-                placeholder="Task description"
+                placeholder="Follow up with {{trigger_data.name}}"
               />
             </div>
             <div className="space-y-2">
               <Label>Type</Label>
               <Input
-                value={params.type ?? "task"}
+                value={(params.type as string) ?? "Todo"}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   onUpdate({ params: { ...params, type: e.target.value } })
                 }
-                placeholder="task"
+                placeholder="Todo"
               />
             </div>
             <div className="space-y-2">
-              <Label>Contact ID (required)</Label>
+              <Label>Contact ID</Label>
               <Input
-                type="number"
-                value={params.contactId ?? ""}
+                value={(params.contactId as string) ?? ""}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  onUpdate({
-                    params: {
-                      ...params,
-                      contactId: e.target.value ? parseInt(e.target.value, 10) : undefined,
-                    },
-                  })
+                  onUpdate({ params: { ...params, contactId: e.target.value } })
                 }
-                placeholder="Contact ID"
+                placeholder="{{trigger_data.contactId}}"
               />
             </div>
           </>
         )}
+
+        {action === "create_contact" && (
+          <>
+            <div className="space-y-2">
+              <Label>First name</Label>
+              <Input
+                value={(params.firstName as string) ?? ""}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  onUpdate({ params: { ...params, firstName: e.target.value } })
+                }
+                placeholder="{{trigger_data.first_name}}"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Last name</Label>
+              <Input
+                value={(params.lastName as string) ?? ""}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  onUpdate({ params: { ...params, lastName: e.target.value } })
+                }
+                placeholder="{{trigger_data.last_name}}"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input
+                value={(params.email as string) ?? ""}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  onUpdate({ params: { ...params, email: e.target.value } })
+                }
+                placeholder="{{trigger_data.email}}"
+              />
+            </div>
+          </>
+        )}
+
+        {action === "create_note" && (
+          <>
+            <div className="space-y-2">
+              <Label>Contact ID</Label>
+              <Input
+                value={(params.contactId as string) ?? ""}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  onUpdate({ params: { ...params, contactId: e.target.value } })
+                }
+                placeholder="{{trigger_data.contactId}}"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Note text</Label>
+              <Textarea
+                value={(params.text as string) ?? ""}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                  onUpdate({ params: { ...params, text: e.target.value } })
+                }
+                placeholder="{{ai_result}}"
+                rows={4}
+              />
+            </div>
+          </>
+        )}
+
+        <div className="space-y-1 rounded-md bg-muted p-3 text-xs text-muted-foreground">
+          <p className="font-medium text-foreground">Outputs: <code className="font-mono">{"{{crm_result}}"}</code></p>
+        </div>
+        <VariableHint />
       </div>
     );
   }

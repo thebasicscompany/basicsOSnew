@@ -6,7 +6,7 @@ export async function executeCrmAction(
   _context: Record<string, unknown>,
   db: Db,
   salesId: number,
-): Promise<void> {
+): Promise<Record<string, unknown>> {
   const { action, params = {} } = config as {
     action: string;
     params?: Record<string, unknown>;
@@ -23,14 +23,53 @@ export async function executeCrmAction(
 
       if (!contactId) throw new Error("create_task requires a contactId");
 
-      await db.insert(schema.tasks).values({
+      const [task] = await db.insert(schema.tasks).values({
         salesId,
         text: text ?? "",
         type: type ?? "Todo",
         dueDate: dueDate ? new Date(dueDate) : null,
         contactId,
-      });
-      break;
+      }).returning();
+      return { crm_result: task };
+    }
+
+    case "create_contact": {
+      const { firstName, lastName, email, status } = params as {
+        firstName?: string;
+        lastName?: string;
+        email?: string;
+        status?: string;
+      };
+
+      const [contact] = await db.insert(schema.contacts).values({
+        salesId,
+        firstName: firstName ?? null,
+        lastName: lastName ?? null,
+        email: email ?? null,
+        status: status ?? "cold",
+        firstSeen: new Date(),
+        lastSeen: new Date(),
+      }).returning();
+      return { crm_result: contact };
+    }
+
+    case "create_note": {
+      const { contactId, text, status } = params as {
+        contactId?: number;
+        text?: string;
+        status?: string;
+      };
+
+      if (!contactId) throw new Error("create_note requires a contactId");
+
+      const [note] = await db.insert(schema.contactNotes).values({
+        salesId,
+        contactId,
+        text: text ?? "",
+        status: status ?? "none",
+        date: new Date(),
+      }).returning();
+      return { crm_result: note };
     }
 
     default:

@@ -582,9 +582,6 @@ importers:
       drizzle-orm:
         specifier: ^0.36.0
         version: 0.36.4(@opentelemetry/api@1.9.0)(@types/react@19.2.14)(kysely@0.28.11)(pg@8.19.0)(postgres@3.4.8)(react@19.2.4)
-      exa-js:
-        specifier: ^2.6.1
-        version: 2.6.1(encoding@0.1.13)(ws@8.19.0)
       hono:
         specifier: ^4.6.0
         version: 4.12.3
@@ -4649,9 +4646,6 @@ packages:
     engines: {node: '>=10.14', npm: '>=6', yarn: '>=1'}
     hasBin: true
 
-  cross-fetch@4.1.0:
-    resolution: {integrity: sha512-uKm5PU+MHTootlWEY+mZ4vvXoCn4fLQxT9dSc1sXVMSFkINTJVN8cAQROpwcKm8bJ/c7rgZVIBWzH5T78sNZZw==}
-
   cross-spawn@7.0.6:
     resolution: {integrity: sha512-uV2QOWP2nWzsy2aMp8aRibhi9dlzF5Hgh5SHaB9OiTGEyDTiJJyx0uy51QXdyWbtAHNua4XJzUKca3OzKUd3vA==}
     engines: {node: '>= 8'}
@@ -5011,10 +5005,6 @@ packages:
 
   dotenv-expand@11.0.7:
     resolution: {integrity: sha512-zIHwmZPRshsCdpMDyVsqGmgyP0yT8GAgXUnkdAoJisxvf33k7yO6OuoKmcTGuXPWSsm8Oh88nZicRLA9Y0rUeA==}
-    engines: {node: '>=12'}
-
-  dotenv@16.4.7:
-    resolution: {integrity: sha512-47qPchRCykZC03FhkYAhrvwU4xDBFIj1QPqaarj6mdM/hgUzfPHcpkHJOn3mJAufFeeAxAzeGsr5X0M4k6fLZQ==}
     engines: {node: '>=12'}
 
   dotenv@16.6.1:
@@ -5386,9 +5376,6 @@ packages:
   eventsource@3.0.7:
     resolution: {integrity: sha512-CRT1WTyuQoD771GW56XEZFQ/ZoSfWid1alKGDYMmkt2yl8UXrVR4pspqWNEcqKvVIzg6PAltWjxcSSPrboA4iA==}
     engines: {node: '>=18.0.0'}
-
-  exa-js@2.6.1:
-    resolution: {integrity: sha512-U+u2yJwMVqhAUAwwxnZ1f8J08dKVXtXsgluWDHD3q4gcN0guj1+1xNfd6ewog5j9U5B1XJLVOIRKb4A9GAVX7A==}
 
   execa@5.1.1:
     resolution: {integrity: sha512-8uSpZZocAZRBAPIEINJj3Lo9HyGitllczc27Eh5YYojjMFMn8yHMDMaUHE2Jqfq05D/wucwI4JGURyXt1vchyg==}
@@ -6872,15 +6859,6 @@ packages:
     engines: {node: '>=10.5.0'}
     deprecated: Use your platform's native DOMException instead
 
-  node-fetch@2.7.0:
-    resolution: {integrity: sha512-c4FRfUm/dbcWZ7U+1Wq0AwCyFL+3nt2bEw05wfxSz+DWpWsitgmSgYmy2dQdWyKC1694ELPqMs/YzUSNozLt8A==}
-    engines: {node: 4.x || >=6.0.0}
-    peerDependencies:
-      encoding: ^0.1.0
-    peerDependenciesMeta:
-      encoding:
-        optional: true
-
   node-fetch@3.3.2:
     resolution: {integrity: sha512-dRB78srN/l6gqWulah9SrxeYnxeddIG30+GOqK/9OlLVyLg3HPnr6SqOWTWOXKRwC2eGYCkZ59NNuSgvSrpgOA==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
@@ -6995,18 +6973,6 @@ packages:
   open@8.4.2:
     resolution: {integrity: sha512-7x81NCL719oNbsq/3mh+hVrAWmFuEYUqrq/Iw3kUzH8ReypT9QQ0BLoJS7/G9k6N81XjW4qHWtjWwe/9eLy1EQ==}
     engines: {node: '>=12'}
-
-  openai@5.23.2:
-    resolution: {integrity: sha512-MQBzmTulj+MM5O8SKEk/gL8a7s5mktS9zUtAkU257WjvobGc9nKcBuVwjyEEcb9SI8a8Y2G/mzn3vm9n1Jlleg==}
-    hasBin: true
-    peerDependencies:
-      ws: ^8.18.0
-      zod: ^3.23.8
-    peerDependenciesMeta:
-      ws:
-        optional: true
-      zod:
-        optional: true
 
   openapi-types@12.1.3:
     resolution: {integrity: sha512-N4YtSYJqghVu4iek2ZUvcN/0aqH1kRDuNqzcycDxhOUpg7GdvLa2F3DgS6yBNhInhv2r/6I0Flkn7CqL8+nIcw==}
@@ -8221,9 +8187,6 @@ packages:
     resolution: {integrity: sha512-kXuRi1mtaKMrsLUxz3sQYvVl37B0Ns6MzfrtV5DvJceE9bPyspOqk9xxv7XbZWcfLWbFmm997vl83qUWVJA64w==}
     engines: {node: '>=16'}
 
-  tr46@0.0.3:
-    resolution: {integrity: sha512-N3WMsuqV66lT30CrXNbEjx4GEwlow3v6rr4mCcv6prnfwhS01rkgyFdjPNBYd9br7LpXV1+Emh01fHnq2Gdgrw==}
-
   tr46@1.0.1:
     resolution: {integrity: sha512-dTpowEjclQ7Kgx5SdBkqRzVhERQXov8/l9Ft9dVM9fmg0W0KQSVaXX9T4i6twCPNtYiZM53lpSSUAwJbFPOHxA==}
 
@@ -8650,14 +8613,8 @@ packages:
     resolution: {integrity: sha512-d2JWLCivmZYTSIoge9MsgFCZrt571BikcWGYkjC1khllbTeDlGqZ2D8vD8E/lJa8WGWbb7Plm8/XJYV7IJHZZw==}
     engines: {node: '>= 8'}
 
-  webidl-conversions@3.0.1:
-    resolution: {integrity: sha512-2JAn3z8AR6rjK8Sm8orRC0h/bcl/DqL7tRPdGZ4I1CjdF+EaMLmYxBHyXuKL849eucPFhvBoxMsflfOb8kxaeQ==}
-
   webidl-conversions@4.0.2:
     resolution: {integrity: sha512-YQ+BmxuTgd6UXZW3+ICGfyqRyHXVlD5GtQr5+qjiNW7bF0cqrzX500HVXPBOvgXb5YnzDd+h0zqyv61KUD7+Sg==}
-
-  whatwg-url@5.0.0:
-    resolution: {integrity: sha512-saE57nupxk6v3HY35+jzBwYa0rKSy0XR8JSxZPwgLr7ys0IBzhGviA1/TUGJLmSVqs8pb9AnvICXEuOHLprYTw==}
 
   whatwg-url@7.1.0:
     resolution: {integrity: sha512-WUu7Rg1DroM7oQvGWfOiAK21n74Gg+T4elXEQYkOhtyLeWiJFoOGLXPKI/9gzIie9CtwVLm8wtw6YJdKyxSjeg==}
@@ -13101,12 +13058,6 @@ snapshots:
     dependencies:
       cross-spawn: 7.0.6
 
-  cross-fetch@4.1.0(encoding@0.1.13):
-    dependencies:
-      node-fetch: 2.7.0(encoding@0.1.13)
-    transitivePeerDependencies:
-      - encoding
-
   cross-spawn@7.0.6:
     dependencies:
       path-key: 3.1.1
@@ -13476,8 +13427,6 @@ snapshots:
   dotenv-expand@11.0.7:
     dependencies:
       dotenv: 16.6.1
-
-  dotenv@16.4.7: {}
 
   dotenv@16.6.1: {}
 
@@ -13954,17 +13903,6 @@ snapshots:
   eventsource@3.0.7:
     dependencies:
       eventsource-parser: 3.0.6
-
-  exa-js@2.6.1(encoding@0.1.13)(ws@8.19.0):
-    dependencies:
-      cross-fetch: 4.1.0(encoding@0.1.13)
-      dotenv: 16.4.7
-      openai: 5.23.2(ws@8.19.0)(zod@3.25.76)
-      zod: 3.25.76
-      zod-to-json-schema: 3.25.1(zod@3.25.76)
-    transitivePeerDependencies:
-      - encoding
-      - ws
 
   execa@5.1.1:
     dependencies:
@@ -15752,12 +15690,6 @@ snapshots:
 
   node-domexception@1.0.0: {}
 
-  node-fetch@2.7.0(encoding@0.1.13):
-    dependencies:
-      whatwg-url: 5.0.0
-    optionalDependencies:
-      encoding: 0.1.13
-
   node-fetch@3.3.2:
     dependencies:
       data-uri-to-buffer: 4.0.1
@@ -15881,11 +15813,6 @@ snapshots:
       define-lazy-prop: 2.0.0
       is-docker: 2.2.1
       is-wsl: 2.2.0
-
-  openai@5.23.2(ws@8.19.0)(zod@3.25.76):
-    optionalDependencies:
-      ws: 8.19.0
-      zod: 3.25.76
 
   openapi-types@12.1.3: {}
 
@@ -17352,8 +17279,6 @@ snapshots:
     dependencies:
       tldts: 7.0.23
 
-  tr46@0.0.3: {}
-
   tr46@1.0.1:
     dependencies:
       punycode: 2.3.1
@@ -17884,14 +17809,7 @@ snapshots:
 
   web-streams-polyfill@3.3.3: {}
 
-  webidl-conversions@3.0.1: {}
-
   webidl-conversions@4.0.2: {}
-
-  whatwg-url@5.0.0:
-    dependencies:
-      tr46: 0.0.3
-      webidl-conversions: 3.0.1
 
   whatwg-url@7.1.0:
     dependencies:

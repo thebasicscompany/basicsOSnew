@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getList, create, update } from "@/lib/api/crm";
+import { getList, create, update, remove } from "@/lib/api/crm";
 
 export interface Task {
   id: number;
@@ -37,6 +37,17 @@ export function useMarkTaskDone() {
         doneDate: done ? new Date().toISOString() : null,
       }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
+  });
+}
+
+export function useDeleteTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => remove<Task>("tasks", id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["contacts_summary"] });
+    },
   });
 }
 

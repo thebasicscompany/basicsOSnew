@@ -10,7 +10,7 @@ import {
   parseISO,
   format,
 } from "date-fns";
-import { CheckSquare, Square, Plus, Loader2 } from "lucide-react";
+import { CheckSquare, Square, Plus, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,7 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useTasks, useMarkTaskDone, useCreateTask, type Task } from "@/hooks/use-tasks";
+import { useTasks, useMarkTaskDone, useDeleteTask, useCreateTask, type Task } from "@/hooks/use-tasks";
 import { useContacts, type ContactSummary } from "@/hooks/use-contacts";
 import { ContactSheet } from "@/components/sheets/ContactSheet";
 
@@ -70,6 +70,7 @@ function TaskRow({
   onContactClick: () => void;
 }) {
   const markDone = useMarkTaskDone();
+  const deleteTask = useDeleteTask();
   const isDone = !!task.doneDate;
 
   const handleToggle = () => {
@@ -79,8 +80,15 @@ function TaskRow({
     );
   };
 
+  const handleDelete = () => {
+    deleteTask.mutate(task.id, {
+      onSuccess: () => toast.success("Task deleted"),
+      onError: () => toast.error("Failed to delete task"),
+    });
+  };
+
   return (
-    <div className="flex items-start gap-3 py-2">
+    <div className="group flex items-start gap-3 py-2">
       <button
         onClick={handleToggle}
         disabled={markDone.isPending}
@@ -117,6 +125,14 @@ function TaskRow({
           )}
         </div>
       </div>
+      <button
+        onClick={handleDelete}
+        disabled={deleteTask.isPending}
+        className="mt-0.5 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-all"
+        title="Delete task"
+      >
+        <Trash2 className="size-3.5" />
+      </button>
     </div>
   );
 }
