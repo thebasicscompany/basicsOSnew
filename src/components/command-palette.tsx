@@ -101,7 +101,7 @@ export function CommandPalette() {
 
   return (
     <CommandDialog
-      shouldFilter={!isSearching}
+      shouldFilter={false}
       open={open}
       onOpenChange={setOpen}
       title="Command palette"
@@ -122,29 +122,32 @@ export function CommandPalette() {
             )}
             {contacts.length > 0 && (
               <CommandGroup heading="Contacts">
-                {contacts.map((c) => (
-                  <CommandItem
-                    key={c.id}
-                    onSelect={() =>
-                      run(() =>
-                        navigate(`${ROUTES.CRM_CONTACTS}?open=${c.id}`)
-                      )
-                    }
-                    className="gap-2"
-                  >
-                    <HugeiconsIcon icon={UserIcon} className="size-4 shrink-0" />
-                    <span>
-                      {[c.firstName, c.lastName].filter(Boolean).join(" ") ||
-                        c.email ||
-                        "Unnamed"}
-                    </span>
-                    {c.companyName && (
-                      <span className="ml-auto text-xs text-muted-foreground">
-                        {c.companyName}
-                      </span>
-                    )}
-                  </CommandItem>
-                ))}
+                {contacts.map((c) => {
+                  const displayName =
+                    [c.firstName, c.lastName].filter(Boolean).join(" ") ||
+                    c.email ||
+                    "Unnamed";
+                  return (
+                    <CommandItem
+                      key={c.id}
+                      value={`contact-${c.id}-${displayName}-${c.companyName ?? ""}`}
+                      onSelect={() =>
+                        run(() =>
+                          navigate(`${ROUTES.CRM_CONTACTS}?open=${c.id}`)
+                        )
+                      }
+                      className="gap-2"
+                    >
+                      <HugeiconsIcon icon={UserIcon} className="size-4 shrink-0" />
+                      <span className="flex-1 truncate">{displayName}</span>
+                      {c.companyName && (
+                        <span className="text-xs text-muted-foreground">
+                          {c.companyName}
+                        </span>
+                      )}
+                    </CommandItem>
+                  );
+                })}
               </CommandGroup>
             )}
             {companies.length > 0 && (
@@ -154,6 +157,7 @@ export function CommandPalette() {
                   {companies.map((c) => (
                     <CommandItem
                       key={c.id}
+                      value={`company-${c.id}-${c.name}`}
                       onSelect={() =>
                         run(() =>
                           navigate(`${ROUTES.CRM_COMPANIES}?open=${c.id}`)
@@ -165,9 +169,9 @@ export function CommandPalette() {
                         icon={Building02Icon}
                         className="size-4 shrink-0"
                       />
-                      {c.name}
+                      <span className="flex-1 truncate">{c.name}</span>
                       {c.sector && (
-                        <span className="ml-auto text-xs text-muted-foreground">
+                        <span className="text-xs text-muted-foreground">
                           {c.sector}
                         </span>
                       )}
@@ -185,6 +189,7 @@ export function CommandPalette() {
                   {deals.map((d) => (
                     <CommandItem
                       key={d.id}
+                      value={`deal-${d.id}-${d.name}`}
                       onSelect={() =>
                         run(() =>
                           navigate(`${ROUTES.CRM_DEALS}?open=${d.id}`)
