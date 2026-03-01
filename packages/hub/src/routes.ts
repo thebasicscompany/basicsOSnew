@@ -10,4 +10,6 @@ export const ROUTES = {
   PROFILE: "/profile",
   SETTINGS: "/settings",
   IMPORT: "/import",
+  CONNECTIONS: "/connections",
+  TASKS: "/tasks",
 } as const;

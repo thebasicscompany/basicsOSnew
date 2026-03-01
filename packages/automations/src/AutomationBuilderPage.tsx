@@ -47,6 +47,10 @@ import {
   AIActionNode,
   WebSearchActionNode,
   CrmActionNode,
+  SlackActionNode,
+  AIAgentNode,
+  GmailReadNode,
+  GmailSendNode,
 } from "./nodes";
 import { toast } from "sonner";
 import { ChevronLeft, Loader2, Play, Plus, Save, Trash2, X } from "lucide-react";
@@ -58,6 +62,10 @@ const NODE_TYPES = {
   action_ai: AIActionNode,
   action_web_search: WebSearchActionNode,
   action_crm: CrmActionNode,
+  action_slack: SlackActionNode,
+  action_ai_agent: AIAgentNode,
+  action_gmail_read: GmailReadNode,
+  action_gmail_send: GmailSendNode,
 };
 
 type WorkflowNode = Node<Record<string, unknown>, string>;
@@ -73,6 +81,10 @@ const ACTION_ITEMS: { type: WorkflowNode["type"]; label: string; defaultData: Re
   { type: "action_ai", label: "AI Task", defaultData: { prompt: "" } },
   { type: "action_web_search", label: "Web Search", defaultData: { query: "", numResults: 5 } },
   { type: "action_crm", label: "CRM Action", defaultData: { action: "create_task", params: { text: "", type: "task", contactId: undefined } } },
+  { type: "action_slack", label: "Send Slack Message", defaultData: { channel: "", message: "" } },
+  { type: "action_gmail_read", label: "Read Gmail", defaultData: { query: "is:unread", maxResults: 5 } },
+  { type: "action_gmail_send", label: "Send Gmail", defaultData: { to: "", subject: "", body: "" } },
+  { type: "action_ai_agent", label: "AI Agent", defaultData: { objective: "", model: "", maxSteps: 6 } },
 ];
 
 function newId() {
@@ -599,6 +611,136 @@ function ConfigPanel({
             </div>
           </>
         )}
+      </div>
+    );
+  }
+
+  if (type === "action_slack") {
+    const channel = (data.channel as string) || "";
+    const message = (data.message as string) || "";
+    return (
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label>Channel</Label>
+          <Input
+            value={channel}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdate({ channel: e.target.value })}
+            placeholder="#general or @username"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Message</Label>
+          <Textarea
+            value={message}
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => onUpdate({ message: e.target.value })}
+            placeholder="New deal: {{trigger_data.name}}"
+            rows={4}
+          />
+        </div>
+        <VariableHint />
+      </div>
+    );
+  }
+
+  if (type === "action_gmail_read") {
+    const query = (data.query as string) || "is:unread";
+    const maxResults = (data.maxResults as number) ?? 5;
+    return (
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label>Query</Label>
+          <Input
+            value={query}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdate({ query: e.target.value })}
+            placeholder="is:unread from:boss@company.com"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Max results</Label>
+          <Input
+            type="number"
+            min={1}
+            max={20}
+            value={maxResults}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              onUpdate({ maxResults: parseInt(e.target.value, 10) || 5 })
+            }
+          />
+        </div>
+        <div className="space-y-1 rounded-md bg-muted p-3 text-xs text-muted-foreground">
+          <p className="font-medium text-foreground">Outputs: <code className="font-mono">{"{{gmail_messages}}"}</code></p>
+        </div>
+      </div>
+    );
+  }
+
+  if (type === "action_gmail_send") {
+    const to = (data.to as string) || "";
+    const subject = (data.subject as string) || "";
+    const body = (data.body as string) || "";
+    return (
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label>To</Label>
+          <Input
+            value={to}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdate({ to: e.target.value })}
+            placeholder="recipient@example.com"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Subject</Label>
+          <Input
+            value={subject}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdate({ subject: e.target.value })}
+            placeholder="Update: {{trigger_data.name}}"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Body</Label>
+          <Textarea
+            value={body}
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => onUpdate({ body: e.target.value })}
+            placeholder="{{ai_result}}"
+            rows={4}
+          />
+        </div>
+        <VariableHint />
+      </div>
+    );
+  }
+
+  if (type === "action_ai_agent") {
+    const objective = (data.objective as string) || "";
+    const maxSteps = (data.maxSteps as number) ?? 6;
+    return (
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label>Objective</Label>
+          <Textarea
+            value={objective}
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => onUpdate({ objective: e.target.value })}
+            placeholder="Find contacts from {{trigger_data.company}} and create a follow-up task"
+            rows={4}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Max steps</Label>
+          <Input
+            type="number"
+            min={1}
+            max={10}
+            value={maxSteps}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              onUpdate({ maxSteps: parseInt(e.target.value, 10) || 6 })
+            }
+          />
+        </div>
+        <div className="space-y-1 rounded-md bg-muted p-3 text-xs text-muted-foreground">
+          <p className="font-medium text-foreground">Outputs: <code className="font-mono">{"{{ai_agent_result}}"}</code></p>
+          <p>The agent has access to CRM tools: search contacts, deals, create tasks, update deals.</p>
+        </div>
+        <VariableHint />
       </div>
     );
   }

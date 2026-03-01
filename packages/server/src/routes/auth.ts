@@ -54,6 +54,21 @@ export function createAuthRoutes(
     });
   });
 
+  app.patch("/settings", authMiddleware(auth), async (c) => {
+    const session = c.get("session") as { user?: { id: string } };
+    const userId = session?.user?.id;
+    if (!userId) return c.json({ error: "Unauthorized" }, 401);
+
+    const body = await c.req.json<{ basicsApiKey?: string | null }>();
+
+    await db
+      .update(schema.sales)
+      .set({ basicsApiKey: body.basicsApiKey ?? null })
+      .where(eq(schema.sales.userId, userId));
+
+    return c.json({ ok: true });
+  });
+
   app.post("/signup", async (c) => {
     const body = await c.req.json<{
       email: string;

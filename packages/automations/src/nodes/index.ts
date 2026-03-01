@@ -4,3 +4,7 @@ export { EmailActionNode } from "./EmailActionNode";
 export { AIActionNode } from "./AIActionNode";
 export { WebSearchActionNode } from "./WebSearchActionNode";
 export { CrmActionNode } from "./CrmActionNode";
+export { SlackActionNode } from "./SlackActionNode";
+export { AIAgentNode } from "./AIAgentNode";
+export { GmailReadNode } from "./GmailReadNode";
+export { GmailSendNode } from "./GmailSendNode";

@@ -5,6 +5,10 @@ import { executeEmail } from "./automation-actions/email.js";
 import { executeAI } from "./automation-actions/ai-task.js";
 import { executeWebSearch } from "./automation-actions/web-search.js";
 import { executeCrmAction } from "./automation-actions/crm-action.js";
+import { executeSlack } from "./automation-actions/slack.js";
+import { executeGmailRead } from "./automation-actions/gmail-read.js";
+import { executeGmailSend } from "./automation-actions/gmail-send.js";
+import { executeAIAgent } from "./automation-actions/ai-agent.js";
 
 type SalesRow = { id: number; basicsApiKey?: string | null };
 
@@ -88,6 +92,28 @@ export async function executeWorkflow(
       case "action_crm":
         await executeCrmAction(data, context, db, sales.id);
         break;
+
+      case "action_slack": {
+        const slackResult = await executeSlack(data, context, apiKey, env);
+        context.slack_result = slackResult;
+        break;
+      }
+
+      case "action_gmail_read": {
+        const gmailRead = await executeGmailRead(data, context, apiKey, env);
+        context.gmail_messages = gmailRead.gmail_messages;
+        break;
+      }
+
+      case "action_gmail_send":
+        await executeGmailSend(data, context, apiKey, env);
+        break;
+
+      case "action_ai_agent": {
+        const agentResult = await executeAIAgent(data, context, db, sales.id, apiKey, env);
+        context.ai_agent_result = agentResult.ai_agent_result;
+        break;
+      }
 
       default:
         console.warn(`[automation-executor] unknown node type: ${node.type}`);

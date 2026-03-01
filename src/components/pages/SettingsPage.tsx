@@ -1,6 +1,17 @@
 "use client";
 
 import { useState, useCallback } from "react";
+
+const API_URL = import.meta.env.VITE_API_URL ?? "";
+
+async function persistApiKey(key: string | null) {
+  await fetch(`${API_URL}/api/settings`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ basicsApiKey: key }),
+  });
+}
 import { EyeIcon, EyeOffIcon, ExternalLinkIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useGateway } from "@/hooks/useGateway";
@@ -38,7 +49,7 @@ export function SettingsPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     const trimmed = inputValue.trim();
     if (!trimmed) {
       toast.error("Please enter an API key");
@@ -51,16 +62,18 @@ export function SettingsPage() {
     try {
       setApiKey(trimmed);
       setInputValue("");
+      await persistApiKey(trimmed);
       toast.success("API key saved");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save key");
     }
   }, [inputValue, setApiKey]);
 
-  const handleClear = useCallback(() => {
+  const handleClear = useCallback(async () => {
     clearApiKey();
     setInputValue("");
     setClearDialogOpen(false);
+    await persistApiKey(null);
     toast.success("API key cleared");
   }, [clearApiKey]);
 

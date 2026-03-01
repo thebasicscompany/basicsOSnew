@@ -45,8 +45,9 @@ export function createConnectionsRoutes(db: Db, auth: Auth, env: Env) {
     const apiKey = await getSalesApiKey(userId);
     if (!apiKey) return c.json({ error: "Basics API key not configured" }, 400);
 
+    const redirectAfter = encodeURIComponent(`${env.BETTER_AUTH_URL}/connections`);
     const res = await fetch(
-      `${env.BASICOS_API_URL}/v1/connections/${provider}/authorize`,
+      `${env.BASICOS_API_URL}/v1/connections/${provider}/authorize?redirect_after=${redirectAfter}`,
       { headers: { Authorization: `Bearer ${apiKey}` } },
     );
 

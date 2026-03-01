@@ -18,7 +18,7 @@ import {
 
 const API_URL = import.meta.env.VITE_API_URL ?? "";
 const GATEWAY_URL =
-  import.meta.env.VITE_GATEWAY_URL ?? "https://api.basics.so";
+  import.meta.env.VITE_GATEWAY_URL ?? "https://api.basicsos.com";
 
 const STORAGE_PREFIX = "bos_key_";
 

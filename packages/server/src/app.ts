@@ -8,6 +8,7 @@ import { createAuthRoutes } from "./routes/auth.js";
 import { createAutomationRunsRoutes } from "./routes/automation-runs.js";
 import { createCrmRoutes } from "./routes/crm.js";
 import { createCustomFieldRoutes } from "./routes/custom-fields.js";
+import { createConnectionsRoutes } from "./routes/connections.js";
 import { createGatewayChatRoutes } from "./routes/gateway-chat.js";
 
 export function createApp(db: Db, env: Env) {
@@ -45,6 +46,9 @@ export function createApp(db: Db, env: Env) {
 
   // Auth routes (signup, me)
   app.route("/api", createAuthRoutes(db, auth, env));
+
+  // Connections (OAuth proxy to gateway) — before CRM generic routes
+  app.route("/api/connections", createConnectionsRoutes(db, auth, env));
 
   // Gateway chat — must be before CRM so POST /api/:resource doesn't swallow it
   app.route("/api/gateway-chat", createGatewayChatRoutes(db, auth, env));

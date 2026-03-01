@@ -21,6 +21,7 @@ import {
   TaskEdit01Icon,
   CameraMicrophone01Icon,
   PlugIcon,
+  Link01Icon,
   UserIcon,
   Settings01Icon,
   FileImportIcon,
@@ -28,6 +29,7 @@ import {
   Agreement01Icon,
   Logout01Icon,
   AiChat01Icon,
+  CheckListIcon,
 } from "@hugeicons/core-free-icons";
 import { authClient } from "basics-os/src/lib/auth";
 import { ROUTES } from "./routes";
@@ -36,11 +38,13 @@ const CRM_NAV_ITEMS = [
   { path: ROUTES.CRM_COMPANIES, label: "Companies", icon: Building02Icon },
   { path: ROUTES.CRM_CONTACTS, label: "Contacts", icon: UserIcon },
   { path: ROUTES.CRM_DEALS, label: "Deals", icon: Agreement01Icon },
+  { path: ROUTES.TASKS, label: "Tasks", icon: CheckListIcon },
 ] as const;
 
 const HUB_NAV_ITEMS = [
   { path: ROUTES.CHAT, label: "AI Chat", icon: AiChat01Icon },
   { path: ROUTES.AUTOMATIONS, label: "Automations", icon: TaskEdit01Icon },
+  { path: ROUTES.CONNECTIONS, label: "Connections", icon: Link01Icon },
   { path: ROUTES.VOICE, label: "Launch Voice Native", icon: CameraMicrophone01Icon },
   { path: ROUTES.MCP, label: "View Custom MCP", icon: PlugIcon },
 ] as const;
@@ -140,7 +144,8 @@ function CRMDropdownNavItem() {
   const COMPANIES_MATCH = useMatch({ path: ROUTES.CRM_COMPANIES, end: false });
   const CONTACTS_MATCH = useMatch({ path: ROUTES.CRM_CONTACTS, end: false });
   const DEALS_MATCH = useMatch({ path: ROUTES.CRM_DEALS, end: false });
-  const isCrmActive = !!(CRM_MATCH || COMPANIES_MATCH || CONTACTS_MATCH || DEALS_MATCH);
+  const TASKS_MATCH = useMatch({ path: ROUTES.TASKS, end: false });
+  const isCrmActive = !!(CRM_MATCH || COMPANIES_MATCH || CONTACTS_MATCH || DEALS_MATCH || TASKS_MATCH);
 
   return (
     <SidebarMenuItem>

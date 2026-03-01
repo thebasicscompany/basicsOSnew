@@ -19,6 +19,8 @@ import { ProfilePage } from "@/components/pages/ProfilePage";
 import { SettingsPage } from "@/components/pages/SettingsPage";
 import { ImportPage } from "@/components/pages/ImportPage";
 import { ChatPage } from "@/components/pages/ChatPage";
+import { ConnectionsPage } from "@/components/pages/ConnectionsPage";
+import { TasksPage } from "@/components/pages/TasksPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -66,6 +68,8 @@ function AppRoutes() {
           <Route path={ROUTES.CHAT} element={<ChatPage />} />
           <Route path={ROUTES.PROFILE} element={<ProfilePage />} />
           <Route path={ROUTES.SETTINGS} element={<SettingsPage />} />
+          <Route path={ROUTES.CONNECTIONS} element={<ConnectionsPage />} />
+          <Route path={ROUTES.TASKS} element={<TasksPage />} />
           <Route path={ROUTES.IMPORT} element={<ImportPage />} />
           {/* Catch-all: redirect to dashboard */}
           <Route path="*" element={<Navigate to={ROUTES.CRM} replace />} />
