@@ -125,31 +125,40 @@ export async function executeWorkflow(
   return context;
 }
 
+function resolveValue(value: unknown, context: Record<string, unknown>): unknown {
+  if (typeof value === "string") {
+    return value.replace(/\{\{(\w+(?:\.\w+)*)\}\}/g, (_, varPath) => {
+      const parts = varPath.split(".");
+      let val: unknown = context;
+      for (const part of parts) {
+        if (val && typeof val === "object") {
+          val = (val as Record<string, unknown>)[part];
+        } else {
+          val = undefined;
+          break;
+        }
+      }
+      if (val === undefined) return `{{${varPath}}}`;
+      if (typeof val === "string") return val;
+      return JSON.stringify(val);
+    });
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => resolveValue(item, context));
+  }
+  if (value !== null && typeof value === "object") {
+    const result: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      result[k] = resolveValue(v, context);
+    }
+    return result;
+  }
+  return value;
+}
+
 function resolveTemplates(
   data: Record<string, unknown>,
   context: Record<string, unknown>,
 ): Record<string, unknown> {
-  const result: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(data)) {
-    if (typeof value === "string") {
-      result[key] = value.replace(/\{\{(\w+(?:\.\w+)*)\}\}/g, (_, varPath) => {
-        const parts = varPath.split(".");
-        let val: unknown = context;
-        for (const part of parts) {
-          if (val && typeof val === "object") {
-            val = (val as Record<string, unknown>)[part];
-          } else {
-            val = undefined;
-            break;
-          }
-        }
-        if (val === undefined) return `{{${varPath}}}`;
-        if (typeof val === "string") return val;
-        return JSON.stringify(val);
-      });
-    } else {
-      result[key] = value;
-    }
-  }
-  return result;
+  return resolveValue(data, context) as Record<string, unknown>;
 }

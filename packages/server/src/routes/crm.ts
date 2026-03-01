@@ -73,6 +73,7 @@ function snakeToCamel(obj: Record<string, unknown>): Record<string, unknown> {
 
 function hasSalesId(resource: Resource): boolean {
   return [
+    "contacts",
     "companies",
     "deals",
     "contact_notes",

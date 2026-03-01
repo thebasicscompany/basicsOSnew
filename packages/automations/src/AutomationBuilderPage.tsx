@@ -370,7 +370,11 @@ function VariableHint({ outputsAiResult, outputsWebResults }: { outputsAiResult?
     <div className="space-y-1 rounded-md bg-muted p-3 text-xs text-muted-foreground">
       <p className="font-medium text-foreground">Available variables</p>
       <p><code className="font-mono">{"{{trigger_data}}"}</code> — full trigger payload</p>
-      <p><code className="font-mono">{"{{trigger_data.name}}"}</code> — dot-path access</p>
+      <p><code className="font-mono">{"{{trigger_data.id}}"}</code> — e.g. contact/deal/task ID</p>
+      <p><code className="font-mono">{"{{trigger_data.firstName}}"}</code> — e.g. contact first name</p>
+      <p><code className="font-mono">{"{{trigger_data.lastName}}"}</code> — e.g. contact last name</p>
+      <p><code className="font-mono">{"{{trigger_data.email}}"}</code> — e.g. contact email</p>
+      <p><code className="font-mono">{"{{trigger_data.name}}"}</code> — e.g. deal/company name</p>
       <p><code className="font-mono">{"{{sales_id}}"}</code> — current user ID</p>
       <p><code className="font-mono">{"{{ai_result}}"}</code> — output from AI node</p>
       <p><code className="font-mono">{"{{web_results}}"}</code> — output from Web Search node</p>
@@ -569,7 +573,8 @@ function ConfigPanel({
             <SelectContent>
               <SelectItem value="create_task">Create task</SelectItem>
               <SelectItem value="create_contact">Create contact</SelectItem>
-              <SelectItem value="create_note">Create note</SelectItem>
+              <SelectItem value="create_note">Create contact note</SelectItem>
+              <SelectItem value="create_deal_note">Create deal note</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -583,7 +588,7 @@ function ConfigPanel({
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   onUpdate({ params: { ...params, text: e.target.value } })
                 }
-                placeholder="Follow up with {{trigger_data.name}}"
+                placeholder="Follow up with {{trigger_data.firstName}} {{trigger_data.lastName}}"
               />
             </div>
             <div className="space-y-2">
@@ -603,7 +608,7 @@ function ConfigPanel({
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   onUpdate({ params: { ...params, contactId: e.target.value } })
                 }
-                placeholder="{{trigger_data.contactId}}"
+                placeholder="{{trigger_data.id}}"
               />
             </div>
           </>
@@ -618,7 +623,7 @@ function ConfigPanel({
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   onUpdate({ params: { ...params, firstName: e.target.value } })
                 }
-                placeholder="{{trigger_data.first_name}}"
+                placeholder="{{trigger_data.firstName}}"
               />
             </div>
             <div className="space-y-2">
@@ -628,7 +633,7 @@ function ConfigPanel({
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   onUpdate({ params: { ...params, lastName: e.target.value } })
                 }
-                placeholder="{{trigger_data.last_name}}"
+                placeholder="{{trigger_data.lastName}}"
               />
             </div>
             <div className="space-y-2">
@@ -653,7 +658,33 @@ function ConfigPanel({
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   onUpdate({ params: { ...params, contactId: e.target.value } })
                 }
-                placeholder="{{trigger_data.contactId}}"
+                placeholder="{{trigger_data.id}}"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Note text</Label>
+              <Textarea
+                value={(params.text as string) ?? ""}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+                  onUpdate({ params: { ...params, text: e.target.value } })
+                }
+                placeholder="{{ai_result}}"
+                rows={4}
+              />
+            </div>
+          </>
+        )}
+
+        {action === "create_deal_note" && (
+          <>
+            <div className="space-y-2">
+              <Label>Deal ID</Label>
+              <Input
+                value={(params.dealId as string) ?? ""}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  onUpdate({ params: { ...params, dealId: e.target.value } })
+                }
+                placeholder="{{trigger_data.id}}"
               />
             </div>
             <div className="space-y-2">

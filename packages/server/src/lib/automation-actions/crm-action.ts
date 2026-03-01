@@ -14,12 +14,13 @@ export async function executeCrmAction(
 
   switch (action) {
     case "create_task": {
-      const { text, type, dueDate, contactId } = params as {
+      const { text, type, dueDate, contactId: rawContactId } = params as {
         text?: string;
         type?: string;
         dueDate?: string;
-        contactId?: number;
+        contactId?: number | string;
       };
+      const contactId = rawContactId ? Number(rawContactId) : undefined;
 
       if (!contactId) throw new Error("create_task requires a contactId");
 
@@ -53,12 +54,33 @@ export async function executeCrmAction(
       return { crm_result: contact };
     }
 
+    case "create_deal_note": {
+      const { dealId: rawDealId, text, type } = params as {
+        dealId?: number | string;
+        text?: string;
+        type?: string;
+      };
+      const dealId = rawDealId ? Number(rawDealId) : undefined;
+
+      if (!dealId) throw new Error("create_deal_note requires a dealId");
+
+      const [note] = await db.insert(schema.dealNotes).values({
+        salesId,
+        dealId,
+        text: text ?? "",
+        type: type ?? null,
+        date: new Date(),
+      }).returning();
+      return { crm_result: note };
+    }
+
     case "create_note": {
-      const { contactId, text, status } = params as {
-        contactId?: number;
+      const { contactId: rawNoteContactId, text, status } = params as {
+        contactId?: number | string;
         text?: string;
         status?: string;
       };
+      const contactId = rawNoteContactId ? Number(rawNoteContactId) : undefined;
 
       if (!contactId) throw new Error("create_note requires a contactId");
 
