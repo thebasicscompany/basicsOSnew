@@ -40,6 +40,7 @@ export function useCreateDeal() {
     mutationFn: (data: Partial<Deal>) => create<Deal>("deals", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["deals"] });
+      queryClient.invalidateQueries({ queryKey: ["companies_summary"] });
     },
   });
 }
@@ -52,6 +53,7 @@ export function useUpdateDeal() {
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ["deals"] });
       queryClient.invalidateQueries({ queryKey: ["deals", id] });
+      queryClient.invalidateQueries({ queryKey: ["companies_summary"] });
     },
   });
 }
@@ -62,6 +64,7 @@ export function useDeleteDeal() {
     mutationFn: (id: number) => remove<Deal>("deals", id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["deals"] });
+      queryClient.invalidateQueries({ queryKey: ["companies_summary"] });
     },
   });
 }

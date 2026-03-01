@@ -47,6 +47,7 @@ export function useDeleteTask() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["contacts_summary"] });
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
     },
   });
 }

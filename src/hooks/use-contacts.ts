@@ -52,6 +52,7 @@ export function useCreateContact() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["contacts_summary"] });
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["companies_summary"] });
     },
   });
 }
@@ -64,6 +65,7 @@ export function useUpdateContact() {
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ["contacts_summary"] });
       queryClient.invalidateQueries({ queryKey: ["contacts", id] });
+      queryClient.invalidateQueries({ queryKey: ["companies_summary"] });
     },
   });
 }
@@ -75,6 +77,8 @@ export function useDeleteContact() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["contacts_summary"] });
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["companies_summary"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
   });
 }

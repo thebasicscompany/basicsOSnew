@@ -20,6 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { DataTablePagination } from "@/components/tablecn/data-table/data-table-pagination";
 import { DataTableViewOptions } from "@/components/tablecn/data-table/data-table-view-options";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,7 @@ import { cn } from "@/lib/utils";
 interface DataTableProps<TData extends { id?: unknown }> {
   columns: ColumnDef<TData>[];
   data: TData[];
+  isLoading?: boolean;
   searchPlaceholder?: string;
   /** Rendered in the toolbar, to the right of the search bar. */
   toolbar?: React.ReactNode;
@@ -42,6 +44,7 @@ interface DataTableProps<TData extends { id?: unknown }> {
 export function DataTable<TData extends { id?: unknown }>({
   columns,
   data,
+  isLoading = false,
   searchPlaceholder = "Search...",
   toolbar,
   onRowClick,
@@ -107,7 +110,17 @@ export function DataTable<TData extends { id?: unknown }>({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows.length ? (
+            {isLoading ? (
+              [...Array(6)].map((_, i) => (
+                <TableRow key={i}>
+                  {columns.map((_, j) => (
+                    <TableCell key={j}>
+                      <Skeleton className="h-4 w-full" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : table.getRowModel().rows.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}

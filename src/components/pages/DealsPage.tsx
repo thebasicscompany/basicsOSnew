@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { type ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Handshake } from "lucide-react";
 import { useDeals, type Deal } from "@/hooks/use-deals";
 import { DataTable } from "@/components/data-table";
 import { DataTableColumnHeader } from "@/components/tablecn/data-table/data-table-column-header";
@@ -112,12 +112,27 @@ export function DealsPage() {
         </div>
       </div>
 
-      <DataTable
-        columns={columns}
-        data={isPending ? [] : (data?.data ?? [])}
-        onRowClick={handleRowClick}
-        toolbar={<ManageColumnsDialog resource="deals" />}
-      />
+      {!isPending && (data?.data ?? []).length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border bg-card py-16 text-center">
+          <Handshake className="size-10 text-muted-foreground/40" />
+          <div>
+            <p className="font-medium">No deals yet</p>
+            <p className="text-sm text-muted-foreground">Track your pipeline by adding your first deal.</p>
+          </div>
+          <Button size="sm" onClick={handleNew} className="gap-1">
+            <Plus className="h-4 w-4" />
+            New Deal
+          </Button>
+        </div>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={data?.data ?? []}
+          isLoading={isPending}
+          onRowClick={handleRowClick}
+          toolbar={<ManageColumnsDialog resource="deals" />}
+        />
+      )}
 
       <DealSheet open={sheetOpen} onOpenChange={setSheetOpen} deal={selected} />
     </div>

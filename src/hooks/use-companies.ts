@@ -62,6 +62,7 @@ export function useUpdateCompany() {
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ["companies_summary"] });
       queryClient.invalidateQueries({ queryKey: ["companies", id] });
+      queryClient.invalidateQueries({ queryKey: ["contacts_summary"] });
     },
   });
 }
@@ -73,6 +74,7 @@ export function useDeleteCompany() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["companies_summary"] });
       queryClient.invalidateQueries({ queryKey: ["companies"] });
+      queryClient.invalidateQueries({ queryKey: ["contacts_summary"] });
     },
   });
 }

@@ -9,8 +9,9 @@ import {
   isWithinInterval,
   parseISO,
   format,
+  addDays,
 } from "date-fns";
-import { CheckSquare, Square, Plus, Loader2, Trash2 } from "lucide-react";
+import { CheckSquare, Square, Plus, Loader2, Trash2, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -72,6 +74,7 @@ function TaskRow({
   const markDone = useMarkTaskDone();
   const deleteTask = useDeleteTask();
   const isDone = !!task.doneDate;
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   const handleToggle = () => {
     markDone.mutate(
@@ -82,58 +85,83 @@ function TaskRow({
 
   const handleDelete = () => {
     deleteTask.mutate(task.id, {
-      onSuccess: () => toast.success("Task deleted"),
+      onSuccess: () => { toast.success("Task deleted"); setConfirmDeleteOpen(false); },
       onError: () => toast.error("Failed to delete task"),
     });
   };
 
   return (
-    <div className="group flex items-start gap-3 py-2">
-      <button
-        onClick={handleToggle}
-        disabled={markDone.isPending}
-        className="mt-0.5 shrink-0 text-muted-foreground hover:text-primary transition-colors"
-      >
-        {isDone ? (
-          <CheckSquare className="size-4 text-primary" />
-        ) : (
-          <Square className="size-4" />
-        )}
-      </button>
-      <div className="min-w-0 flex-1">
-        <p className={`text-sm ${isDone ? "line-through text-muted-foreground" : ""}`}>
-          {task.text ?? "—"}
-        </p>
-        <div className="mt-0.5 flex flex-wrap items-center gap-2">
-          {task.type && task.type !== "None" && (
-            <Badge variant="outline" className="text-xs py-0">
-              {task.type}
-            </Badge>
+    <>
+      <div className="group flex items-start gap-3 py-2">
+        <button
+          onClick={handleToggle}
+          disabled={markDone.isPending}
+          className="mt-0.5 shrink-0 text-muted-foreground hover:text-primary transition-colors"
+        >
+          {isDone ? (
+            <CheckSquare className="size-4 text-primary" />
+          ) : (
+            <Square className="size-4" />
           )}
-          {contactName && (
-            <button
-              onClick={onContactClick}
-              className="text-xs text-muted-foreground hover:text-primary hover:underline transition-colors"
-            >
-              {contactName}
-            </button>
-          )}
-          {task.dueDate && (
-            <span className="text-xs text-muted-foreground">
-              {format(parseISO(task.dueDate), "MMM d")}
-            </span>
-          )}
+        </button>
+        <div className="min-w-0 flex-1">
+          <p className={`text-sm ${isDone ? "line-through text-muted-foreground" : ""}`}>
+            {task.text ?? "—"}
+          </p>
+          <div className="mt-0.5 flex flex-wrap items-center gap-2">
+            {task.type && task.type !== "None" && (
+              <Badge variant="outline" className="text-xs py-0">
+                {task.type}
+              </Badge>
+            )}
+            {contactName && (
+              <button
+                onClick={onContactClick}
+                className="text-xs text-muted-foreground hover:text-primary hover:underline transition-colors"
+              >
+                {contactName}
+              </button>
+            )}
+            {task.dueDate && (
+              <span className="text-xs text-muted-foreground">
+                {format(parseISO(task.dueDate), "MMM d")}
+              </span>
+            )}
+          </div>
         </div>
+        <button
+          onClick={() => setConfirmDeleteOpen(true)}
+          disabled={deleteTask.isPending}
+          className="mt-0.5 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-all"
+          aria-label="Delete task"
+        >
+          <Trash2 className="size-3.5" />
+        </button>
       </div>
-      <button
-        onClick={handleDelete}
-        disabled={deleteTask.isPending}
-        className="mt-0.5 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-all"
-        title="Delete task"
-      >
-        <Trash2 className="size-3.5" />
-      </button>
-    </div>
+
+      <Dialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete task?</DialogTitle>
+            <DialogDescription>
+              "{task.text}" will be permanently deleted.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDeleteOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={deleteTask.isPending}
+            >
+              {deleteTask.isPending ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -153,7 +181,8 @@ function AddTaskDialog({
   const [contactSearch, setContactSearch] = useState("");
   const [type, setType] = useState("None");
   const [text, setText] = useState("");
-  const [dueDate, setDueDate] = useState(new Date().toISOString().slice(0, 10));
+  const tomorrow = addDays(new Date(), 1).toISOString().slice(0, 10);
+  const [dueDate, setDueDate] = useState(tomorrow);
 
   const filteredContacts = useMemo(
     () =>
@@ -182,7 +211,7 @@ function AddTaskDialog({
           setContactSearch("");
           setType("None");
           setText("");
-          setDueDate(new Date().toISOString().slice(0, 10));
+          setDueDate(tomorrow);
         },
         onError: () => toast.error("Failed to create task"),
       },
@@ -230,6 +259,7 @@ function AddTaskDialog({
               placeholder="Task description"
               value={text}
               onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); }}
             />
           </div>
 
@@ -282,6 +312,7 @@ export function TasksPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [selectedContact, setSelectedContact] = useState<ContactSummary | null>(null);
   const [contactSheetOpen, setContactSheetOpen] = useState(false);
+  const [search, setSearch] = useState("");
 
   const contacts = contactsData?.data ?? [];
 
@@ -303,15 +334,26 @@ export function TasksPage() {
     [tasks],
   );
 
+  const filteredTasks = useMemo(() => {
+    if (!search.trim()) return activeTasks;
+    const q = search.toLowerCase();
+    return activeTasks.filter((t) => {
+      if (t.text?.toLowerCase().includes(q)) return true;
+      const contact = t.contactId ? contactMap.get(t.contactId) : null;
+      const name = contact ? `${contact.firstName ?? ""} ${contact.lastName ?? ""}`.toLowerCase() : "";
+      return name.includes(q);
+    });
+  }, [activeTasks, search, contactMap]);
+
   const grouped = useMemo(() => {
     const groups: Record<string, Task[]> = {
       overdue: [], today: [], tomorrow: [], thisWeek: [], later: [],
     };
-    for (const t of activeTasks) {
+    for (const t of filteredTasks) {
       groups[getBucket(t.dueDate)].push(t);
     }
     return groups;
-  }, [activeTasks]);
+  }, [filteredTasks]);
 
   const handleContactClick = (contactId: number) => {
     const contact = contactMap.get(contactId);
@@ -336,6 +378,16 @@ export function TasksPage() {
         </Button>
       </div>
 
+      <div className="relative">
+        <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+        <Input
+          placeholder="Search tasks…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-8 h-9"
+        />
+      </div>
+
       <Separator />
 
       {tasksPending && (
@@ -347,6 +399,10 @@ export function TasksPage() {
 
       {!tasksPending && activeTasks.length === 0 && (
         <p className="text-sm text-muted-foreground">No upcoming tasks.</p>
+      )}
+
+      {!tasksPending && activeTasks.length > 0 && filteredTasks.length === 0 && (
+        <p className="text-sm text-muted-foreground">No tasks match "{search}".</p>
       )}
 
       {BUCKETS.map(({ key, label }) => {

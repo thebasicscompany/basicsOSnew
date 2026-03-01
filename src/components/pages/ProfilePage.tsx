@@ -6,7 +6,7 @@ import { Separator } from "@/components/ui/separator";
 
 export function ProfilePage() {
   const navigate = useNavigate();
-  const { data: me, isPending } = useMe();
+  const { data: me, isPending, isError, refetch } = useMe();
 
   const handleLogout = async () => {
     await authClient.signOut();
@@ -22,6 +22,13 @@ export function ProfilePage() {
       <Separator />
       {isPending ? (
         <div className="text-sm text-muted-foreground">Loading…</div>
+      ) : isError ? (
+        <div className="flex items-center gap-3 text-sm text-destructive">
+          Failed to load profile.
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            Retry
+          </Button>
+        </div>
       ) : me ? (
         <div className="space-y-4">
           <div className="grid grid-cols-[120px_1fr] gap-2 text-sm">

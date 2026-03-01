@@ -1,3 +1,4 @@
+import { Upload } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 
 export function ImportPage() {
@@ -8,7 +9,15 @@ export function ImportPage() {
         <p className="text-sm text-muted-foreground">Import contacts from CSV</p>
       </div>
       <Separator />
-      <p className="text-sm text-muted-foreground">Import migration in progress.</p>
+      <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed bg-card py-16 text-center">
+        <Upload className="size-10 text-muted-foreground/40" />
+        <div>
+          <p className="font-medium">CSV import coming soon</p>
+          <p className="text-sm text-muted-foreground">
+            You'll be able to bulk import contacts directly from a CSV file.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
