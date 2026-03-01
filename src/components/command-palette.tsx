@@ -132,9 +132,7 @@ export function CommandPalette() {
                       key={c.id}
                       value={`contact-${c.id}-${displayName}-${c.companyName ?? ""}`}
                       onSelect={() =>
-                        run(() =>
-                          navigate(`${ROUTES.CRM_CONTACTS}?open=${c.id}`)
-                        )
+                        run(() => navigate(`/contacts/${c.id}`))
                       }
                       className="gap-2"
                     >
@@ -159,9 +157,7 @@ export function CommandPalette() {
                       key={c.id}
                       value={`company-${c.id}-${c.name}`}
                       onSelect={() =>
-                        run(() =>
-                          navigate(`${ROUTES.CRM_COMPANIES}?open=${c.id}`)
-                        )
+                        run(() => navigate(`/companies/${c.id}`))
                       }
                       className="gap-2"
                     >
@@ -191,9 +187,7 @@ export function CommandPalette() {
                       key={d.id}
                       value={`deal-${d.id}-${d.name}`}
                       onSelect={() =>
-                        run(() =>
-                          navigate(`${ROUTES.CRM_DEALS}?open=${d.id}`)
-                        )
+                        run(() => navigate(`/deals/${d.id}`))
                       }
                       className="gap-2"
                     >

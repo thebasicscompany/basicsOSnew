@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router";
+import { useSearchParams, useNavigate } from "react-router";
 import { type ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { LayoutList, LayoutGrid, Plus, Handshake } from "lucide-react";
@@ -77,6 +77,7 @@ const BASE_COLUMNS: ColumnDef<Deal>[] = [
 
 export function DealsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selected, setSelected] = useState<Deal | null>(null);
   const [view, setView] = useState<"table" | "board">("table");
@@ -111,8 +112,7 @@ export function DealsPage() {
   const columns = [...BASE_COLUMNS, ...customColumns];
 
   const handleRowClick = (row: Deal) => {
-    setSelected(row);
-    setSheetOpen(true);
+    navigate(`/deals/${row.id}`);
   };
 
   const handleNew = () => {

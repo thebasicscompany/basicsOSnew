@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router";
+import { useSearchParams, useNavigate } from "react-router";
 import { type ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Plus, Building2 } from "lucide-react";
@@ -75,6 +75,7 @@ const BASE_COLUMNS: ColumnDef<CompanySummary>[] = [
 
 export function CompaniesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selected, setSelected] = useState<CompanySummary | null>(null);
 
@@ -108,8 +109,7 @@ export function CompaniesPage() {
   const columns = [...BASE_COLUMNS, ...customColumns];
 
   const handleRowClick = (row: CompanySummary) => {
-    setSelected(row);
-    setSheetOpen(true);
+    navigate(`/companies/${row.id}`);
   };
 
   const handleNew = () => {

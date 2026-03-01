@@ -12,8 +12,11 @@ import { ProtectedRoute } from "@/lib/auth";
 import { StartPage } from "@/components/auth/start-page";
 import { SignupPage } from "@/components/auth/signup-page";
 import { ContactsPage } from "@/components/pages/ContactsPage";
+import { ContactDetailPage } from "@/components/pages/ContactDetailPage";
 import { CompaniesPage } from "@/components/pages/CompaniesPage";
+import { CompanyDetailPage } from "@/components/pages/CompanyDetailPage";
 import { DealsPage } from "@/components/pages/DealsPage";
+import { DealDetailPage } from "@/components/pages/DealDetailPage";
 import { DashboardPage } from "@/components/pages/DashboardPage";
 import { ProfilePage } from "@/components/pages/ProfilePage";
 import { SettingsPage } from "@/components/pages/SettingsPage";
@@ -64,8 +67,11 @@ function AppRoutes() {
         >
           <Route path={ROUTES.CRM} element={<DashboardPage />} />
           <Route path={ROUTES.CRM_CONTACTS} element={<ContactsPage />} />
+          <Route path={ROUTES.CRM_CONTACT_DETAIL} element={<ContactDetailPage />} />
           <Route path={ROUTES.CRM_COMPANIES} element={<CompaniesPage />} />
+          <Route path={ROUTES.CRM_COMPANY_DETAIL} element={<CompanyDetailPage />} />
           <Route path={ROUTES.CRM_DEALS} element={<DealsPage />} />
+          <Route path={ROUTES.CRM_DEAL_DETAIL} element={<DealDetailPage />} />
           <Route path={`${ROUTES.AUTOMATIONS}/*`} element={<AutomationsApp />} />
           <Route path={ROUTES.VOICE} element={<VoiceApp />} />
           <Route path={ROUTES.MCP} element={<MCPViewerApp />} />

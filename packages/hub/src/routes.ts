@@ -1,8 +1,11 @@
 export const ROUTES = {
   CRM: "/dashboard",
   CRM_COMPANIES: "/companies",
+  CRM_COMPANY_DETAIL: "/companies/:id",
   CRM_CONTACTS: "/contacts",
+  CRM_CONTACT_DETAIL: "/contacts/:id",
   CRM_DEALS: "/deals",
+  CRM_DEAL_DETAIL: "/deals/:id",
   AUTOMATIONS: "/automations",
   VOICE: "/voice",
   MCP: "/mcp",

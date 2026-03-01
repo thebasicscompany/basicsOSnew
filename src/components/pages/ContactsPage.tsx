@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router";
+import { useSearchParams, useNavigate } from "react-router";
 import { type ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Plus, Users } from "lucide-react";
@@ -61,6 +61,7 @@ const BASE_COLUMNS: ColumnDef<ContactSummary>[] = [
 
 export function ContactsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selected, setSelected] = useState<ContactSummary | null>(null);
 
@@ -94,8 +95,7 @@ export function ContactsPage() {
   const columns = [...BASE_COLUMNS, ...customColumns];
 
   const handleRowClick = (row: ContactSummary) => {
-    setSelected(row);
-    setSheetOpen(true);
+    navigate(`/contacts/${row.id}`);
   };
 
   const handleNew = () => {
