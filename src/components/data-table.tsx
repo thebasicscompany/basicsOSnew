@@ -21,6 +21,12 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { DataTablePagination } from "@/components/tablecn/data-table/data-table-pagination";
 import { DataTableViewOptions } from "@/components/tablecn/data-table/data-table-view-options";
 import { cn } from "@/lib/utils";
@@ -81,12 +87,26 @@ export function DataTable<TData extends { id?: unknown }>({
     <div className={cn("flex w-full flex-col gap-3", className)}>
       {/* Toolbar */}
       <div className="flex items-center gap-2">
-        <Input
-          placeholder={searchPlaceholder}
-          value={globalFilter}
-          onChange={(e) => setGlobalFilter(e.target.value)}
-          className="h-8 max-w-sm"
-        />
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Input
+                placeholder={searchPlaceholder}
+                value={globalFilter}
+                onChange={(e) => setGlobalFilter(e.target.value)}
+                className="h-8 max-w-sm"
+              />
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="flex items-center gap-1.5">
+              Type to filter
+              <span className="text-muted-foreground/60">·</span>
+              <kbd className="rounded bg-foreground/10 px-1 font-sans text-[10px] tracking-widest">
+                ⌘K
+              </kbd>
+              for global search
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         <div className="ml-auto flex items-center gap-2">
           {toolbar}
           <DataTableViewOptions table={table} />

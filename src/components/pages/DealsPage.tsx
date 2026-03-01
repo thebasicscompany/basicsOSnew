@@ -2,9 +2,10 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router";
 import { type ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
-import { Plus, Handshake } from "lucide-react";
+import { LayoutList, LayoutGrid, Plus, Handshake } from "lucide-react";
 import { useDeals, type Deal } from "@/hooks/use-deals";
 import { DealStageBadge } from "@/components/status-badge";
+import { DealsKanban } from "@/components/deals-kanban";
 import { DataTable } from "@/components/data-table";
 import { DataTableColumnHeader } from "@/components/tablecn/data-table/data-table-column-header";
 import { DealSheet } from "@/components/sheets/DealSheet";
@@ -78,8 +79,15 @@ export function DealsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selected, setSelected] = useState<Deal | null>(null);
+  const [view, setView] = useState<"table" | "board">("table");
 
-  const openNew = searchParams.get("open") === "new";
+  const openParam = searchParams.get("open");
+  const openNew = openParam === "new";
+  const openId = openParam && openParam !== "new" ? parseInt(openParam, 10) : null;
+
+  const { data, isPending, isError } = useDeals({
+    pagination: { page: 1, perPage: 100 },
+  });
 
   useEffect(() => {
     if (openNew) {
@@ -89,9 +97,16 @@ export function DealsPage() {
     }
   }, [openNew, setSearchParams]);
 
-  const { data, isPending, isError } = useDeals({
-    pagination: { page: 1, perPage: 100 },
-  });
+  useEffect(() => {
+    if (openId && data?.data) {
+      const found = data.data.find((d) => d.id === openId);
+      if (found) {
+        setSelected(found);
+        setSheetOpen(true);
+        setSearchParams({}, { replace: true });
+      }
+    }
+  }, [openId, data?.data, setSearchParams]);
   const customColumns = useCustomColumns<Deal>("deals");
   const columns = [...BASE_COLUMNS, ...customColumns];
 
@@ -121,6 +136,24 @@ export function DealsPage() {
           <span className="text-sm text-muted-foreground">
             {data ? `${data.total} total` : ""}
           </span>
+          <div className="flex rounded-md border">
+            <Button
+              variant={view === "table" ? "secondary" : "ghost"}
+              size="sm"
+              className="rounded-r-none border-0 px-2.5"
+              onClick={() => setView("table")}
+            >
+              <LayoutList className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={view === "board" ? "secondary" : "ghost"}
+              size="sm"
+              className="rounded-l-none border-0 border-l px-2.5"
+              onClick={() => setView("board")}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+          </div>
           <Button size="sm" onClick={handleNew} className="gap-1">
             <Plus className="h-4 w-4" />
             New Deal
@@ -140,6 +173,11 @@ export function DealsPage() {
             New Deal
           </Button>
         </div>
+      ) : view === "board" ? (
+        <DealsKanban
+          deals={data?.data ?? []}
+          onDealClick={handleRowClick}
+        />
       ) : (
         <DataTable
           columns={columns}

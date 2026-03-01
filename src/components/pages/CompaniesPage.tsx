@@ -78,7 +78,13 @@ export function CompaniesPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selected, setSelected] = useState<CompanySummary | null>(null);
 
-  const openNew = searchParams.get("open") === "new";
+  const openParam = searchParams.get("open");
+  const openNew = openParam === "new";
+  const openId = openParam && openParam !== "new" ? parseInt(openParam, 10) : null;
+
+  const { data, isPending, isError } = useCompanies({
+    pagination: { page: 1, perPage: 100 },
+  });
 
   useEffect(() => {
     if (openNew) {
@@ -88,9 +94,16 @@ export function CompaniesPage() {
     }
   }, [openNew, setSearchParams]);
 
-  const { data, isPending, isError } = useCompanies({
-    pagination: { page: 1, perPage: 100 },
-  });
+  useEffect(() => {
+    if (openId && data?.data) {
+      const found = data.data.find((c) => c.id === openId);
+      if (found) {
+        setSelected(found);
+        setSheetOpen(true);
+        setSearchParams({}, { replace: true });
+      }
+    }
+  }, [openId, data?.data, setSearchParams]);
   const customColumns = useCustomColumns<CompanySummary>("companies");
   const columns = [...BASE_COLUMNS, ...customColumns];
 
