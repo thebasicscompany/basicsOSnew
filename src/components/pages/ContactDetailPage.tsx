@@ -1,8 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
-import { ArrowLeft, ExternalLink, Pencil, Trash2, CheckSquare } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2, CheckSquare, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
@@ -14,16 +13,30 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useContact, useDeleteContact } from "@/hooks/use-contacts";
+import { useContact, useDeleteContact, useUpdateContact } from "@/hooks/use-contacts";
 import { useContactNotes, useCreateContactNote, useDeleteContactNote } from "@/hooks/use-contact-notes";
 import { useDeals } from "@/hooks/use-deals";
 import { useCompany } from "@/hooks/use-companies";
 import { useTasks, useCreateTask, useMarkTaskDone, useDeleteTask } from "@/hooks/use-tasks";
+import { useRecentItems } from "@/hooks/use-recent-items";
 import { ContactSheet } from "@/components/sheets/ContactSheet";
 import { ContactStatusBadge, DealStageBadge } from "@/components/status-badge";
 import { NotesFeed } from "@/components/notes-feed";
 import { ROUTES } from "@basics-os/hub";
 import { Input } from "@/components/ui/input";
+import {
+  InlineTextField,
+  InlineTextareaField,
+  InlineSelectField,
+  type InlineSelectOption,
+} from "@/components/inline-edit-field";
+
+const CONTACT_STATUS_OPTIONS: InlineSelectOption[] = [
+  { value: "lead", label: "Lead" },
+  { value: "qualified", label: "Qualified" },
+  { value: "customer", label: "Customer" },
+  { value: "churned", label: "Churned" },
+];
 
 function FieldRow({ label, value }: { label: string; value: React.ReactNode }) {
   if (!value) return null;
@@ -66,9 +79,20 @@ export function ContactDetailPage() {
   const createNote = useCreateContactNote();
   const deleteNote = useDeleteContactNote();
   const deleteContact = useDeleteContact();
+  const updateContact = useUpdateContact();
   const createTask = useCreateTask();
   const markDone = useMarkTaskDone();
   const deleteTask = useDeleteTask();
+  const [, addRecentItem] = useRecentItems();
+
+  useEffect(() => {
+    if (!contact || !contactId) return;
+    const name =
+      [contact.firstName, contact.lastName].filter(Boolean).join(" ") ||
+      contact.email ||
+      "Unnamed";
+    addRecentItem({ type: "contact", id: contactId, name });
+  }, [contact, contactId, addRecentItem]);
 
   const notes = notesData?.data ?? [];
   const contactDeals = (dealsData?.data ?? []).filter(
@@ -135,8 +159,21 @@ export function ContactDetailPage() {
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-4">
             <Avatar src={contact.avatar?.src} name={displayName} />
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight">{displayName}</h1>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-baseline gap-2 text-2xl font-semibold tracking-tight">
+                <InlineTextField
+                  value={contact.firstName}
+                  onSave={async (v) => updateContact.mutateAsync({ id: contactId!, data: { firstName: v || null } })}
+                  isSaving={updateContact.isPending}
+                  className="min-h-0 rounded px-1 py-0.5 text-2xl font-semibold hover:bg-muted/50"
+                />
+                <InlineTextField
+                  value={contact.lastName}
+                  onSave={async (v) => updateContact.mutateAsync({ id: contactId!, data: { lastName: v || null } })}
+                  isSaving={updateContact.isPending}
+                  className="min-h-0 rounded px-1 py-0.5 text-2xl font-semibold hover:bg-muted/50"
+                />
+              </div>
               <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                 {contact.title && <span>{contact.title}</span>}
                 {contact.title && company && <span>·</span>}
@@ -172,31 +209,105 @@ export function ContactDetailPage() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
           {/* Left: fields */}
           <div className="space-y-1 divide-y">
-            <FieldRow label="Email" value={
-              contact.email ? (
-                <a href={`mailto:${contact.email}`} className="text-primary hover:underline flex items-center gap-1">
-                  {contact.email}
-                </a>
-              ) : null
-            } />
+            <FieldRow
+              label="First name"
+              value={
+                <InlineTextField
+                  value={contact.firstName}
+                  onSave={async (v) => {
+                    await updateContact.mutateAsync({ id: contactId!, data: { firstName: v || null } });
+                  }}
+                  isSaving={updateContact.isPending}
+                />
+              }
+            />
+            <FieldRow
+              label="Last name"
+              value={
+                <InlineTextField
+                  value={contact.lastName}
+                  onSave={async (v) => {
+                    await updateContact.mutateAsync({ id: contactId!, data: { lastName: v || null } });
+                  }}
+                  isSaving={updateContact.isPending}
+                />
+              }
+            />
+            <FieldRow
+              label="Email"
+              value={
+                contact.email ? (
+                  <InlineTextField
+                    value={contact.email}
+                    onSave={async (v) => {
+                      await updateContact.mutateAsync({ id: contactId!, data: { email: v || null } });
+                    }}
+                    isSaving={updateContact.isPending}
+                  />
+                ) : (
+                  <InlineTextField
+                    value={null}
+                    onSave={async (v) => {
+                      await updateContact.mutateAsync({ id: contactId!, data: { email: v || null } });
+                    }}
+                    isSaving={updateContact.isPending}
+                  />
+                )
+              }
+            />
             {(contact.phoneJsonb ?? []).map((p, i) => (
               <FieldRow key={i} label={i === 0 ? "Phone" : ""} value={`${p.number} (${p.type})`} />
             ))}
-            <FieldRow label="LinkedIn" value={
-              contact.linkedinUrl ? (
-                <a href={contact.linkedinUrl} target="_blank" rel="noreferrer" className="text-primary hover:underline flex items-center gap-1">
-                  View profile <ExternalLink className="h-3 w-3" />
-                </a>
-              ) : null
-            } />
+            <FieldRow
+              label="Title"
+              value={
+                <InlineTextField
+                  value={contact.title}
+                  onSave={async (v) => {
+                    await updateContact.mutateAsync({ id: contactId!, data: { title: v || null } });
+                  }}
+                  isSaving={updateContact.isPending}
+                />
+              }
+            />
+            <FieldRow
+              label="Status"
+              value={
+                <InlineSelectField
+                  value={contact.status}
+                  options={CONTACT_STATUS_OPTIONS}
+                  onSave={async (v) => {
+                    await updateContact.mutateAsync({ id: contactId!, data: { status: v || null } });
+                  }}
+                  isSaving={updateContact.isPending}
+                />
+              }
+            />
+            <FieldRow
+              label="LinkedIn"
+              value={
+                <InlineTextField
+                  value={contact.linkedinUrl}
+                  onSave={async (v) => {
+                    await updateContact.mutateAsync({ id: contactId!, data: { linkedinUrl: v || null } });
+                  }}
+                  isSaving={updateContact.isPending}
+                />
+              }
+            />
             <FieldRow label="First seen" value={contact.firstSeen ? new Date(contact.firstSeen).toLocaleDateString() : null} />
             <FieldRow label="Last seen" value={contact.lastSeen ? new Date(contact.lastSeen).toLocaleDateString() : null} />
-            {contact.background && (
-              <div className="py-2">
-                <p className="text-sm text-muted-foreground mb-1">Background</p>
-                <p className="text-sm whitespace-pre-wrap">{contact.background}</p>
-              </div>
-            )}
+            <div className="py-2">
+              <p className="text-sm text-muted-foreground mb-1">Background</p>
+              <InlineTextareaField
+                value={contact.background}
+                onSave={async (v) => {
+                  await updateContact.mutateAsync({ id: contactId!, data: { background: v || null } });
+                }}
+                isSaving={updateContact.isPending}
+                rows={3}
+              />
+            </div>
             {contact.customFields && Object.keys(contact.customFields).length > 0 && (
               <>
                 <Separator className="my-2" />
@@ -212,6 +323,7 @@ export function ContactDetailPage() {
           <Tabs defaultValue="notes">
             <TabsList>
               <TabsTrigger value="notes">Notes {notes.length > 0 && `(${notes.length})`}</TabsTrigger>
+              <TabsTrigger value="activity">Activity</TabsTrigger>
               <TabsTrigger value="tasks">Tasks {contactTasks.length > 0 && `(${contactTasks.length})`}</TabsTrigger>
               <TabsTrigger value="deals">Deals {contactDeals.length > 0 && `(${contactDeals.length})`}</TabsTrigger>
             </TabsList>
@@ -227,6 +339,47 @@ export function ContactDetailPage() {
                   deleteNote.mutate({ id: noteId, contactId: contactId! })
                 }
               />
+            </TabsContent>
+
+            <TabsContent value="activity" className="mt-4">
+              {(() => {
+                const activity = [
+                  ...notes.map((n) => ({ type: "note" as const, id: n.id, date: n.date, text: n.text, done: false })),
+                  ...contactTasks.map((t) => ({
+                    type: "task" as const,
+                    id: t.id,
+                    date: t.dueDate ?? t.doneDate ?? t.id.toString(),
+                    text: t.text ?? "",
+                    done: !!t.doneDate,
+                  })),
+                ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+                if (activity.length === 0) {
+                  return <p className="py-4 text-center text-sm text-muted-foreground">No activity yet.</p>;
+                }
+                return (
+                  <div className="space-y-2">
+                    {activity.map((item) =>
+                      item.type === "note" ? (
+                        <div key={`note-${item.id}`} className="flex gap-3 rounded-md border bg-card p-3 text-sm">
+                          <FileText className="h-4 w-4 shrink-0 text-muted-foreground mt-0.5" />
+                          <div className="min-w-0 flex-1">
+                            <p className="whitespace-pre-wrap leading-relaxed">{item.text}</p>
+                            <time className="text-xs text-muted-foreground">{new Date(item.date).toLocaleString()}</time>
+                          </div>
+                        </div>
+                      ) : (
+                        <div key={`task-${item.id}`} className="flex gap-3 rounded-md border bg-card p-3 text-sm">
+                          <CheckSquare className={`h-4 w-4 shrink-0 mt-0.5 ${item.done ? "text-primary" : "text-muted-foreground"}`} />
+                          <div className="min-w-0 flex-1">
+                            <p className={item.done ? "line-through text-muted-foreground" : ""}>{item.text}</p>
+                            <time className="text-xs text-muted-foreground">{new Date(item.date).toLocaleString()}</time>
+                          </div>
+                        </div>
+                      )
+                    )}
+                  </div>
+                );
+              })()}
             </TabsContent>
 
             <TabsContent value="tasks" className="mt-4 space-y-4">

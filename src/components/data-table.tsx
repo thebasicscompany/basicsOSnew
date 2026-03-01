@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   flexRender,
   getCoreRowModel,
@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Tooltip,
   TooltipContent,
@@ -40,6 +42,8 @@ interface DataTableProps<TData extends { id?: unknown }> {
   toolbar?: React.ReactNode;
   /** Called when a row is clicked. */
   onRowClick?: (row: TData) => void;
+  /** When provided, enables row selection and shows bulk delete bar. */
+  onBulkDelete?: (ids: number[]) => void | Promise<void>;
   className?: string;
 }
 
@@ -47,6 +51,34 @@ interface DataTableProps<TData extends { id?: unknown }> {
  * Self-contained DataTable with search, sorting, pagination, and column visibility.
  * Takes `columns` + `data` — no external table instance required.
  */
+const selectColumn = <TData extends { id?: unknown }>(): ColumnDef<TData> => ({
+  id: "select",
+  header: ({ table }) => (
+    <Checkbox
+      checked={
+        table.getIsAllPageRowsSelected()
+          ? true
+          : table.getIsSomePageRowsSelected()
+            ? "indeterminate"
+            : false
+      }
+      onCheckedChange={(v) => table.toggleAllPageRowsSelected(!!v)}
+      onClick={(e) => e.stopPropagation()}
+      aria-label="Select all"
+    />
+  ),
+  cell: ({ row }) => (
+    <Checkbox
+      checked={row.getIsSelected()}
+      onCheckedChange={(v) => row.toggleSelected(!!v)}
+      onClick={(e) => e.stopPropagation()}
+      aria-label="Select row"
+    />
+  ),
+  enableSorting: false,
+  enableHiding: false,
+});
+
 export function DataTable<TData extends { id?: unknown }>({
   columns,
   data,
@@ -54,16 +86,23 @@ export function DataTable<TData extends { id?: unknown }>({
   searchPlaceholder = "Search...",
   toolbar,
   onRowClick,
+  onBulkDelete,
   className,
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [focusedRowIndex, setFocusedRowIndex] = useState(0);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  const tableColumns: ColumnDef<TData>[] = onBulkDelete
+    ? [selectColumn<TData>(), ...columns]
+    : columns;
 
   const table = useReactTable({
     data,
-    columns,
+    columns: tableColumns,
     getCoreRowModel: getCoreRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -74,7 +113,16 @@ export function DataTable<TData extends { id?: unknown }>({
     onRowSelectionChange: setRowSelection,
     state: { sorting, globalFilter, columnVisibility, rowSelection },
     initialState: { pagination: { pageSize: 25 } },
+    enableRowSelection: !!onBulkDelete,
+    getRowId: (row) => String((row as { id?: unknown }).id ?? Math.random()),
   });
+
+  const rows = table.getRowModel().rows;
+  const rowCount = rows.length;
+
+  useEffect(() => {
+    setFocusedRowIndex((i) => (rowCount ? Math.min(i, rowCount - 1) : 0));
+  }, [rowCount]);
 
   const handleRowClick = useCallback(
     (row: TData) => {
@@ -82,6 +130,34 @@ export function DataTable<TData extends { id?: unknown }>({
     },
     [onRowClick],
   );
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (!onRowClick || rowCount === 0) return;
+      if (e.key === "j" || e.key === "ArrowDown") {
+        e.preventDefault();
+        setFocusedRowIndex((i) => (i < rowCount - 1 ? i + 1 : i));
+      } else if (e.key === "k" || e.key === "ArrowUp") {
+        e.preventDefault();
+        setFocusedRowIndex((i) => (i > 0 ? i - 1 : i));
+      } else if (e.key === "Enter" && rows[focusedRowIndex]) {
+        e.preventDefault();
+        handleRowClick(rows[focusedRowIndex].original);
+      }
+    },
+    [onRowClick, rowCount, rows, focusedRowIndex, handleRowClick],
+  );
+
+  const selectedRows = table.getSelectedRowModel().rows;
+  const selectedIds = selectedRows
+    .map((r) => (r.original as { id?: number }).id)
+    .filter((id): id is number => id != null && typeof id === "number");
+
+  const handleBulkDelete = useCallback(async () => {
+    if (!onBulkDelete || selectedIds.length === 0) return;
+    await onBulkDelete(selectedIds);
+    setRowSelection({});
+  }, [onBulkDelete, selectedIds]);
 
   return (
     <div className={cn("flex w-full flex-col gap-3", className)}>
@@ -113,8 +189,29 @@ export function DataTable<TData extends { id?: unknown }>({
         </div>
       </div>
 
+      {/* Bulk delete bar */}
+      {onBulkDelete && selectedIds.length > 0 && (
+        <div className="flex items-center gap-3 rounded-md border bg-muted/50 px-3 py-2 text-sm">
+          <span className="text-muted-foreground">
+            {selectedIds.length} selected
+          </span>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleBulkDelete}
+          >
+            Delete selected
+          </Button>
+        </div>
+      )}
+
       {/* Table */}
-      <div className="overflow-hidden rounded-md border">
+      <div
+        ref={wrapperRef}
+        tabIndex={0}
+        className="overflow-hidden rounded-md border outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        onKeyDown={handleKeyDown}
+      >
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -133,24 +230,23 @@ export function DataTable<TData extends { id?: unknown }>({
             {isLoading ? (
               [...Array(6)].map((_, i) => (
                 <TableRow key={i}>
-                  {columns.map((_, j) => (
+                  {tableColumns.map((_, j) => (
                     <TableCell key={j}>
                       <Skeleton className="h-4 w-full" />
                     </TableCell>
                   ))}
                 </TableRow>
               ))
-            ) : table.getRowModel().rows.length ? (
-              table.getRowModel().rows.map((row) => (
+            ) : rows.length ? (
+              rows.map((row, index) => (
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
                   onClick={onRowClick ? () => handleRowClick(row.original) : undefined}
-                  className={
-                    onRowClick
-                      ? "cursor-pointer transition-colors hover:bg-muted/50"
-                      : undefined
-                  }
+                  className={cn(
+                    onRowClick && "cursor-pointer transition-colors hover:bg-muted/50",
+                    index === focusedRowIndex && "bg-accent/50 ring-1 ring-primary/30"
+                  )}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
@@ -161,7 +257,7 @@ export function DataTable<TData extends { id?: unknown }>({
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={tableColumns.length} className="h-24 text-center text-muted-foreground">
                   No results.
                 </TableCell>
               </TableRow>

@@ -4,6 +4,7 @@ import { type ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { LayoutList, LayoutGrid, Plus, Handshake } from "lucide-react";
 import { useDeals, type Deal } from "@/hooks/use-deals";
+import { useDeleteDeal } from "@/hooks/use-deals";
 import { DealStageBadge } from "@/components/status-badge";
 import { DealsKanban } from "@/components/deals-kanban";
 import { DataTable } from "@/components/data-table";
@@ -89,6 +90,7 @@ export function DealsPage() {
   const { data, isPending, isError } = useDeals({
     pagination: { page: 1, perPage: 100 },
   });
+  const deleteDeal = useDeleteDeal();
 
   useEffect(() => {
     if (openNew) {
@@ -180,12 +182,17 @@ export function DealsPage() {
         />
       ) : (
         <DataTable
-          columns={columns}
-          data={data?.data ?? []}
-          isLoading={isPending}
-          onRowClick={handleRowClick}
-          toolbar={<ManageColumnsDialog resource="deals" />}
-        />
+            columns={columns}
+            data={data?.data ?? []}
+            isLoading={isPending}
+            onRowClick={handleRowClick}
+            toolbar={<ManageColumnsDialog resource="deals" />}
+            onBulkDelete={async (ids) => {
+              for (const id of ids) {
+                await deleteDeal.mutateAsync(id);
+              }
+            }}
+          />
       )}
 
       <DealSheet

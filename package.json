@@ -33,7 +33,6 @@
   "dependencies": {
     "@ai-sdk/react": "^1.2.12",
     "@basics-os/automations": "workspace:*",
-    "@basics-os/crm": "workspace:*",
     "@basics-os/hub": "workspace:*",
     "@basics-os/mcp-viewer": "workspace:*",
     "@basics-os/shared": "workspace:*",
@@ -129,6 +128,7 @@
     "react-dom": "^19.1.0",
     "react-dropzone": "^14.4.1",
     "react-error-boundary": "^6.1.1",
+    "react-markdown": "^9.0.1",
     "react-hook-form": "^7.71.1",
     "react-router": "^7.13.0",
     "react-router-dom": "^7.13.0",

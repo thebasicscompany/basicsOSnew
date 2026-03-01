@@ -3,13 +3,34 @@ import { useSearchParams, useNavigate } from "react-router";
 import { type ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Plus, Building2 } from "lucide-react";
-import { useCompanies, type CompanySummary } from "@/hooks/use-companies";
+import { useCompanies, useDeleteCompany, type CompanySummary } from "@/hooks/use-companies";
 import { SectorBadge } from "@/components/status-badge";
 import { DataTable } from "@/components/data-table";
 import { DataTableColumnHeader } from "@/components/tablecn/data-table/data-table-column-header";
 import { CompanySheet } from "@/components/sheets/CompanySheet";
 import { ManageColumnsDialog } from "@/components/manage-columns-dialog";
 import { useCustomColumns } from "@/hooks/use-custom-columns";
+
+function CompanyNameCell({ row }: { row: { original: CompanySummary } }) {
+  const c = row.original;
+  const initials = c.name.slice(0, 2).toUpperCase();
+  return (
+    <div className="flex items-center gap-2">
+      {c.logo?.src ? (
+        <img
+          src={c.logo.src}
+          alt={c.name}
+          className="h-7 w-7 shrink-0 rounded object-cover"
+        />
+      ) : (
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-primary/10 text-xs font-semibold text-primary">
+          {initials}
+        </div>
+      )}
+      <span className="truncate">{c.name}</span>
+    </div>
+  );
+}
 
 const BASE_COLUMNS: ColumnDef<CompanySummary>[] = [
   {
@@ -18,6 +39,7 @@ const BASE_COLUMNS: ColumnDef<CompanySummary>[] = [
       <DataTableColumnHeader column={column} title="Name" />
     ),
     meta: { title: "Name" },
+    cell: ({ row }) => <CompanyNameCell row={row} />,
   },
   {
     accessorKey: "sector",
@@ -86,6 +108,7 @@ export function CompaniesPage() {
   const { data, isPending, isError } = useCompanies({
     pagination: { page: 1, perPage: 100 },
   });
+  const deleteCompany = useDeleteCompany();
 
   useEffect(() => {
     if (openNew) {
@@ -159,6 +182,11 @@ export function CompaniesPage() {
           isLoading={isPending}
           onRowClick={handleRowClick}
           toolbar={<ManageColumnsDialog resource="companies" />}
+          onBulkDelete={async (ids) => {
+            for (const id of ids) {
+              await deleteCompany.mutateAsync(id);
+            }
+          }}
         />
       )}
 

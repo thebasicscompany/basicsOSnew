@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Trash2 } from "lucide-react";
+import { MarkdownContent } from "@/components/markdown-content";
 
 interface Note {
   id: number;
@@ -78,7 +79,7 @@ export function NotesFeed({ notes, isLoading, onAdd, onDelete }: NotesFeedProps)
               key={note.id}
               className="group relative rounded-md border bg-card p-3 text-sm"
             >
-              <p className="whitespace-pre-wrap leading-relaxed">{note.text}</p>
+              <MarkdownContent>{note.text}</MarkdownContent>
               <div className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground">
                 <time>{new Date(note.date).toLocaleString()}</time>
                 <Button

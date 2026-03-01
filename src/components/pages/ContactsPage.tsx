@@ -3,15 +3,50 @@ import { useSearchParams, useNavigate } from "react-router";
 import { type ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Plus, Users } from "lucide-react";
-import { useContacts, type ContactSummary } from "@/hooks/use-contacts";
+import { useContacts, useDeleteContact, type ContactSummary } from "@/hooks/use-contacts";
 import { ContactStatusBadge } from "@/components/status-badge";
 import { DataTable } from "@/components/data-table";
 import { DataTableColumnHeader } from "@/components/tablecn/data-table/data-table-column-header";
 import { ContactSheet } from "@/components/sheets/ContactSheet";
 import { ManageColumnsDialog } from "@/components/manage-columns-dialog";
 import { useCustomColumns } from "@/hooks/use-custom-columns";
+import { cn } from "@/lib/utils";
 
 const BASE_COLUMNS: ColumnDef<ContactSummary>[] = [
+  {
+    id: "avatar",
+    header: () => null,
+    cell: ({ row }) => {
+      const c = row.original;
+      const name = [c.firstName, c.lastName].filter(Boolean).join(" ") || c.email || "?";
+      const initials = name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase();
+      if (c.avatar?.src) {
+        return (
+          <img
+            src={c.avatar.src}
+            alt={name}
+            className="h-8 w-8 shrink-0 rounded-full object-cover"
+          />
+        );
+      }
+      return (
+        <div
+          className={cn(
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary"
+          )}
+        >
+          {initials || "?"}
+        </div>
+      );
+    },
+    enableSorting: false,
+    enableHiding: false,
+  },
   {
     accessorKey: "firstName",
     header: ({ column }) => (
@@ -72,6 +107,7 @@ export function ContactsPage() {
   const { data, isPending, isError } = useContacts({
     pagination: { page: 1, perPage: 100 },
   });
+  const deleteContact = useDeleteContact();
 
   useEffect(() => {
     if (openNew) {
@@ -145,6 +181,11 @@ export function ContactsPage() {
           isLoading={isPending}
           onRowClick={handleRowClick}
           toolbar={<ManageColumnsDialog resource="contacts" />}
+          onBulkDelete={async (ids) => {
+            for (const id of ids) {
+              await deleteContact.mutateAsync(id);
+            }
+          }}
         />
       )}
 

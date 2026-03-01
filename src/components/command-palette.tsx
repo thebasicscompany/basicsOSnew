@@ -29,6 +29,7 @@ import { getList } from "@/lib/api/crm";
 import type { ContactSummary } from "@/hooks/use-contacts";
 import type { CompanySummary } from "@/hooks/use-companies";
 import type { Deal } from "@/hooks/use-deals";
+import { useRecentItems } from "@/hooks/use-recent-items";
 import { DealStageBadge } from "@/components/status-badge";
 
 const COMMAND_PALETTE_KEY = "k";
@@ -37,6 +38,7 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
+  const [recentItems] = useRecentItems();
 
   const isSearching = search.length >= 2;
 
@@ -206,6 +208,36 @@ export function CommandPalette() {
         ) : (
           <>
             <CommandEmpty>No results.</CommandEmpty>
+            {recentItems.length > 0 && (
+              <CommandGroup heading="Recent">
+                {recentItems.map((item) => {
+                  const icon =
+                    item.type === "contact"
+                      ? UserIcon
+                      : item.type === "company"
+                        ? Building02Icon
+                        : Agreement01Icon;
+                  const path =
+                    item.type === "contact"
+                      ? `/contacts/${item.id}`
+                      : item.type === "company"
+                        ? `/companies/${item.id}`
+                        : `/deals/${item.id}`;
+                  return (
+                    <CommandItem
+                      key={`${item.type}-${item.id}`}
+                      value={`recent-${item.type}-${item.id}-${item.name}`}
+                      onSelect={() => run(() => navigate(path))}
+                      className="gap-2"
+                    >
+                      <HugeiconsIcon icon={icon} className="size-4 shrink-0" />
+                      <span className="flex-1 truncate">{item.name}</span>
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            )}
+            {recentItems.length > 0 && <CommandSeparator />}
             <CommandGroup heading="Go to">
               <CommandItem
                 onSelect={() => run(() => navigate(ROUTES.CRM))}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,14 +13,32 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useDeal, useDeleteDeal } from "@/hooks/use-deals";
+import { useDeal, useDeleteDeal, useUpdateDeal } from "@/hooks/use-deals";
 import { useDealNotes, useCreateDealNote, useDeleteDealNote } from "@/hooks/use-deal-notes";
 import { useContacts } from "@/hooks/use-contacts";
 import { useCompany } from "@/hooks/use-companies";
+import { useRecentItems } from "@/hooks/use-recent-items";
 import { DealSheet } from "@/components/sheets/DealSheet";
 import { DealStageBadge, ContactStatusBadge } from "@/components/status-badge";
 import { NotesFeed } from "@/components/notes-feed";
 import { ROUTES } from "@basics-os/hub";
+import {
+  InlineTextField,
+  InlineTextareaField,
+  InlineSelectField,
+  InlineNumberField,
+  InlineDateField,
+  type InlineSelectOption,
+} from "@/components/inline-edit-field";
+
+const DEAL_STAGE_OPTIONS: InlineSelectOption[] = [
+  { value: "opportunity", label: "Opportunity" },
+  { value: "proposal-made", label: "Proposal Made" },
+  { value: "in-negociation", label: "In Negotiation" },
+  { value: "won", label: "Won" },
+  { value: "lost", label: "Lost" },
+  { value: "delayed", label: "Delayed" },
+];
 
 function FieldRow({ label, value }: { label: string; value: React.ReactNode }) {
   if (!value) return null;
@@ -59,6 +77,13 @@ export function DealDetailPage() {
   const createNote = useCreateDealNote();
   const deleteNote = useDeleteDealNote();
   const deleteDeal = useDeleteDeal();
+  const updateDeal = useUpdateDeal();
+  const [, addRecentItem] = useRecentItems();
+
+  useEffect(() => {
+    if (!deal || !dealId) return;
+    addRecentItem({ type: "deal", id: dealId, name: deal.name });
+  }, [deal, dealId, addRecentItem]);
 
   const notes = notesData?.data ?? [];
   const company = companyData;
@@ -105,9 +130,16 @@ export function DealDetailPage() {
 
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-2xl font-semibold tracking-tight">{deal.name}</h1>
+              <div className="text-2xl font-semibold tracking-tight">
+                <InlineTextField
+                  value={deal.name}
+                  onSave={async (v) => updateDeal.mutateAsync({ id: dealId!, data: { name: v } })}
+                  isSaving={updateDeal.isPending}
+                  className="min-h-0 rounded px-1 py-0.5 text-2xl font-semibold hover:bg-muted/50"
+                />
+              </div>
               <DealStageBadge stage={deal.stage} />
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
@@ -145,10 +177,57 @@ export function DealDetailPage() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
           {/* Left: fields */}
           <div className="space-y-1 divide-y">
-            <FieldRow label="Stage" value={<DealStageBadge stage={deal.stage} />} />
-            <FieldRow label="Amount" value={deal.amount != null ? formatCurrency(deal.amount) : null} />
-            <FieldRow label="Category" value={deal.category} />
-            <FieldRow label="Closing date" value={deal.expectedClosingDate ? new Date(deal.expectedClosingDate).toLocaleDateString() : null} />
+            <FieldRow
+              label="Name"
+              value={
+                <InlineTextField
+                  value={deal.name}
+                  onSave={async (v) => updateDeal.mutateAsync({ id: dealId!, data: { name: v } })}
+                  isSaving={updateDeal.isPending}
+                />
+              }
+            />
+            <FieldRow
+              label="Stage"
+              value={
+                <InlineSelectField
+                  value={deal.stage}
+                  options={DEAL_STAGE_OPTIONS}
+                  onSave={async (v) => updateDeal.mutateAsync({ id: dealId!, data: { stage: v } })}
+                  isSaving={updateDeal.isPending}
+                />
+              }
+            />
+            <FieldRow
+              label="Amount"
+              value={
+                <InlineNumberField
+                  value={deal.amount}
+                  onSave={async (v) => updateDeal.mutateAsync({ id: dealId!, data: { amount: v } })}
+                  isSaving={updateDeal.isPending}
+                />
+              }
+            />
+            <FieldRow
+              label="Category"
+              value={
+                <InlineTextField
+                  value={deal.category}
+                  onSave={async (v) => updateDeal.mutateAsync({ id: dealId!, data: { category: v || null } })}
+                  isSaving={updateDeal.isPending}
+                />
+              }
+            />
+            <FieldRow
+              label="Closing date"
+              value={
+                <InlineDateField
+                  value={deal.expectedClosingDate}
+                  onSave={async (v) => updateDeal.mutateAsync({ id: dealId!, data: { expectedClosingDate: v } })}
+                  isSaving={updateDeal.isPending}
+                />
+              }
+            />
             <FieldRow label="Created" value={new Date(deal.createdAt).toLocaleDateString()} />
             <FieldRow label="Updated" value={new Date(deal.updatedAt).toLocaleDateString()} />
             {company && (
@@ -162,12 +241,15 @@ export function DealDetailPage() {
                 </button>
               </div>
             )}
-            {deal.description && (
-              <div className="py-2">
-                <p className="text-sm text-muted-foreground mb-1">Description</p>
-                <p className="text-sm whitespace-pre-wrap">{deal.description}</p>
-              </div>
-            )}
+            <div className="py-2">
+              <p className="text-sm text-muted-foreground mb-1">Description</p>
+              <InlineTextareaField
+                value={deal.description}
+                onSave={async (v) => updateDeal.mutateAsync({ id: dealId!, data: { description: v || null } })}
+                isSaving={updateDeal.isPending}
+                rows={3}
+              />
+            </div>
             {deal.customFields && Object.keys(deal.customFields).length > 0 && (
               <>
                 <Separator className="my-2" />

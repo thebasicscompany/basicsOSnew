@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
-import { ArrowLeft, ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
@@ -13,12 +13,28 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useCompany, useDeleteCompany } from "@/hooks/use-companies";
+import { useCompany, useDeleteCompany, useUpdateCompany } from "@/hooks/use-companies";
 import { useContacts } from "@/hooks/use-contacts";
 import { useDeals } from "@/hooks/use-deals";
+import { useRecentItems } from "@/hooks/use-recent-items";
 import { CompanySheet } from "@/components/sheets/CompanySheet";
 import { SectorBadge, DealStageBadge, ContactStatusBadge } from "@/components/status-badge";
 import { ROUTES } from "@basics-os/hub";
+import {
+  InlineTextField,
+  InlineTextareaField,
+  InlineSelectField,
+  type InlineSelectOption,
+} from "@/components/inline-edit-field";
+
+const SECTOR_OPTIONS: InlineSelectOption[] = [
+  { value: "technology", label: "Technology" },
+  { value: "finance", label: "Finance" },
+  { value: "healthcare", label: "Healthcare" },
+  { value: "retail", label: "Retail" },
+  { value: "manufacturing", label: "Manufacturing" },
+  { value: "other", label: "Other" },
+];
 
 function FieldRow({ label, value }: { label: string; value: React.ReactNode }) {
   if (!value) return null;
@@ -59,6 +75,13 @@ export function CompanyDetailPage() {
   const { data: dealsData } = useDeals({ pagination: { page: 1, perPage: 100 } });
 
   const deleteCompany = useDeleteCompany();
+  const updateCompany = useUpdateCompany();
+  const [, addRecentItem] = useRecentItems();
+
+  useEffect(() => {
+    if (!company || !companyId) return;
+    addRecentItem({ type: "company", id: companyId, name: company.name });
+  }, [company, companyId, addRecentItem]);
 
   const contacts = contactsData?.data ?? [];
   const companyDeals = (dealsData?.data ?? []).filter((d) => d.companyId === companyId);
@@ -86,10 +109,6 @@ export function CompanyDetailPage() {
     return <div className="p-8 text-center text-destructive">Company not found.</div>;
   }
 
-  const websiteUrl = company.website
-    ? company.website.startsWith("http") ? company.website : `https://${company.website}`
-    : null;
-
   return (
     <>
       <div className="space-y-6">
@@ -108,8 +127,15 @@ export function CompanyDetailPage() {
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-4">
             <Logo src={company.logo?.src} name={company.name} />
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight">{company.name}</h1>
+            <div className="min-w-0">
+              <div className="text-2xl font-semibold tracking-tight">
+                <InlineTextField
+                  value={company.name}
+                  onSave={async (v) => updateCompany.mutateAsync({ id: companyId!, data: { name: v } })}
+                  isSaving={updateCompany.isPending}
+                  className="min-h-0 rounded px-1 py-0.5 text-2xl font-semibold hover:bg-muted/50"
+                />
+              </div>
               <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                 {company.sector && <SectorBadge sector={company.sector} />}
                 {company.city && <span>{company.city}</span>}
@@ -136,31 +162,90 @@ export function CompanyDetailPage() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
           {/* Left: fields */}
           <div className="space-y-1 divide-y">
-            <FieldRow label="Website" value={
-              websiteUrl ? (
-                <a href={websiteUrl} target="_blank" rel="noreferrer" className="text-primary hover:underline flex items-center gap-1">
-                  {company.website} <ExternalLink className="h-3 w-3" />
-                </a>
-              ) : null
-            } />
-            <FieldRow label="Phone" value={company.phoneNumber} />
+            <FieldRow
+              label="Name"
+              value={
+                <InlineTextField
+                  value={company.name}
+                  onSave={async (v) => updateCompany.mutateAsync({ id: companyId!, data: { name: v } })}
+                  isSaving={updateCompany.isPending}
+                />
+              }
+            />
+            <FieldRow
+              label="Sector"
+              value={
+                <InlineSelectField
+                  value={company.sector}
+                  options={SECTOR_OPTIONS}
+                  onSave={async (v) => updateCompany.mutateAsync({ id: companyId!, data: { sector: v || null } })}
+                  isSaving={updateCompany.isPending}
+                />
+              }
+            />
+            <FieldRow
+              label="Website"
+              value={
+                <InlineTextField
+                  value={company.website}
+                  onSave={async (v) => updateCompany.mutateAsync({ id: companyId!, data: { website: v || null } })}
+                  isSaving={updateCompany.isPending}
+                />
+              }
+            />
+            <FieldRow
+              label="City"
+              value={
+                <InlineTextField
+                  value={company.city}
+                  onSave={async (v) => updateCompany.mutateAsync({ id: companyId!, data: { city: v || null } })}
+                  isSaving={updateCompany.isPending}
+                />
+              }
+            />
+            <FieldRow
+              label="Country"
+              value={
+                <InlineTextField
+                  value={company.country}
+                  onSave={async (v) => updateCompany.mutateAsync({ id: companyId!, data: { country: v || null } })}
+                  isSaving={updateCompany.isPending}
+                />
+              }
+            />
+            <FieldRow
+              label="Phone"
+              value={
+                <InlineTextField
+                  value={company.phoneNumber}
+                  onSave={async (v) => updateCompany.mutateAsync({ id: companyId!, data: { phoneNumber: v || null } })}
+                  isSaving={updateCompany.isPending}
+                />
+              }
+            />
             <FieldRow label="Address" value={company.address} />
             <FieldRow label="Size" value={company.size ? `${company.size} employees` : null} />
             <FieldRow label="Revenue" value={company.revenue} />
-            <FieldRow label="LinkedIn" value={
-              company.linkedinUrl ? (
-                <a href={company.linkedinUrl} target="_blank" rel="noreferrer" className="text-primary hover:underline flex items-center gap-1">
-                  View profile <ExternalLink className="h-3 w-3" />
-                </a>
-              ) : null
-            } />
+            <FieldRow
+              label="LinkedIn"
+              value={
+                <InlineTextField
+                  value={company.linkedinUrl}
+                  onSave={async (v) => updateCompany.mutateAsync({ id: companyId!, data: { linkedinUrl: v || null } })}
+                  isSaving={updateCompany.isPending}
+                />
+              }
+            />
             <FieldRow label="Created" value={company.createdAt ? new Date(company.createdAt).toLocaleDateString() : null} />
-            {company.description && (
-              <div className="py-2">
-                <p className="text-sm text-muted-foreground mb-1">Description</p>
-                <p className="text-sm whitespace-pre-wrap">{company.description}</p>
-              </div>
-            )}
+            <div className="py-2">
+              <p className="text-sm text-muted-foreground mb-1">Description</p>
+              <InlineTextareaField
+                value={company.description}
+                onSave={async (v) => updateCompany.mutateAsync({ id: companyId!, data: { description: v || null } })}
+                isSaving={updateCompany.isPending}
+                rows={3}
+              />
+            </div>
             {company.customFields && Object.keys(company.customFields).length > 0 && (
               <>
                 <Separator className="my-2" />
