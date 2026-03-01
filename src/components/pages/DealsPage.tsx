@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router";
 import { type ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Plus, Handshake } from "lucide-react";
 import { useDeals, type Deal } from "@/hooks/use-deals";
+import { DealStageBadge } from "@/components/status-badge";
 import { DataTable } from "@/components/data-table";
 import { DataTableColumnHeader } from "@/components/tablecn/data-table/data-table-column-header";
 import { DealSheet } from "@/components/sheets/DealSheet";
@@ -32,6 +34,9 @@ const BASE_COLUMNS: ColumnDef<Deal>[] = [
       <DataTableColumnHeader column={column} title="Stage" />
     ),
     meta: { title: "Stage" },
+    cell: ({ getValue }) => (
+      <DealStageBadge stage={getValue<string | null>()} />
+    ),
   },
   {
     accessorKey: "category",
@@ -70,8 +75,19 @@ const BASE_COLUMNS: ColumnDef<Deal>[] = [
 ];
 
 export function DealsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selected, setSelected] = useState<Deal | null>(null);
+
+  const openNew = searchParams.get("open") === "new";
+
+  useEffect(() => {
+    if (openNew) {
+      setSelected(null);
+      setSheetOpen(true);
+      setSearchParams({}, { replace: true });
+    }
+  }, [openNew, setSearchParams]);
 
   const { data, isPending, isError } = useDeals({
     pagination: { page: 1, perPage: 100 },
@@ -134,7 +150,14 @@ export function DealsPage() {
         />
       )}
 
-      <DealSheet open={sheetOpen} onOpenChange={setSheetOpen} deal={selected} />
+      <DealSheet
+        open={sheetOpen}
+        onOpenChange={(open) => {
+          setSheetOpen(open);
+          if (!open) setSelected(null);
+        }}
+        deal={selected}
+      />
     </div>
   );
 }

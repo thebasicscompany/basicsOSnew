@@ -30,6 +30,7 @@ import {
   Logout01Icon,
   AiChat01Icon,
   CheckListIcon,
+  Search01Icon,
 } from "@hugeicons/core-free-icons";
 import { authClient } from "basics-os/src/lib/auth";
 import { ROUTES } from "./routes";
@@ -82,6 +83,27 @@ export function HubSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  tooltip="Search (⌘K)"
+                  className="cursor-pointer text-muted-foreground"
+                  onClick={() =>
+                    document.dispatchEvent(
+                      new KeyboardEvent("keydown", {
+                        key: "k",
+                        ctrlKey: true,
+                        bubbles: true,
+                      })
+                    )
+                  }
+                >
+                  <HugeiconsIcon icon={Search01Icon} className="size-4 shrink-0" />
+                  <span className="flex-1">Search</span>
+                  <kbd className="ml-auto hidden text-[10px] tracking-widest text-muted-foreground/60 group-data-[state=expanded]:flex">
+                    ⌘K
+                  </kbd>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               <CRMDropdownNavItem />
               {HUB_NAV_ITEMS.map(({ path, label, icon }) => (
                 <HubNavItem key={path} to={path} label={label} icon={icon} />

@@ -21,6 +21,7 @@ import { ImportPage } from "@/components/pages/ImportPage";
 import { ChatPage } from "@/components/pages/ChatPage";
 import { ConnectionsPage } from "@/components/pages/ConnectionsPage";
 import { TasksPage } from "@/components/pages/TasksPage";
+import { CommandPalette } from "@/components/command-palette";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -54,7 +55,10 @@ function AppRoutes() {
         <Route
           element={
             <ProtectedRoute>
-              <HubLayout />
+              <>
+                <HubLayout />
+                <CommandPalette />
+              </>
             </ProtectedRoute>
           }
         >

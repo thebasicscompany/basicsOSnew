@@ -1,254 +1,88 @@
-# UX & Quality of Life Improvements
+# UX Improvements: Notion-like CRM Experience
 
-Audit of the live codebase. Issues are grouped by theme, ordered within each group by severity.
-
----
-
-## 1. Loading States
-
-**Problem:** ContactsPage, CompaniesPage, DealsPage all render an empty table while data loads (`data={isPending ? [] : data}`). Users see a blank table with no feedback.
-
-**Fix:** Replace with skeleton rows using `animate-pulse`, following the pattern already in `AutomationListPage` (lines 132–141).
-
-**Good pattern to copy:**
-```tsx
-// AutomationListPage skeleton rows
-{[...Array(3)].map((_, i) => (
-  <div key={i} className="animate-pulse h-14 rounded-lg bg-muted" />
-))}
-```
-
-**Affected files:**
-- `src/components/pages/ContactsPage.tsx`
-- `src/components/pages/CompaniesPage.tsx`
-- `src/components/pages/DealsPage.tsx`
+This document lists user experience improvements to make the CRM feel more like Notion: fast, keyboard-first, minimal friction, and context-aware.
 
 ---
 
-## 2. Empty States
+## Implemented
 
-**Problem:** When no data exists, Contacts/Companies/Deals show a blank table with "No results." in the footer. There's no guidance or call-to-action for new users.
+### 1. Global command palette (⌘K / Ctrl+K)
+- **What:** A command palette opens from anywhere with **⌘K** (Mac) or **Ctrl+K** (Windows/Linux).
+- **Includes:** Quick navigation (Dashboard, Contacts, Companies, Deals, Tasks, Settings, etc.) and quick actions (New Contact, New Company, New Deal) that navigate and open the create sheet.
+- **Why Notion-like:** Notion’s quick find and slash commands reduce clicks and keep focus in the product.
 
-**Fix:** Detect empty + not-loading and show a centred empty state with icon, message, and primary action button.
+### 2. Deep links for “New” from command palette
+- **What:** List pages (Contacts, Companies, Deals) support `?open=new` in the URL. The command palette uses this so “New Contact” (etc.) opens the create sheet immediately.
+- **Why Notion-like:** One action from the palette completes the flow without an extra click.
 
-**Good pattern to copy:** `AutomationListPage` lines 101–115 (icon, heading, description, "Create your first automation" button).
-
-**Affected files:**
-- `src/components/pages/ContactsPage.tsx`
-- `src/components/pages/CompaniesPage.tsx`
-- `src/components/pages/DealsPage.tsx`
-- `src/components/pages/TasksPage.tsx` — already has "No upcoming tasks." but no CTA
-
----
-
-## 3. Confirmation Dialogs — Replace `confirm()`
-
-**Problem:** Three sheets use `window.confirm()` for destructive deletes. It's unstyled, blocks the UI thread, and can't be themed. Task deletion has no confirmation at all.
-
-| Location | Current | Risk |
-|---|---|---|
-| `ContactSheet` line 80 | `if (!confirm("Delete this contact?"))` | Low (has confirm) |
-| `CompanySheet` line 81 | `if (!confirm("Delete this company?"))` | Low (has confirm) |
-| `DealSheet` line 91 | `if (!confirm("Delete this deal?"))` | Low (has confirm) |
-| `TasksPage` TaskRow | No confirmation — instant delete | **High (no confirm)** |
-| `AutomationListPage` line 187 | `if (confirm(...))` | Low (has confirm) |
-
-**Fix:** Replace all `confirm()` calls with an `AlertDialog` (shadcn). Add a confirmation step to TaskRow before delete.
-
-**Good pattern to copy:** `SettingsPage` "Clear API key" dialog — uses `Dialog` with title, description, and Cancel/Confirm buttons.
+### 3. Clearer clickable table rows
+- **What:** Rows in data tables that open a sheet on click now have a hover state (`hover:bg-muted/50`) so it’s obvious they’re interactive.
+- **Why Notion-like:** Subtle but clear affordance, similar to Notion’s list/database rows.
 
 ---
 
-## 4. Cache Invalidation Bugs (Stale Data)
+## Recommended (not yet implemented)
 
-**Problem:** After mutations, related query caches are not invalidated. Data shown elsewhere becomes stale until a page refresh.
+### Navigation and layout
 
-| Mutation | Missing invalidation | Symptom |
-|---|---|---|
-| Delete contact | `companies` (nbContacts) | Company list still shows old contact count |
-| Delete company | `contacts_summary` | Contacts still show old company name |
-| Update contact | `companies` | Company's contact count stale |
-| Update deal | `contacts_summary` | Contact linked to deal shows stale data |
-| Create task | `contacts` (full record) | Contact detail shows stale task count |
-| Delete task | `contacts` (full record) | Contact detail shows stale task count |
+| Improvement | Description | Notion-like benefit |
+|-------------|-------------|----------------------|
+| **Shareable detail URLs** | Add routes like `/contacts/:id`, `/companies/:id` so a contact/company can be opened in a full-page or split view and the URL can be shared or bookmarked. | Same as Notion: link to a “page” (record). |
+| **Split view** | Optional list + detail side-by-side (e.g. list left, detail right in a panel/sheet) so the list stays visible while editing. | Less context switching. |
+| **Breadcrumbs** | On detail or nested views, show breadcrumbs (e.g. Contacts > Acme Corp). | Orientation and quick back. |
 
-**Fix:** In each `useMutation` `onSuccess`, invalidate all related query keys. Example for `useDeleteContact`:
-```ts
-onSuccess: () => {
-  queryClient.invalidateQueries({ queryKey: ["contacts"] });
-  queryClient.invalidateQueries({ queryKey: ["contacts_summary"] });
-  queryClient.invalidateQueries({ queryKey: ["companies"] }); // ← add this
-  queryClient.invalidateQueries({ queryKey: ["tasks"] });     // ← add this
-},
-```
+### Forms and editing
 
-**Affected files:**
-- `src/hooks/use-contacts.ts`
-- `src/hooks/use-companies.ts`
-- `src/hooks/use-deals.ts`
-- `src/hooks/use-tasks.ts`
+| Improvement | Description | Notion-like benefit |
+|-------------|-------------|----------------------|
+| **Inline editing** | Click a cell (e.g. name, status) to edit in place (input or small popover), save on blur/Enter. Keep the sheet for “full record” or many fields. | Edit where you see it, fewer modals. |
+| **Full-page create/edit** | Optional routes like `/contacts/new`, `/contacts/:id` for long forms and deep linking; “New” could open either sheet or full page. | Document-like creation and sharing. |
+| **Fewer confirm dialogs** | For low-risk actions (e.g. delete task), consider undo toasts or soft delete instead of a blocking confirmation. | Less interruption. |
 
----
+### Lists and views
 
-## 5. Over-fetching / Pagination
+| Improvement | Description | Notion-like benefit |
+|-------------|-------------|----------------------|
+| **Deal pipeline (Kanban)** | Toggle on Deals page: Table view vs Board view by stage. | Visual pipeline like Notion boards. |
+| **Faceted filters** | Use existing tablecn filter/facet components on Contacts, Companies, Deals for status, sector, stage, etc. | Narrow down without leaving the list. |
+| **Card / list layout toggle** | Optional card or compact list layout for contacts/companies. | Different density and “block” feel. |
+| **Saved views** | Save filter/sort/column sets as named views (e.g. “My hot leads”). | Personal workspaces. |
 
-**Problem:** Lists load large fixed page sizes that don't match the UI's display limit. Most of the fetched data is never displayed.
+### Loading and transitions
 
-| Hook | Fetches | Displays | Waste |
-|---|---|---|---|
-| `useContacts` | 100 | 25 (DataTable default) | 75 records |
-| `useCompanies` | 100 | 25 | 75 records |
-| `useDeals` | 100 | 25 | 75 records |
-| `useTasks` | 500 | All (visible by bucket) | Fine for now, but will break at scale |
-| `useContacts` in TaskAddDialog | 500 | 20 (sliced) | 480 contacts fetched, 20 shown |
+| Improvement | Description | Notion-like benefit |
+|-------------|-------------|----------------------|
+| **Consistent skeletons** | Use a shared table skeleton (e.g. `DataTableSkeleton`) on list load; add skeleton placeholders for dashboard cards and chart. | No layout jump, perceived speed. |
+| **View transitions** | Optional View Transitions API or router-level transition when switching pages. | Smoother, more app-like. |
+| **Snappier sheet/dialog** | Slightly shorter open/close durations for sheets and dialogs if they feel slow. | Responsive feel. |
 
-**Fix (short term):** Match fetch limit to display limit (25). For TaskAddDialog contact search, fetch on-demand as the user types rather than loading 500 upfront.
+### Typography and spacing
 
-**Fix (long term):** Implement server-side pagination — pass `page` and `perPage` from DataTable's pagination state to the API query.
+| Improvement | Description | Notion-like benefit |
+|-------------|-------------|----------------------|
+| **Type scale** | Define a small set of tokens (e.g. page title, section, body) in CSS and use them consistently. | Cohesive, calm typography. |
+| **Page rhythm** | One token or convention for vertical spacing on list and detail pages. | Consistent density. |
+| **Compact mode** | Optional denser list (smaller row height / spacing) for power users. | More data on screen. |
 
----
+### Commands and shortcuts
 
-## 6. Task Search
+| Improvement | Description | Notion-like benefit |
+|-------------|-------------|----------------------|
+| **Shortcut hints in UI** | Show ⌘K in the command palette and in tooltips (e.g. “New Contact ⌘K”). | Discoverability. |
+| **Document shortcuts** | In sidebar footer or Settings, list “⌘K Command palette”, “⌘B Toggle sidebar”. | Power users. |
+| **Search from palette** | In palette, “Search contacts / companies / deals” that filters and opens the right record. | Notion-style quick find. |
 
-**Problem:** TasksPage has no search. With many tasks spread across time buckets, finding a specific task requires scrolling through every bucket.
+### Notes and rich content
 
-**Fix:** Add a search input above the bucket list that filters `activeTasks` by `task.text` and `contactName`.
-
-```tsx
-const [search, setSearch] = useState("");
-const filteredTasks = activeTasks.filter(t =>
-  !search || t.text?.toLowerCase().includes(search.toLowerCase())
-);
-```
+| Improvement | Description | Notion-like benefit |
+|-------------|-------------|----------------------|
+| **Rich text for descriptions** | Use a minimal rich text or block editor (e.g. Tiptap) for Background/Description on contact, company, deal. | Notion-like blocks and formatting. |
+| **Notes as first-class** | If notes exist as an entity: list + detail with rich text and inline create from contact/company/deal. | Notes as pages. |
+| **Markdown preview** | If keeping plain textarea, add a simple markdown preview or single “block” per field. | Slight document feel without full editor. |
 
 ---
 
-## 7. Contact Search Dropdown UX (TaskAddDialog)
+## Summary
 
-**Problem:** The contact picker in "Add Task" requires typing to see contacts. There's no keyboard navigation in the dropdown (no arrow keys, no Enter-to-select). Clearing the typed text also clears the selected contactId, so mistyping loses selection.
-
-**Fix options:**
-- Use a `<Command>` (shadcn cmdk) component for the dropdown — it has built-in keyboard nav
-- Or use a `<Select>` with a search input inside (shadcn has this pattern via `Combobox`)
-
----
-
-## 8. Form Keyboard Submit (Enter Key)
-
-**Problem:** No modal or sheet form submits on `Enter`. Users must click the Save/Create button.
-
-**Fix:** Wrap form content in `<form onSubmit={handleSubmit}>` and change the primary button to `type="submit"`. Works automatically for all inputs.
-
-**Affected:**
-- `TasksPage` AddTaskDialog
-- `ContactSheet`, `CompanySheet`, `DealSheet` (save handlers)
-
----
-
-## 9. Predefined Option Fields
-
-**Problem:** Several fields are free-text inputs where consistency matters. Users type whatever they want, resulting in status values like "warm", "Warm", "WARM" in the same dataset.
-
-| Field | Current | Fix |
-|---|---|---|
-| Contact `status` | Text input, placeholder "e.g. warm, cold, hot" | Select with predefined options |
-| Company `sector` | Text input | Select or Combobox with common sectors |
-| Deal `amount` | Number input, no currency symbol | Prefix with "$" or currency select |
-
----
-
-## 10. Automation Builder: Cron Help Text
-
-**Problem:** The schedule trigger's cron field is a bare text input. Users unfamiliar with cron syntax have no guidance.
-
-```tsx
-// Current — AutomationBuilderPage ~line 445
-<Input placeholder="0 9 * * 1" ... />
-```
-
-**Fix:** Add a help text row below the input:
-```tsx
-<p className="text-xs text-muted-foreground">
-  Runs on a schedule. Example: <code>0 9 * * 1</code> = every Monday at 9am.{" "}
-  <a href="https://crontab.guru" target="_blank" rel="noreferrer" className="underline">
-    crontab.guru
-  </a>
-</p>
-```
-
----
-
-## 11. Automation Builder: "Available Variables" Inconsistency
-
-**Problem:** The `{{variable}}` hint is only shown on some node config panels (AI, web search, Slack, etc.) but not on the trigger_schedule or action_crm panels. Users don't know what variables are available.
-
-**Fix:** Show the variables hint consistently on every action node panel. Extract it into a shared `<VariablesHint context={context} />` component and render it in every node's config.
-
----
-
-## 12. Import Page — Placeholder State
-
-**Problem:** `ImportPage` renders only `"Import migration in progress."` — a placeholder string. Users who click Import expecting functionality are confused.
-
-**Fix (short term):** Either implement the import UI or hide the Import nav item until it's ready. Showing a broken/placeholder page is worse than not showing it.
-
----
-
-## 13. ProfilePage Error State
-
-**Problem:** If `useMe()` fails, `ProfilePage` renders nothing — no error message, no retry. The page is silently blank.
-
-**Fix:**
-```tsx
-if (isError) return (
-  <div className="text-sm text-destructive">Failed to load profile. <Button variant="link" onClick={() => refetch()}>Retry</Button></div>
-);
-```
-
----
-
-## 14. Sheet Mutation Error Handling
-
-**Problem:** All three sheets (Contact, Company, Deal) close on save and then show a toast if it fails. The sheet is already gone by the time the user reads the error — they can't retry without reopening.
-
-**Fix:** Only close the sheet on `onSuccess`. On `onError`, keep it open and show the toast:
-```ts
-mutateAsync(payload)
-  .then(() => onOpenChange(false))
-  .catch(() => toast.error("Failed to save"));
-```
-
----
-
-## 15. Minor / Low Effort
-
-| Issue | File | Fix |
-|---|---|---|
-| Task due date defaults to today — if it's 11pm, tomorrow makes more sense | `TasksPage` line 156 | Default to empty or next day |
-| Automation node delete has no visual feedback | `AutomationBuilderPage` | Toast "Node removed" on delete |
-| "Column visibility" button has no tooltip | `data-table.tsx` line 89 | Add `title="Manage columns"` or shadcn `Tooltip` |
-| DataTable "No results." text is small and plain | `data-table.tsx` line 127 | Add icon + larger text to match empty state design |
-| Task type options are hardcoded | `TasksPage` lines 239–250 | Pull from config or at least a shared constant |
-| Automation "enabled" toggle has no loading state | `AutomationListPage` | Show spinner on toggle while patch is in-flight |
-| Delete contact/deal/company text is generic | All sheets | Use record name: "Delete John Smith? This cannot be undone." |
-
----
-
-## Priority Order
-
-| # | Item | Effort | Impact |
-|---|---|---|---|
-| 1 | Confirmation dialog for task delete | Low | High — data loss risk |
-| 2 | Replace `confirm()` with AlertDialog in sheets | Low | Medium — polish |
-| 3 | Skeleton loading states | Low | High — perceived performance |
-| 4 | Cache invalidation fixes | Medium | High — data correctness |
-| 5 | Empty states with CTAs | Low | Medium — onboarding |
-| 6 | Sheet mutation error handling (don't close on error) | Low | Medium |
-| 7 | Task search | Low | Medium |
-| 8 | Cron help text + variables hint consistency | Low | Medium |
-| 9 | ProfilePage error/retry state | Low | Low |
-| 10 | Form keyboard submit (Enter) | Low | Low |
-| 11 | Contact search Combobox | Medium | Medium |
-| 12 | Predefined status/sector selects | Medium | Medium — data quality |
-| 13 | Fix ImportPage placeholder | Low | High — avoids confusion |
-| 14 | Pagination / over-fetching | High | Medium — performance at scale |
+- **Done:** Global command palette (⌘K), `?open=new` for create sheets, table row hover.
+- **Next:** Consider shareable detail URLs, inline editing, Kanban for deals, faceted filters, skeletons, and shortcut hints for a stronger Notion-like experience.

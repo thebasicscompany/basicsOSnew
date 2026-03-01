@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router";
 import { type ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Plus, Building2 } from "lucide-react";
 import { useCompanies, type CompanySummary } from "@/hooks/use-companies";
+import { SectorBadge } from "@/components/status-badge";
 import { DataTable } from "@/components/data-table";
 import { DataTableColumnHeader } from "@/components/tablecn/data-table/data-table-column-header";
 import { CompanySheet } from "@/components/sheets/CompanySheet";
@@ -23,6 +25,9 @@ const BASE_COLUMNS: ColumnDef<CompanySummary>[] = [
       <DataTableColumnHeader column={column} title="Sector" />
     ),
     meta: { title: "Sector" },
+    cell: ({ getValue }) => (
+      <SectorBadge sector={getValue<string | null>()} />
+    ),
   },
   {
     accessorKey: "website",
@@ -69,8 +74,19 @@ const BASE_COLUMNS: ColumnDef<CompanySummary>[] = [
 ];
 
 export function CompaniesPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selected, setSelected] = useState<CompanySummary | null>(null);
+
+  const openNew = searchParams.get("open") === "new";
+
+  useEffect(() => {
+    if (openNew) {
+      setSelected(null);
+      setSheetOpen(true);
+      setSearchParams({}, { replace: true });
+    }
+  }, [openNew, setSearchParams]);
 
   const { data, isPending, isError } = useCompanies({
     pagination: { page: 1, perPage: 100 },
@@ -135,7 +151,10 @@ export function CompaniesPage() {
 
       <CompanySheet
         open={sheetOpen}
-        onOpenChange={setSheetOpen}
+        onOpenChange={(open) => {
+          setSheetOpen(open);
+          if (!open) setSelected(null);
+        }}
         company={selected}
       />
     </div>

@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router";
 import { type ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Plus, Users } from "lucide-react";
 import { useContacts, type ContactSummary } from "@/hooks/use-contacts";
+import { ContactStatusBadge } from "@/components/status-badge";
 import { DataTable } from "@/components/data-table";
 import { DataTableColumnHeader } from "@/components/tablecn/data-table/data-table-column-header";
 import { ContactSheet } from "@/components/sheets/ContactSheet";
@@ -44,6 +46,9 @@ const BASE_COLUMNS: ColumnDef<ContactSummary>[] = [
       <DataTableColumnHeader column={column} title="Status" />
     ),
     meta: { title: "Status" },
+    cell: ({ getValue }) => (
+      <ContactStatusBadge status={getValue<string | null>()} />
+    ),
   },
   {
     accessorKey: "nbTasks",
@@ -55,8 +60,19 @@ const BASE_COLUMNS: ColumnDef<ContactSummary>[] = [
 ];
 
 export function ContactsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selected, setSelected] = useState<ContactSummary | null>(null);
+
+  const openNew = searchParams.get("open") === "new";
+
+  useEffect(() => {
+    if (openNew) {
+      setSelected(null);
+      setSheetOpen(true);
+      setSearchParams({}, { replace: true });
+    }
+  }, [openNew, setSearchParams]);
 
   const { data, isPending, isError } = useContacts({
     pagination: { page: 1, perPage: 100 },
@@ -121,7 +137,10 @@ export function ContactsPage() {
 
       <ContactSheet
         open={sheetOpen}
-        onOpenChange={setSheetOpen}
+        onOpenChange={(open) => {
+          setSheetOpen(open);
+          if (!open) setSelected(null);
+        }}
         contact={selected}
       />
     </div>
