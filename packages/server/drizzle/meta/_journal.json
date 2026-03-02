@@ -29,6 +29,13 @@
       "when": 1772400000000,
       "tag": "0003_automation_last_run_status",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1772500000000,
+      "tag": "0004_automation_description",
+      "breakpoints": true
     }
   ]
 }

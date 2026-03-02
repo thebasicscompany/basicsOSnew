@@ -22,15 +22,19 @@ export function SlackActionNode({
       ? `${channel.slice(0, 20)}…`
       : channel
     : "Slack Message";
+  const isInvalid = !data?.channel || !data?.message;
 
   return (
     <WorkflowNode
       className={cn(
-        "flex w-40 flex-col items-center justify-center shadow-none transition-all duration-150 ease-out",
+        "relative flex w-40 flex-col items-center justify-center shadow-none transition-all duration-150 ease-out",
         selected && "border-primary",
       )}
       handles={{ target: true, source: true }}
     >
+      {isInvalid && (
+        <span className="absolute -top-1 -right-1 flex size-3.5 items-center justify-center rounded-full bg-destructive text-[9px] text-white">!</span>
+      )}
       <div className="flex flex-col items-center justify-center gap-2 p-3">
         <MessageSquare className="size-5 text-blue-400" strokeWidth={1.5} />
         <div className="flex flex-col items-center gap-1 text-center">

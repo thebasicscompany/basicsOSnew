@@ -19,7 +19,15 @@ export interface WorkflowStep {
   finishedAt: string;
   durationMs: number;
   outputKey?: string;
+  output?: unknown;
   error?: string;
+}
+
+class WorkflowConditionFailed extends Error {
+  constructor(msg: string) {
+    super(msg);
+    this.name = "WorkflowConditionFailed";
+  }
 }
 
 async function withRetry<T>(fn: () => Promise<T>, attempts = 2): Promise<T> {
@@ -116,6 +124,7 @@ export async function executeWorkflow(
           const result = await withRetry(() => executeAI(data, context, apiKey, env));
           context.ai_result = result;
           step.outputKey = "ai_result";
+          step.output = context.ai_result;
           break;
         }
 
@@ -123,6 +132,7 @@ export async function executeWorkflow(
           const results = await withRetry(() => executeWebSearch(data, context, env, apiKey));
           context.web_results = results;
           step.outputKey = "web_results";
+          step.output = context.web_results;
           break;
         }
 
@@ -130,6 +140,7 @@ export async function executeWorkflow(
           const crmResult = await withRetry(() => executeCrmAction(data, context, db, sales.id));
           context.crm_result = crmResult.crm_result;
           step.outputKey = "crm_result";
+          step.output = context.crm_result;
           break;
         }
 
@@ -137,6 +148,7 @@ export async function executeWorkflow(
           const slackResult = await withRetry(() => executeSlack(data, context, apiKey, env));
           context.slack_result = slackResult;
           step.outputKey = "slack_result";
+          step.output = context.slack_result;
           break;
         }
 
@@ -144,6 +156,7 @@ export async function executeWorkflow(
           const gmailRead = await withRetry(() => executeGmailRead(data, context, apiKey, env));
           context.gmail_messages = gmailRead.gmail_messages;
           step.outputKey = "gmail_messages";
+          step.output = context.gmail_messages;
           break;
         }
 
@@ -155,6 +168,16 @@ export async function executeWorkflow(
           const agentResult = await withRetry(() => executeAIAgent(data, context, db, sales.id, apiKey, env));
           context.ai_agent_result = agentResult.ai_agent_result;
           step.outputKey = "ai_agent_result";
+          step.output = context.ai_agent_result;
+          break;
+        }
+
+        case "action_condition": {
+          const { field, operator, value } = data;
+          const actual = String(resolveValue(field as string, context) ?? "");
+          const expected = String(value ?? "");
+          const pass = evaluateCondition(actual, operator as string, expected);
+          if (!pass) throw new WorkflowConditionFailed("Condition not met — workflow stopped");
           break;
         }
 
@@ -162,11 +185,14 @@ export async function executeWorkflow(
           console.warn(`[automation-executor] unknown node type: ${node.type}`);
       }
     } catch (err) {
-      step.error = err instanceof Error ? err.message : String(err);
       const now = Date.now();
       step.finishedAt = new Date(now).toISOString();
       step.durationMs = now - stepStart;
+      step.error = err instanceof Error ? err.message : String(err);
       steps.push(step);
+      if (err instanceof WorkflowConditionFailed) {
+        break; // clean exit — workflow succeeds
+      }
       throw err;
     }
 
@@ -215,4 +241,18 @@ function resolveTemplates(
   context: Record<string, unknown>,
 ): Record<string, unknown> {
   return resolveValue(data, context) as Record<string, unknown>;
+}
+
+function evaluateCondition(actual: string, operator: string, expected: string): boolean {
+  switch (operator) {
+    case "eq": return actual === expected;
+    case "ne": return actual !== expected;
+    case "contains": return actual.includes(expected);
+    case "not_contains": return !actual.includes(expected);
+    case "gt": return parseFloat(actual) > parseFloat(expected);
+    case "lt": return parseFloat(actual) < parseFloat(expected);
+    case "is_empty": return actual.trim() === "";
+    case "is_not_empty": return actual.trim() !== "";
+    default: return true;
+  }
 }

@@ -16,17 +16,21 @@ export function CrmActionNode({
   data,
   selected,
 }: NodeProps<{ type: "action_crm"; data: CrmActionData }>) {
-  const action = data?.action ?? "create_task";
-  const label = action === "create_task" ? "Create task" : action;
+  const action = data?.action ?? "";
+  const label = action === "create_task" ? "Create task" : action || "CRM Action";
+  const isInvalid = !data?.action;
 
   return (
     <WorkflowNode
       className={cn(
-        "flex w-40 flex-col items-center justify-center shadow-none transition-all duration-150 ease-out",
+        "relative flex w-40 flex-col items-center justify-center shadow-none transition-all duration-150 ease-out",
         selected && "border-primary"
       )}
       handles={{ target: true, source: true }}
     >
+      {isInvalid && (
+        <span className="absolute -top-1 -right-1 flex size-3.5 items-center justify-center rounded-full bg-destructive text-[9px] text-white">!</span>
+      )}
       <div className="flex flex-col items-center justify-center gap-2 p-3">
         <ListTodo className="size-5 text-green-500" strokeWidth={1.5} />
         <div className="flex flex-col items-center gap-1 text-center">

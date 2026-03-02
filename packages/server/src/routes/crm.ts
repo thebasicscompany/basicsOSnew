@@ -457,6 +457,13 @@ export function createCrmRoutes(
       conditions.push(eq((table as typeof schema.companies).salesId, salesId));
     }
 
+    // Snapshot existing task before update to detect doneDate transition
+    let prevTaskDoneDate: unknown = undefined;
+    if (resource === "tasks" && body.doneDate !== undefined) {
+      const [existing] = await db.select().from(schema.tasks).where(eq(schema.tasks.id, id as number)).limit(1);
+      prevTaskDoneDate = existing?.doneDate;
+    }
+
     const [updated] = await db.update(table).set(body).where(and(...conditions)).returning();
     if (!updated) return c.json({ error: "Not found" }, 404);
 
@@ -474,9 +481,13 @@ export function createCrmRoutes(
     }
 
     // Fire-and-forget: trigger automations
-    const eventResourceU = ["deals", "contacts"].includes(resource) ? resource : null;
+    const eventResourceU = ["deals", "contacts", "tasks"].includes(resource) ? resource : null;
     if (eventResourceU) {
       fireEvent(`${eventResourceU.replace(/s$/, "")}.updated`, updated as Record<string, unknown>, salesId).catch(() => {});
+      // Fire task.completed when doneDate transitions null → non-null
+      if (resource === "tasks" && body.doneDate && !prevTaskDoneDate) {
+        fireEvent("task.completed", updated as Record<string, unknown>, salesId).catch(() => {});
+      }
     }
 
     return c.json(updated);

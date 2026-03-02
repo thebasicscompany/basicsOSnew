@@ -1,5 +1,5 @@
 import type { NodeProps } from "@xyflow/react";
-import { Clock } from "lucide-react";
+import { GitBranch } from "lucide-react";
 import {
   WorkflowNode,
   NodeTitle,
@@ -7,17 +7,24 @@ import {
 } from "basics-os/src/components/ai-elements/node";
 import { cn } from "basics-os/src/lib/utils";
 
-export interface TriggerScheduleData {
-  cron?: string;
-  label?: string;
+export interface ConditionData {
+  field?: string;
+  operator?: string;
+  value?: string;
 }
 
-export function TriggerScheduleNode({
+export function ConditionNode({
   data,
   selected,
-}: NodeProps<{ type: "trigger_schedule"; data: TriggerScheduleData }>) {
-  const label = data?.label?.trim() || (data?.cron ? `Cron: ${data.cron}` : "Schedule");
-  const isInvalid = !data?.cron;
+}: NodeProps<{ type: "action_condition"; data: ConditionData }>) {
+  const field = data?.field?.trim() || "";
+  const operator = data?.operator?.trim() || "";
+  const value = data?.value?.trim() || "";
+  const display =
+    field && operator
+      ? `${field} ${operator}${value ? ` ${value}` : ""}`
+      : "Set condition";
+  const isInvalid = !field || !operator;
 
   return (
     <WorkflowNode
@@ -25,16 +32,16 @@ export function TriggerScheduleNode({
         "relative flex w-40 flex-col items-center justify-center shadow-none transition-all duration-150 ease-out",
         selected && "border-primary"
       )}
-      handles={{ target: false, source: true }}
+      handles={{ target: true, source: true }}
     >
       {isInvalid && (
         <span className="absolute -top-1 -right-1 flex size-3.5 items-center justify-center rounded-full bg-destructive text-[9px] text-white">!</span>
       )}
       <div className="flex flex-col items-center justify-center gap-2 p-3">
-        <Clock className="size-5 text-blue-500" strokeWidth={1.5} />
+        <GitBranch className="size-5 text-teal-500" strokeWidth={1.5} />
         <div className="flex flex-col items-center gap-1 text-center">
-          <NodeTitle className="text-sm">{label}</NodeTitle>
-          <NodeDescription className="text-xs">Schedule</NodeDescription>
+          <NodeTitle className="text-sm">Condition</NodeTitle>
+          <NodeDescription className="text-xs truncate max-w-[120px]">{display}</NodeDescription>
         </div>
       </div>
     </WorkflowNode>

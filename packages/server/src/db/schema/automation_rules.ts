@@ -15,6 +15,7 @@ export const automationRules = pgTable("automation_rules", {
     .notNull()
     .references(() => sales.id, { onDelete: "cascade" }),
   name: varchar("name", { length: 255 }).notNull(),
+  description: varchar("description", { length: 500 }),
   enabled: boolean("enabled").notNull().default(true),
   workflowDefinition: jsonb("workflow_definition").notNull().default({}),
   lastRunAt: timestamp("last_run_at", { withTimezone: true }),

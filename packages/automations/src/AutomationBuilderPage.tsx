@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import {
   addEdge,
@@ -52,9 +52,12 @@ import {
   AIAgentNode,
   GmailReadNode,
   GmailSendNode,
+  ConditionNode,
 } from "./nodes";
+import { VariablePicker, useInsertAtCursor, type Variable } from "./VariablePicker";
 import { toast } from "sonner";
 import { ChevronLeft, Loader2, Play, Plus, Save, Trash2, X } from "lucide-react";
+import cronstrue from "cronstrue";
 
 const NODE_TYPES = {
   trigger_event: TriggerEventNode,
@@ -67,17 +70,19 @@ const NODE_TYPES = {
   action_ai_agent: AIAgentNode,
   action_gmail_read: GmailReadNode,
   action_gmail_send: GmailSendNode,
+  action_condition: ConditionNode,
 };
 
 type WorkflowNode = Node<Record<string, unknown>, string>;
 type WorkflowEdgeType = Edge;
 
 const TRIGGER_ITEMS: { type: WorkflowNode["type"]; label: string; defaultData: Record<string, unknown> }[] = [
-  { type: "trigger_event", label: "Event Trigger", defaultData: { event: "deal.created" } },
+  { type: "trigger_event", label: "Event Trigger", defaultData: { event: "contact.created" } },
   { type: "trigger_schedule", label: "Schedule", defaultData: { cron: "0 9 * * 1", label: "Every Monday at 9am" } },
 ];
 
 const ACTION_ITEMS: { type: WorkflowNode["type"]; label: string; defaultData: Record<string, unknown> }[] = [
+  { type: "action_condition", label: "Condition / Filter", defaultData: { field: "", operator: "eq", value: "" } },
   { type: "action_email", label: "Send Email", defaultData: { to: "", subject: "", body: "" } },
   { type: "action_ai", label: "AI Task", defaultData: { prompt: "" } },
   { type: "action_web_search", label: "Web Search", defaultData: { query: "", numResults: 5 } },
@@ -88,11 +93,177 @@ const ACTION_ITEMS: { type: WorkflowNode["type"]; label: string; defaultData: Re
   { type: "action_ai_agent", label: "AI Agent", defaultData: { objective: "", model: "", maxSteps: 6 } },
 ];
 
+// ── Sample payloads for trigger event preview ───────────────────────────────
+
+const SAMPLE_PAYLOADS: Record<string, Record<string, unknown>> = {
+  "contact.created": { id: 42, firstName: "Jane", lastName: "Smith", email: "jane@example.com", status: "warm", companyId: 7, salesId: 1, tags: ["vip"] },
+  "contact.updated": { id: 42, firstName: "Jane", lastName: "Smith", email: "jane@example.com", status: "hot", companyId: 7, salesId: 1, tags: ["vip"] },
+  "contact.deleted": { id: 42, firstName: "Jane", lastName: "Smith", email: "jane@example.com", status: "cold", companyId: 7, salesId: 1, tags: [] },
+  "deal.created": { id: 11, name: "Acme Corp Deal", stage: "opportunity", amount: 15000, companyId: 7, contactIds: [42], salesId: 1, category: "expansion" },
+  "deal.updated": { id: 11, name: "Acme Corp Deal", stage: "won", amount: 15000, companyId: 7, contactIds: [42], salesId: 1, category: "expansion" },
+  "deal.deleted": { id: 11, name: "Acme Corp Deal", stage: "lost", amount: 15000, companyId: 7, contactIds: [42], salesId: 1, category: "expansion" },
+  "task.created": { id: 99, text: "Follow up with Jane", type: "Todo", dueDate: "2026-03-10", contactId: 42, salesId: 1 },
+  "task.updated": { id: 99, text: "Follow up with Jane", type: "Todo", dueDate: "2026-03-10", doneDate: null, contactId: 42, salesId: 1 },
+  "task.completed": { id: 99, text: "Follow up with Jane", type: "Todo", dueDate: "2026-03-10", doneDate: "2026-03-08T09:00:00Z", contactId: 42, salesId: 1 },
+};
+
+const TRIGGER_PAYLOAD_FIELDS: Record<string, string[]> = {
+  "contact.created": ["id", "firstName", "lastName", "email", "status", "companyId", "salesId", "tags"],
+  "contact.updated": ["id", "firstName", "lastName", "email", "status", "companyId", "salesId", "tags"],
+  "contact.deleted": ["id", "firstName", "lastName", "email", "status", "companyId", "salesId", "tags"],
+  "deal.created": ["id", "name", "stage", "amount", "companyId", "contactIds", "salesId", "category"],
+  "deal.updated": ["id", "name", "stage", "amount", "companyId", "contactIds", "salesId", "category"],
+  "deal.deleted": ["id", "name", "stage", "amount", "companyId", "contactIds", "salesId", "category"],
+  "task.created": ["id", "text", "type", "dueDate", "contactId", "salesId"],
+  "task.updated": ["id", "text", "type", "dueDate", "doneDate", "contactId", "salesId"],
+  "task.completed": ["id", "text", "type", "dueDate", "doneDate", "contactId", "salesId"],
+};
+
+const NODE_OUTPUT_KEY_MAP: Record<string, string> = {
+  action_ai: "ai_result",
+  action_web_search: "web_results",
+  action_crm: "crm_result",
+  action_slack: "slack_result",
+  action_gmail_read: "gmail_messages",
+  action_ai_agent: "ai_agent_result",
+};
+
+// ── Template gallery ────────────────────────────────────────────────────────
+
 function newId() {
   return crypto.randomUUID().slice(0, 8);
 }
 
+interface Template {
+  name: string;
+  description: string;
+  nodes: WorkflowNode[];
+  edges: WorkflowEdgeType[];
+}
+
+function makeTemplates(): Template[] {
+  const t1id = newId(), t1e1id = newId();
+  const t2id = newId(), t2c1id = newId(), t2s1id = newId();
+  const t3id = newId(), t3a1id = newId(), t3e1id = newId();
+  const t4id = newId(), t4c1id = newId();
+  return [
+    {
+      name: "Blank",
+      description: "Start from scratch",
+      nodes: [],
+      edges: [],
+    },
+    {
+      name: "Welcome new contact",
+      description: "Send a welcome email when a contact is created",
+      nodes: [
+        { id: t1id, type: "trigger_event", position: { x: 100, y: 150 }, data: { event: "contact.created" } },
+        { id: t1e1id, type: "action_email", position: { x: 340, y: 150 }, data: { to: "{{trigger_data.email}}", subject: "Welcome, {{trigger_data.firstName}}!", body: "Hi {{trigger_data.firstName}},\n\nWelcome! We're glad to have you." } },
+      ],
+      edges: [{ id: `e-${t1id}-${t1e1id}`, source: t1id, target: t1e1id, type: "animated" }],
+    },
+    {
+      name: "Deal won notification",
+      description: "Notify Slack when a deal stage is updated",
+      nodes: [
+        { id: t2id, type: "trigger_event", position: { x: 100, y: 150 }, data: { event: "deal.updated" } },
+        { id: t2c1id, type: "action_condition", position: { x: 340, y: 150 }, data: { field: "{{trigger_data.stage}}", operator: "eq", value: "won" } },
+        { id: t2s1id, type: "action_slack", position: { x: 580, y: 150 }, data: { channel: "#sales", message: "🎉 Deal won: {{trigger_data.name}} ({{trigger_data.amount}})" } },
+      ],
+      edges: [
+        { id: `e-${t2id}-${t2c1id}`, source: t2id, target: t2c1id, type: "animated" },
+        { id: `e-${t2c1id}-${t2s1id}`, source: t2c1id, target: t2s1id, type: "animated" },
+      ],
+    },
+    {
+      name: "Weekly AI digest",
+      description: "Every Monday, run an AI summary and email it",
+      nodes: [
+        { id: t3id, type: "trigger_schedule", position: { x: 100, y: 150 }, data: { cron: "0 9 * * 1", label: "Every Monday at 9am" } },
+        { id: t3a1id, type: "action_ai", position: { x: 340, y: 150 }, data: { prompt: "Summarize this week's key business updates and opportunities in 3 bullet points." } },
+        { id: t3e1id, type: "action_email", position: { x: 580, y: 150 }, data: { to: "", subject: "Your weekly AI digest", body: "{{ai_result}}" } },
+      ],
+      edges: [
+        { id: `e-${t3id}-${t3a1id}`, source: t3id, target: t3a1id, type: "animated" },
+        { id: `e-${t3a1id}-${t3e1id}`, source: t3a1id, target: t3e1id, type: "animated" },
+      ],
+    },
+    {
+      name: "Auto follow-up task",
+      description: "Create a follow-up task when a contact is added",
+      nodes: [
+        { id: t4id, type: "trigger_event", position: { x: 100, y: 150 }, data: { event: "contact.created" } },
+        { id: t4c1id, type: "action_crm", position: { x: 340, y: 150 }, data: { action: "create_task", params: { text: "Follow up with {{trigger_data.firstName}} {{trigger_data.lastName}}", type: "Todo", contactId: "{{trigger_data.id}}" } } },
+      ],
+      edges: [{ id: `e-${t4id}-${t4c1id}`, source: t4id, target: t4c1id, type: "animated" }],
+    },
+  ];
+}
+
+// ── Available variables computation ────────────────────────────────────────
+
+function getAvailableVariables(nodes: WorkflowNode[]): Variable[] {
+  const vars: Variable[] = [
+    { value: "sales_id", label: "Current user ID", group: "Context" },
+  ];
+
+  const triggerNode = nodes.find((n) => n.type === "trigger_event");
+  if (triggerNode) {
+    const event = (triggerNode.data?.event as string) ?? "";
+    vars.push({ value: "trigger_data", label: "Full trigger payload", group: "Trigger data" });
+    for (const f of TRIGGER_PAYLOAD_FIELDS[event] ?? []) {
+      vars.push({ value: `trigger_data.${f}`, label: f, group: "Trigger data" });
+    }
+  }
+
+  for (const n of nodes) {
+    const key = NODE_OUTPUT_KEY_MAP[n.type ?? ""];
+    if (key) {
+      vars.push({ value: key, label: `Output from ${n.type?.replace("action_", "") ?? "node"}`, group: "Node outputs" });
+    }
+  }
+
+  return vars;
+}
+
 const edgeTypes = { animated: WorkflowEdge.Animated };
+
+// ── Template gallery overlay ────────────────────────────────────────────────
+
+function TemplateGallery({
+  templates,
+  onSelect,
+}: {
+  templates: Template[];
+  onSelect: (t: Template) => void;
+}) {
+  return (
+    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-background/95 backdrop-blur-sm p-8">
+      <h2 className="mb-1 text-xl font-semibold">Choose a template</h2>
+      <p className="mb-8 text-sm text-muted-foreground">Start from a template or build from scratch</p>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 max-w-3xl w-full">
+        {templates.map((t) => (
+          <button
+            key={t.name}
+            type="button"
+            className="flex flex-col items-start gap-1 rounded-xl border p-4 text-left shadow-sm hover:border-primary hover:bg-muted/40 transition-colors"
+            onClick={() => onSelect(t)}
+          >
+            <span className="font-medium text-sm">{t.name}</span>
+            <span className="text-xs text-muted-foreground">{t.description}</span>
+            {t.nodes.length > 0 && (
+              <span className="mt-2 text-[10px] text-muted-foreground/60 font-mono">
+                {t.nodes.length} node{t.nodes.length !== 1 ? "s" : ""}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Builder inner component ─────────────────────────────────────────────────
 
 function BuilderInner() {
   const { id } = useParams<{ id: string }>();
@@ -102,9 +273,12 @@ function BuilderInner() {
   const ruleId = isNew ? null : parseInt(id!, 10);
 
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [runsPanelOpen, setRunsPanelOpen] = useState(false);
+  const [templateChosen, setTemplateChosen] = useState(!isNew);
+  const [templates] = useState(() => makeTemplates());
 
   const { data: rule, isSuccess: ruleLoaded } = useQuery({
     queryKey: ["automation_rules", ruleId],
@@ -119,6 +293,7 @@ function BuilderInner() {
   useEffect(() => {
     if (!ruleLoaded || !rule) return;
     setName(rule.name ?? "");
+    setDescription(rule.description ?? "");
     if (rule.workflowDefinition?.nodes?.length) {
       setNodes((rule.workflowDefinition.nodes as WorkflowNode[]).map((n) => ({ ...n, data: n.data ?? {} })));
     }
@@ -165,7 +340,7 @@ function BuilderInner() {
   }, [selectedNodeId, setNodes, setEdges]);
 
   const createRule = useMutation({
-    mutationFn: (data: { name: string; workflowDefinition: object; enabled: boolean }) =>
+    mutationFn: (data: { name: string; description?: string; workflowDefinition: object; enabled: boolean }) =>
       create<AutomationRule>("automation_rules", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["automation_rules"] });
@@ -176,7 +351,7 @@ function BuilderInner() {
   });
 
   const updateRule = useMutation({
-    mutationFn: (data: { name?: string; workflowDefinition?: object; enabled?: boolean }) =>
+    mutationFn: (data: { name?: string; description?: string; workflowDefinition?: object; enabled?: boolean }) =>
       update<AutomationRule>("automation_rules", ruleId!, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["automation_rules"] });
@@ -224,6 +399,7 @@ function BuilderInner() {
         errors.push(`${node.type === "action_ai" ? "AI Task" : "AI Agent"}: prompt/objective is required`);
       }
       if (node.type === "action_crm" && !d.action) errors.push("CRM Action: action must be selected");
+      if (node.type === "action_condition" && (!d.field || !d.operator)) errors.push("Condition: field and operator are required");
     }
     return errors;
   }
@@ -236,6 +412,7 @@ function BuilderInner() {
     }
     const payload = {
       name: name.trim() || "Untitled Automation",
+      description: description.trim() || undefined,
       workflowDefinition: {
         nodes: nodes.map((n) => ({ id: n.id, type: n.type, position: n.position, data: n.data })),
         edges: edges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
@@ -256,6 +433,14 @@ function BuilderInner() {
     },
     [setNodes]
   );
+
+  const availableVariables = getAvailableVariables(nodes);
+
+  const handleSelectTemplate = (template: Template) => {
+    setNodes(template.nodes);
+    setEdges(template.edges);
+    setTemplateChosen(true);
+  };
 
   return (
     <div
@@ -280,12 +465,20 @@ function BuilderInner() {
 
         <div className="h-5 w-px bg-border" />
 
-        <Input
-          className="h-8 w-52 border-0 bg-transparent px-0 font-medium focus-visible:ring-0"
-          placeholder="Untitled Automation"
-          value={name}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
-        />
+        <div className="flex flex-col gap-0.5">
+          <Input
+            className="h-7 w-52 border-0 bg-transparent px-0 font-medium focus-visible:ring-0"
+            placeholder="Untitled Automation"
+            value={name}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
+          />
+          <Input
+            className="h-5 w-52 border-0 bg-transparent px-0 text-xs text-muted-foreground focus-visible:ring-0"
+            placeholder="Add a description…"
+            value={description}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDescription(e.target.value)}
+          />
+        </div>
 
         <div className="ml-auto flex items-center gap-2">
           {/* Add node */}
@@ -350,8 +543,13 @@ function BuilderInner() {
       <div className="flex flex-1 min-h-0">
         {/* Canvas */}
         <div className="relative flex-1 min-w-0 bg-background">
+          {/* Template gallery overlay */}
+          {isNew && !templateChosen && (
+            <TemplateGallery templates={templates} onSelect={handleSelectTemplate} />
+          )}
+
           {/* Empty-canvas hint */}
-          {nodes.length === 0 && (
+          {templateChosen && nodes.length === 0 && (
             <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-2">
               <p className="text-sm font-medium text-muted-foreground">No nodes yet</p>
               <p className="text-xs text-muted-foreground/70">Click "Add node" above to build your workflow</p>
@@ -403,6 +601,7 @@ function BuilderInner() {
               <ConfigPanel
                 node={selectedNode}
                 onUpdate={(data) => updateNodeData(selectedNode.id, data)}
+                availableVariables={availableVariables}
               />
             </div>
           </div>
@@ -430,14 +629,88 @@ function VariableHint({ outputsAiResult, outputsWebResults }: { outputsAiResult?
       <p><code className="font-mono">{"{{trigger_data}}"}</code> — full trigger payload</p>
       <p><code className="font-mono">{"{{trigger_data.id}}"}</code> — e.g. contact/deal/task ID</p>
       <p><code className="font-mono">{"{{trigger_data.firstName}}"}</code> — e.g. contact first name</p>
-      <p><code className="font-mono">{"{{trigger_data.lastName}}"}</code> — e.g. contact last name</p>
       <p><code className="font-mono">{"{{trigger_data.email}}"}</code> — e.g. contact email</p>
-      <p><code className="font-mono">{"{{trigger_data.name}}"}</code> — e.g. deal/company name</p>
       <p><code className="font-mono">{"{{sales_id}}"}</code> — current user ID</p>
-      <p><code className="font-mono">{"{{ai_result}}"}</code> — output from AI node</p>
-      <p><code className="font-mono">{"{{web_results}}"}</code> — output from Web Search node</p>
       {outputsAiResult && <p className="pt-1 font-medium text-foreground">Outputs: <code className="font-mono">{"{{ai_result}}"}</code></p>}
       {outputsWebResults && <p className="pt-1 font-medium text-foreground">Outputs: <code className="font-mono">{"{{web_results}}"}</code></p>}
+    </div>
+  );
+}
+
+// ── Field with variable picker ─────────────────────────────────────────────
+
+function FieldRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      {children}
+    </div>
+  );
+}
+
+function InputWithPicker({
+  value,
+  onChange,
+  placeholder,
+  type,
+  availableVariables,
+  ...props
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  placeholder?: string;
+  type?: string;
+  availableVariables: Variable[];
+  [key: string]: unknown;
+}) {
+  const { ref, insert } = useInsertAtCursor(value, onChange);
+  return (
+    <div className="flex gap-1">
+      <Input
+        ref={ref as React.Ref<HTMLInputElement>}
+        type={type}
+        value={value}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="flex-1"
+        {...props}
+      />
+      <VariablePicker variables={availableVariables} onInsert={insert} />
+    </div>
+  );
+}
+
+function TextareaWithPicker({
+  value,
+  onChange,
+  placeholder,
+  rows,
+  availableVariables,
+}: {
+  value: string;
+  onChange: (val: string) => void;
+  placeholder?: string;
+  rows?: number;
+  availableVariables: Variable[];
+}) {
+  const { ref, insert } = useInsertAtCursor(value, onChange);
+  return (
+    <div className="flex gap-1 items-start">
+      <Textarea
+        ref={ref as React.Ref<HTMLTextAreaElement>}
+        value={value}
+        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => onChange(e.target.value)}
+        placeholder={placeholder}
+        rows={rows ?? 4}
+        className="flex-1"
+      />
+      <VariablePicker variables={availableVariables} onInsert={insert} />
     </div>
   );
 }
@@ -447,33 +720,56 @@ function VariableHint({ outputsAiResult, outputsWebResults }: { outputsAiResult?
 function ConfigPanel({
   node,
   onUpdate,
+  availableVariables,
 }: {
   node: WorkflowNode;
   onUpdate: (data: Record<string, unknown>) => void;
+  availableVariables: Variable[];
 }) {
   const data = node.data ?? {};
   const type = node.type;
 
   if (type === "trigger_event") {
-    const event = (data.event as string) || "deal.created";
+    const event = (data.event as string) || "";
+    const sample = event ? SAMPLE_PAYLOADS[event] : null;
+    const [showSample, setShowSample] = useState(false);
     return (
       <div className="space-y-4">
         <div className="space-y-2">
           <Label>Event</Label>
           <Select value={event} onValueChange={(v: string) => onUpdate({ event: v })}>
             <SelectTrigger>
-              <SelectValue />
+              <SelectValue placeholder="Select an event…" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="contact.created">Contact created</SelectItem>
+              <SelectItem value="contact.updated">Contact updated</SelectItem>
+              <SelectItem value="contact.deleted">Contact deleted</SelectItem>
               <SelectItem value="deal.created">Deal created</SelectItem>
               <SelectItem value="deal.updated">Deal updated</SelectItem>
               <SelectItem value="deal.deleted">Deal deleted</SelectItem>
-              <SelectItem value="contact.created">Contact created</SelectItem>
-              <SelectItem value="contact.updated">Contact updated</SelectItem>
               <SelectItem value="task.created">Task created</SelectItem>
+              <SelectItem value="task.updated">Task updated</SelectItem>
+              <SelectItem value="task.completed">Task completed</SelectItem>
             </SelectContent>
           </Select>
         </div>
+        {sample && (
+          <div className="space-y-1">
+            <button
+              type="button"
+              className="text-xs text-primary hover:underline"
+              onClick={() => setShowSample((s) => !s)}
+            >
+              {showSample ? "Hide sample data" : "View sample data"}
+            </button>
+            {showSample && (
+              <pre className="text-xs bg-muted p-2 rounded overflow-auto max-h-48 leading-relaxed">
+                {JSON.stringify(sample, null, 2)}
+              </pre>
+            )}
+          </div>
+        )}
       </div>
     );
   }
@@ -486,6 +782,14 @@ function ConfigPanel({
       { cron: "0 9 * * *", label: "Daily at 9am" },
       { cron: "0 9 * * 1", label: "Every Monday at 9am" },
     ];
+    let cronHuman = "";
+    if (cron) {
+      try {
+        cronHuman = cronstrue.toString(cron);
+      } catch {
+        // invalid cron
+      }
+    }
     return (
       <div className="space-y-4">
         <div className="space-y-2">
@@ -510,6 +814,9 @@ function ConfigPanel({
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdate({ cron: e.target.value })}
             placeholder="0 9 * * 1"
           />
+          {cronHuman && (
+            <p className="text-xs text-muted-foreground">{cronHuman}</p>
+          )}
         </div>
         <div className="space-y-2">
           <Label>Label</Label>
@@ -523,38 +830,86 @@ function ConfigPanel({
     );
   }
 
+  if (type === "action_condition") {
+    const field = (data.field as string) || "";
+    const operator = (data.operator as string) || "eq";
+    const value = (data.value as string) || "";
+    const hideValue = operator === "is_empty" || operator === "is_not_empty";
+    return (
+      <div className="space-y-4">
+        <FieldRow label="Field">
+          <InputWithPicker
+            value={field}
+            onChange={(v) => onUpdate({ field: v })}
+            placeholder="{{trigger_data.status}}"
+            availableVariables={availableVariables}
+          />
+        </FieldRow>
+        <div className="space-y-1.5">
+          <Label>Operator</Label>
+          <Select value={operator} onValueChange={(v: string) => onUpdate({ operator: v })}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="eq">equals</SelectItem>
+              <SelectItem value="ne">not equals</SelectItem>
+              <SelectItem value="contains">contains</SelectItem>
+              <SelectItem value="not_contains">not contains</SelectItem>
+              <SelectItem value="gt">greater than</SelectItem>
+              <SelectItem value="lt">less than</SelectItem>
+              <SelectItem value="is_empty">is empty</SelectItem>
+              <SelectItem value="is_not_empty">is not empty</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {!hideValue && (
+          <FieldRow label="Value">
+            <InputWithPicker
+              value={value}
+              onChange={(v) => onUpdate({ value: v })}
+              placeholder="hot"
+              availableVariables={availableVariables}
+            />
+          </FieldRow>
+        )}
+        <div className="rounded-md bg-muted p-3 text-xs text-muted-foreground space-y-1">
+          <p>If condition is not met, the workflow stops (recorded as "Condition not met").</p>
+        </div>
+      </div>
+    );
+  }
+
   if (type === "action_email") {
     const to = (data.to as string) || "";
     const subject = (data.subject as string) || "";
     const body = (data.body as string) || "";
     return (
       <div className="space-y-4">
-        <div className="space-y-2">
-          <Label>To</Label>
-          <Input
-            type="email"
+        <FieldRow label="To">
+          <InputWithPicker
             value={to}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdate({ to: e.target.value })}
-            placeholder="email@example.com"
+            onChange={(v) => onUpdate({ to: v })}
+            placeholder="{{trigger_data.email}}"
+            availableVariables={availableVariables}
           />
-        </div>
-        <div className="space-y-2">
-          <Label>Subject</Label>
-          <Input
+        </FieldRow>
+        <FieldRow label="Subject">
+          <InputWithPicker
             value={subject}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdate({ subject: e.target.value })}
+            onChange={(v) => onUpdate({ subject: v })}
             placeholder="New deal: {{trigger_data.name}}"
+            availableVariables={availableVariables}
           />
-        </div>
-        <div className="space-y-2">
-          <Label>Body</Label>
-          <Textarea
+        </FieldRow>
+        <FieldRow label="Body">
+          <TextareaWithPicker
             value={body}
-            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => onUpdate({ body: e.target.value })}
+            onChange={(v) => onUpdate({ body: v })}
             placeholder="{{ai_result}}"
-            rows={4}
+            availableVariables={availableVariables}
           />
-        </div>
+        </FieldRow>
         <VariableHint />
       </div>
     );
@@ -565,15 +920,14 @@ function ConfigPanel({
     const model = (data.model as string) || "";
     return (
       <div className="space-y-4">
-        <div className="space-y-2">
-          <Label>Prompt</Label>
-          <Textarea
+        <FieldRow label="Prompt">
+          <TextareaWithPicker
             value={prompt}
-            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => onUpdate({ prompt: e.target.value })}
+            onChange={(v) => onUpdate({ prompt: v })}
             placeholder="Summarize {{trigger_data}}"
-            rows={4}
+            availableVariables={availableVariables}
           />
-        </div>
+        </FieldRow>
         <div className="space-y-2">
           <Label>Model (optional)</Label>
           <Input
@@ -592,14 +946,14 @@ function ConfigPanel({
     const numResults = (data.numResults as number) ?? 5;
     return (
       <div className="space-y-4">
-        <div className="space-y-2">
-          <Label>Query</Label>
-          <Input
+        <FieldRow label="Query">
+          <InputWithPicker
             value={query}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdate({ query: e.target.value })}
+            onChange={(v) => onUpdate({ query: v })}
             placeholder="Use {{variables}}"
+            availableVariables={availableVariables}
           />
-        </div>
+        </FieldRow>
         <div className="space-y-2">
           <Label>Num results (1–10)</Label>
           <Input
@@ -642,16 +996,14 @@ function ConfigPanel({
 
         {action === "create_task" && (
           <>
-            <div className="space-y-2">
-              <Label>Task text</Label>
-              <Input
+            <FieldRow label="Task text">
+              <InputWithPicker
                 value={(params.text as string) ?? ""}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  onUpdate({ params: { ...params, text: e.target.value } })
-                }
+                onChange={(v) => onUpdate({ params: { ...params, text: v } })}
                 placeholder="Follow up with {{trigger_data.firstName}} {{trigger_data.lastName}}"
+                availableVariables={availableVariables}
               />
-            </div>
+            </FieldRow>
             <div className="space-y-2">
               <Label>Type</Label>
               <Input
@@ -662,193 +1014,159 @@ function ConfigPanel({
                 placeholder="Todo"
               />
             </div>
-            <div className="space-y-2">
-              <Label>Contact ID</Label>
-              <Input
+            <FieldRow label="Contact ID">
+              <InputWithPicker
                 value={(params.contactId as string) ?? ""}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  onUpdate({ params: { ...params, contactId: e.target.value } })
-                }
+                onChange={(v) => onUpdate({ params: { ...params, contactId: v } })}
                 placeholder="{{trigger_data.id}}"
+                availableVariables={availableVariables}
               />
-            </div>
+            </FieldRow>
           </>
         )}
 
         {action === "create_contact" && (
           <>
-            <div className="space-y-2">
-              <Label>First name</Label>
-              <Input
+            <FieldRow label="First name">
+              <InputWithPicker
                 value={(params.firstName as string) ?? ""}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  onUpdate({ params: { ...params, firstName: e.target.value } })
-                }
+                onChange={(v) => onUpdate({ params: { ...params, firstName: v } })}
                 placeholder="{{trigger_data.firstName}}"
+                availableVariables={availableVariables}
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Last name</Label>
-              <Input
+            </FieldRow>
+            <FieldRow label="Last name">
+              <InputWithPicker
                 value={(params.lastName as string) ?? ""}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  onUpdate({ params: { ...params, lastName: e.target.value } })
-                }
+                onChange={(v) => onUpdate({ params: { ...params, lastName: v } })}
                 placeholder="{{trigger_data.lastName}}"
+                availableVariables={availableVariables}
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input
+            </FieldRow>
+            <FieldRow label="Email">
+              <InputWithPicker
                 value={(params.email as string) ?? ""}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  onUpdate({ params: { ...params, email: e.target.value } })
-                }
+                onChange={(v) => onUpdate({ params: { ...params, email: v } })}
                 placeholder="{{trigger_data.email}}"
+                availableVariables={availableVariables}
               />
-            </div>
+            </FieldRow>
           </>
         )}
 
         {action === "create_note" && (
           <>
-            <div className="space-y-2">
-              <Label>Contact ID</Label>
-              <Input
+            <FieldRow label="Contact ID">
+              <InputWithPicker
                 value={(params.contactId as string) ?? ""}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  onUpdate({ params: { ...params, contactId: e.target.value } })
-                }
+                onChange={(v) => onUpdate({ params: { ...params, contactId: v } })}
                 placeholder="{{trigger_data.id}}"
+                availableVariables={availableVariables}
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Note text</Label>
-              <Textarea
+            </FieldRow>
+            <FieldRow label="Note text">
+              <TextareaWithPicker
                 value={(params.text as string) ?? ""}
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                  onUpdate({ params: { ...params, text: e.target.value } })
-                }
+                onChange={(v) => onUpdate({ params: { ...params, text: v } })}
                 placeholder="{{ai_result}}"
-                rows={4}
+                availableVariables={availableVariables}
               />
-            </div>
+            </FieldRow>
           </>
         )}
 
         {action === "create_deal_note" && (
           <>
-            <div className="space-y-2">
-              <Label>Deal ID</Label>
-              <Input
+            <FieldRow label="Deal ID">
+              <InputWithPicker
                 value={(params.dealId as string) ?? ""}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  onUpdate({ params: { ...params, dealId: e.target.value } })
-                }
+                onChange={(v) => onUpdate({ params: { ...params, dealId: v } })}
                 placeholder="{{trigger_data.id}}"
+                availableVariables={availableVariables}
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Note text</Label>
-              <Textarea
+            </FieldRow>
+            <FieldRow label="Note text">
+              <TextareaWithPicker
                 value={(params.text as string) ?? ""}
-                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
-                  onUpdate({ params: { ...params, text: e.target.value } })
-                }
+                onChange={(v) => onUpdate({ params: { ...params, text: v } })}
                 placeholder="{{ai_result}}"
-                rows={4}
+                availableVariables={availableVariables}
               />
-            </div>
+            </FieldRow>
           </>
         )}
 
         {action === "update_contact" && (
           <>
-            <div className="space-y-2">
-              <Label>Contact ID</Label>
-              <Input
+            <FieldRow label="Contact ID">
+              <InputWithPicker
                 value={(params.contactId as string) ?? ""}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  onUpdate({ params: { ...params, contactId: e.target.value } })
-                }
+                onChange={(v) => onUpdate({ params: { ...params, contactId: v } })}
                 placeholder="{{trigger_data.id}}"
+                availableVariables={availableVariables}
               />
-            </div>
-            <div className="space-y-2">
-              <Label>First name</Label>
-              <Input
+            </FieldRow>
+            <FieldRow label="First name">
+              <InputWithPicker
                 value={(params.firstName as string) ?? ""}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  onUpdate({ params: { ...params, firstName: e.target.value } })
-                }
+                onChange={(v) => onUpdate({ params: { ...params, firstName: v } })}
                 placeholder="{{trigger_data.firstName}}"
+                availableVariables={availableVariables}
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Last name</Label>
-              <Input
+            </FieldRow>
+            <FieldRow label="Last name">
+              <InputWithPicker
                 value={(params.lastName as string) ?? ""}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  onUpdate({ params: { ...params, lastName: e.target.value } })
-                }
+                onChange={(v) => onUpdate({ params: { ...params, lastName: v } })}
                 placeholder="{{trigger_data.lastName}}"
+                availableVariables={availableVariables}
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Email</Label>
-              <Input
+            </FieldRow>
+            <FieldRow label="Email">
+              <InputWithPicker
                 value={(params.email as string) ?? ""}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  onUpdate({ params: { ...params, email: e.target.value } })
-                }
+                onChange={(v) => onUpdate({ params: { ...params, email: v } })}
                 placeholder="{{trigger_data.email}}"
+                availableVariables={availableVariables}
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Input
+            </FieldRow>
+            <FieldRow label="Status">
+              <InputWithPicker
                 value={(params.status as string) ?? ""}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  onUpdate({ params: { ...params, status: e.target.value } })
-                }
+                onChange={(v) => onUpdate({ params: { ...params, status: v } })}
                 placeholder="cold / warm / hot"
+                availableVariables={availableVariables}
               />
-            </div>
+            </FieldRow>
           </>
         )}
 
         {action === "update_deal" && (
           <>
-            <div className="space-y-2">
-              <Label>Deal ID</Label>
-              <Input
+            <FieldRow label="Deal ID">
+              <InputWithPicker
                 value={(params.dealId as string) ?? ""}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  onUpdate({ params: { ...params, dealId: e.target.value } })
-                }
+                onChange={(v) => onUpdate({ params: { ...params, dealId: v } })}
                 placeholder="{{trigger_data.id}}"
+                availableVariables={availableVariables}
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Name</Label>
-              <Input
+            </FieldRow>
+            <FieldRow label="Name">
+              <InputWithPicker
                 value={(params.name as string) ?? ""}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  onUpdate({ params: { ...params, name: e.target.value } })
-                }
+                onChange={(v) => onUpdate({ params: { ...params, name: v } })}
                 placeholder="{{trigger_data.name}}"
+                availableVariables={availableVariables}
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Stage</Label>
-              <Input
+            </FieldRow>
+            <FieldRow label="Stage">
+              <InputWithPicker
                 value={(params.stage as string) ?? ""}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  onUpdate({ params: { ...params, stage: e.target.value } })
-                }
+                onChange={(v) => onUpdate({ params: { ...params, stage: v } })}
                 placeholder="opportunity / proposal / won"
+                availableVariables={availableVariables}
               />
-            </div>
+            </FieldRow>
             <div className="space-y-2">
               <Label>Amount</Label>
               <Input
@@ -865,26 +1183,22 @@ function ConfigPanel({
 
         {action === "update_task" && (
           <>
-            <div className="space-y-2">
-              <Label>Task ID</Label>
-              <Input
+            <FieldRow label="Task ID">
+              <InputWithPicker
                 value={(params.taskId as string) ?? ""}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  onUpdate({ params: { ...params, taskId: e.target.value } })
-                }
+                onChange={(v) => onUpdate({ params: { ...params, taskId: v } })}
                 placeholder="{{trigger_data.id}}"
+                availableVariables={availableVariables}
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Task text</Label>
-              <Input
+            </FieldRow>
+            <FieldRow label="Task text">
+              <InputWithPicker
                 value={(params.text as string) ?? ""}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  onUpdate({ params: { ...params, text: e.target.value } })
-                }
+                onChange={(v) => onUpdate({ params: { ...params, text: v } })}
                 placeholder="Follow up with client"
+                availableVariables={availableVariables}
               />
-            </div>
+            </FieldRow>
             <div className="space-y-2">
               <Label>Type</Label>
               <Input
@@ -921,23 +1235,22 @@ function ConfigPanel({
     const message = (data.message as string) || "";
     return (
       <div className="space-y-4">
-        <div className="space-y-2">
-          <Label>Channel</Label>
-          <Input
+        <FieldRow label="Channel">
+          <InputWithPicker
             value={channel}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdate({ channel: e.target.value })}
+            onChange={(v) => onUpdate({ channel: v })}
             placeholder="#general or @username"
+            availableVariables={availableVariables}
           />
-        </div>
-        <div className="space-y-2">
-          <Label>Message</Label>
-          <Textarea
+        </FieldRow>
+        <FieldRow label="Message">
+          <TextareaWithPicker
             value={message}
-            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => onUpdate({ message: e.target.value })}
+            onChange={(v) => onUpdate({ message: v })}
             placeholder="New deal: {{trigger_data.name}}"
-            rows={4}
+            availableVariables={availableVariables}
           />
-        </div>
+        </FieldRow>
         <VariableHint />
       </div>
     );
@@ -981,31 +1294,30 @@ function ConfigPanel({
     const body = (data.body as string) || "";
     return (
       <div className="space-y-4">
-        <div className="space-y-2">
-          <Label>To</Label>
-          <Input
+        <FieldRow label="To">
+          <InputWithPicker
             value={to}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdate({ to: e.target.value })}
+            onChange={(v) => onUpdate({ to: v })}
             placeholder="recipient@example.com"
+            availableVariables={availableVariables}
           />
-        </div>
-        <div className="space-y-2">
-          <Label>Subject</Label>
-          <Input
+        </FieldRow>
+        <FieldRow label="Subject">
+          <InputWithPicker
             value={subject}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => onUpdate({ subject: e.target.value })}
+            onChange={(v) => onUpdate({ subject: v })}
             placeholder="Update: {{trigger_data.name}}"
+            availableVariables={availableVariables}
           />
-        </div>
-        <div className="space-y-2">
-          <Label>Body</Label>
-          <Textarea
+        </FieldRow>
+        <FieldRow label="Body">
+          <TextareaWithPicker
             value={body}
-            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => onUpdate({ body: e.target.value })}
+            onChange={(v) => onUpdate({ body: v })}
             placeholder="{{ai_result}}"
-            rows={4}
+            availableVariables={availableVariables}
           />
-        </div>
+        </FieldRow>
         <VariableHint />
       </div>
     );
@@ -1016,15 +1328,14 @@ function ConfigPanel({
     const maxSteps = (data.maxSteps as number) ?? 6;
     return (
       <div className="space-y-4">
-        <div className="space-y-2">
-          <Label>Objective</Label>
-          <Textarea
+        <FieldRow label="Objective">
+          <TextareaWithPicker
             value={objective}
-            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => onUpdate({ objective: e.target.value })}
+            onChange={(v) => onUpdate({ objective: v })}
             placeholder="Find contacts from {{trigger_data.company}} and create a follow-up task"
-            rows={4}
+            availableVariables={availableVariables}
           />
-        </div>
+        </FieldRow>
         <div className="space-y-2">
           <Label>Max steps</Label>
           <Input

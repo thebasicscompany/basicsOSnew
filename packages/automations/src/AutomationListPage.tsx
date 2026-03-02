@@ -3,8 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getList, update, remove, create } from "basics-os/src/lib/api/crm";
 import { fetchApi } from "basics-os/src/lib/api";
 import { Button } from "basics-os/src/components/ui/button";
+import { Input } from "basics-os/src/components/ui/input";
 import { Switch } from "basics-os/src/components/ui/switch";
-import { Badge } from "basics-os/src/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -23,12 +23,13 @@ import {
 import { AutomationRunsPanel } from "./AutomationRunsPanel";
 import { toast } from "sonner";
 import { useState } from "react";
-import { MoreHorizontal, Play, Plus, Workflow } from "lucide-react";
+import { MoreHorizontal, Play, Plus, Search, Workflow } from "lucide-react";
 
 export interface AutomationRule {
   id: number;
   salesId: number;
   name: string;
+  description?: string | null;
   enabled: boolean;
   workflowDefinition: { nodes: Array<{ type: string; data: Record<string, unknown> }>; edges: unknown[] };
   lastRunAt: string | null;
@@ -50,6 +51,59 @@ function getTriggerLabel(rule: AutomationRule): string {
   return "—";
 }
 
+const ACTION_SHORT_LABELS: Record<string, string> = {
+  action_email: "Send Email",
+  action_ai: "AI Task",
+  action_web_search: "Web Search",
+  action_crm: "CRM Action",
+  action_slack: "Slack Message",
+  action_gmail_read: "Gmail Read",
+  action_gmail_send: "Gmail Send",
+  action_ai_agent: "AI Agent",
+  action_condition: "Condition",
+};
+
+function getActionSummary(rule: AutomationRule): string {
+  const nodes = rule.workflowDefinition?.nodes ?? [];
+  const actions = nodes
+    .filter((n) => !n.type.startsWith("trigger_"))
+    .map((n) => ACTION_SHORT_LABELS[n.type] ?? n.type);
+  return actions.length > 0 ? actions.join(" → ") : "No actions";
+}
+
+function StatusDot({ rule }: { rule: AutomationRule }) {
+  if (!rule.enabled) {
+    return (
+      <span className="flex items-center gap-1.5 text-muted-foreground text-sm">
+        <span className="size-2 rounded-full bg-muted-foreground/40" />
+        Disabled
+      </span>
+    );
+  }
+  if (!rule.lastRunAt) {
+    return (
+      <span className="flex items-center gap-1.5 text-muted-foreground text-sm">
+        <span className="size-2 rounded-full bg-muted-foreground/40" />
+        Never run
+      </span>
+    );
+  }
+  if (rule.lastRunStatus === "error") {
+    return (
+      <span className="flex items-center gap-1.5 text-destructive text-sm">
+        <span className="size-2 rounded-full bg-destructive" />
+        Failed
+      </span>
+    );
+  }
+  return (
+    <span className="flex items-center gap-1.5 text-green-600 text-sm">
+      <span className="size-2 rounded-full bg-green-500" />
+      OK
+    </span>
+  );
+}
+
 function useAutomationRules() {
   return useQuery({
     queryKey: ["automation_rules"],
@@ -61,6 +115,7 @@ export function AutomationListPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [runsPanelRuleId, setRunsPanelRuleId] = useState<number | null>(null);
+  const [search, setSearch] = useState("");
 
   const { data, isPending, isError } = useAutomationRules();
   const updateRule = useMutation({
@@ -102,7 +157,10 @@ export function AutomationListPage() {
     onError: () => toast.error("Failed to trigger run"),
   });
 
-  const rules = data?.data ?? [];
+  const allRules = data?.data ?? [];
+  const rules = search
+    ? allRules.filter((r) => r.name.toLowerCase().includes(search.toLowerCase()))
+    : allRules;
 
   return (
     <div className="space-y-6">
@@ -120,13 +178,26 @@ export function AutomationListPage() {
         </Button>
       </div>
 
+      {/* Search */}
+      {(allRules.length > 0 || isPending) && (
+        <div className="relative max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+          <Input
+            className="pl-9"
+            placeholder="Search automations…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+      )}
+
       {/* Error */}
       {isError && (
         <p className="text-sm text-destructive">Failed to load automations.</p>
       )}
 
       {/* Empty state */}
-      {!isPending && !isError && rules.length === 0 && (
+      {!isPending && !isError && allRules.length === 0 && (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-20 text-center">
           <div className="mb-4 flex size-14 items-center justify-center rounded-full bg-muted">
             <Workflow className="size-7 text-muted-foreground" />
@@ -142,6 +213,11 @@ export function AutomationListPage() {
         </div>
       )}
 
+      {/* No search results */}
+      {!isPending && !isError && allRules.length > 0 && rules.length === 0 && (
+        <p className="text-sm text-muted-foreground">No automations match "{search}".</p>
+      )}
+
       {/* Table */}
       {(isPending || rules.length > 0) && (
         <div className="overflow-hidden rounded-lg border">
@@ -150,7 +226,8 @@ export function AutomationListPage() {
               <TableRow className="bg-muted/40">
                 <TableHead>Name</TableHead>
                 <TableHead>Trigger</TableHead>
-                <TableHead>Steps</TableHead>
+                <TableHead>Actions</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Last run</TableHead>
                 <TableHead>Enabled</TableHead>
                 <TableHead className="w-10" />
@@ -160,7 +237,7 @@ export function AutomationListPage() {
               {isPending
                 ? Array.from({ length: 3 }).map((_, i) => (
                     <TableRow key={i}>
-                      {Array.from({ length: 6 }).map((_, j) => (
+                      {Array.from({ length: 7 }).map((_, j) => (
                         <TableCell key={j}>
                           <div className="h-4 w-24 animate-pulse rounded bg-muted" />
                         </TableCell>
@@ -173,22 +250,27 @@ export function AutomationListPage() {
                       className="cursor-pointer"
                       onClick={() => navigate(`/automations/${rule.id}`)}
                     >
-                      <TableCell className="font-medium">{rule.name}</TableCell>
+                      <TableCell>
+                        <div className="font-medium">{rule.name}</div>
+                        {rule.description && (
+                          <div className="text-xs text-muted-foreground mt-0.5 max-w-[200px] truncate">
+                            {rule.description}
+                          </div>
+                        )}
+                      </TableCell>
                       <TableCell className="text-sm text-muted-foreground capitalize">
                         {getTriggerLabel(rule)}
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {rule.workflowDefinition?.nodes?.length ?? 0} nodes
+                      <TableCell className="text-xs text-muted-foreground max-w-[160px] truncate">
+                        {getActionSummary(rule)}
+                      </TableCell>
+                      <TableCell>
+                        <StatusDot rule={rule} />
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                          {rule.lastRunAt
-                            ? new Date(rule.lastRunAt).toLocaleString()
-                            : "Never"}
-                          {rule.lastRunStatus === "error" && (
-                            <Badge variant="destructive" className="text-xs">Last run failed</Badge>
-                          )}
-                        </div>
+                        {rule.lastRunAt
+                          ? new Date(rule.lastRunAt).toLocaleString()
+                          : "Never"}
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <Switch

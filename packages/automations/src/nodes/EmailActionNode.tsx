@@ -19,15 +19,19 @@ export function EmailActionNode({
 }: NodeProps<{ type: "action_email"; data: EmailActionData }>) {
   const to = data?.to?.trim() || "";
   const display = to ? (to.length > 20 ? `${to.slice(0, 20)}…` : to) : "Send Email";
+  const isInvalid = !data?.to || !data?.subject;
 
   return (
     <WorkflowNode
       className={cn(
-        "flex w-40 flex-col items-center justify-center shadow-none transition-all duration-150 ease-out",
+        "relative flex w-40 flex-col items-center justify-center shadow-none transition-all duration-150 ease-out",
         selected && "border-primary"
       )}
       handles={{ target: true, source: true }}
     >
+      {isInvalid && (
+        <span className="absolute -top-1 -right-1 flex size-3.5 items-center justify-center rounded-full bg-destructive text-[9px] text-white">!</span>
+      )}
       <div className="flex flex-col items-center justify-center gap-2 p-3">
         <Mail className="size-5 text-amber-400" strokeWidth={1.5} />
         <div className="flex flex-col items-center gap-1 text-center">
