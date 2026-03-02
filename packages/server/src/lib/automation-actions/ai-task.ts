@@ -20,6 +20,7 @@ export async function executeAI(
       messages: [{ role: "user", content: prompt }],
       stream: false,
     }),
+    signal: AbortSignal.timeout(30_000),
   });
 
   if (!response.ok) {

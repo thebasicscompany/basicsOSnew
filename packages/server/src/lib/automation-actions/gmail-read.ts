@@ -18,6 +18,7 @@ export async function executeGmailRead(
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({ query, maxResults }),
+      signal: AbortSignal.timeout(30_000),
     },
   );
 

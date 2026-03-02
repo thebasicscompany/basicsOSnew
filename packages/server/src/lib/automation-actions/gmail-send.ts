@@ -19,6 +19,7 @@ export async function executeGmailSend(
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({ to, subject, body }),
+      signal: AbortSignal.timeout(30_000),
     },
   );
 

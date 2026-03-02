@@ -18,6 +18,7 @@ export const automationRules = pgTable("automation_rules", {
   enabled: boolean("enabled").notNull().default(true),
   workflowDefinition: jsonb("workflow_definition").notNull().default({}),
   lastRunAt: timestamp("last_run_at", { withTimezone: true }),
+  lastRunStatus: varchar("last_run_status", { length: 16 }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });

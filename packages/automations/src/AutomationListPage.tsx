@@ -1,8 +1,10 @@
 import { useNavigate } from "react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getList, update, remove } from "basics-os/src/lib/api/crm";
+import { getList, update, remove, create } from "basics-os/src/lib/api/crm";
+import { fetchApi } from "basics-os/src/lib/api";
 import { Button } from "basics-os/src/components/ui/button";
 import { Switch } from "basics-os/src/components/ui/switch";
+import { Badge } from "basics-os/src/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -21,7 +23,7 @@ import {
 import { AutomationRunsPanel } from "./AutomationRunsPanel";
 import { toast } from "sonner";
 import { useState } from "react";
-import { MoreHorizontal, Plus, Workflow } from "lucide-react";
+import { MoreHorizontal, Play, Plus, Workflow } from "lucide-react";
 
 export interface AutomationRule {
   id: number;
@@ -30,6 +32,7 @@ export interface AutomationRule {
   enabled: boolean;
   workflowDefinition: { nodes: Array<{ type: string; data: Record<string, unknown> }>; edges: unknown[] };
   lastRunAt: string | null;
+  lastRunStatus: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -72,6 +75,31 @@ export function AutomationListPage() {
       toast.success("Automation deleted");
     },
     onError: () => toast.error("Failed to delete automation"),
+  });
+  const duplicateRule = useMutation({
+    mutationFn: (rule: AutomationRule) =>
+      create<AutomationRule>("automation_rules", {
+        name: `${rule.name} (copy)`,
+        enabled: false,
+        workflowDefinition: rule.workflowDefinition,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["automation_rules"] });
+      toast.success("Automation duplicated");
+    },
+    onError: () => toast.error("Failed to duplicate automation"),
+  });
+  const triggerNow = useMutation({
+    mutationFn: (ruleId: number) =>
+      fetchApi<{ ok: boolean }>("/api/automation-runs/trigger", {
+        method: "POST",
+        body: JSON.stringify({ ruleId }),
+      }),
+    onSuccess: (_data, ruleId) => {
+      toast.success("Run triggered");
+      setRunsPanelRuleId(ruleId);
+    },
+    onError: () => toast.error("Failed to trigger run"),
   });
 
   const rules = data?.data ?? [];
@@ -153,9 +181,14 @@ export function AutomationListPage() {
                         {rule.workflowDefinition?.nodes?.length ?? 0} nodes
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {rule.lastRunAt
-                          ? new Date(rule.lastRunAt).toLocaleString()
-                          : "Never"}
+                        <div className="flex items-center gap-2">
+                          {rule.lastRunAt
+                            ? new Date(rule.lastRunAt).toLocaleString()
+                            : "Never"}
+                          {rule.lastRunStatus === "error" && (
+                            <Badge variant="destructive" className="text-xs">Last run failed</Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <Switch
@@ -179,6 +212,16 @@ export function AutomationListPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setRunsPanelRuleId(rule.id)}>
                               Run history
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => triggerNow.mutate(rule.id)}
+                              disabled={triggerNow.isPending}
+                            >
+                              <Play className="mr-2 size-3.5" />
+                              Run now
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => duplicateRule.mutate(rule)}>
+                              Duplicate
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem

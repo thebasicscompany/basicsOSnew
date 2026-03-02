@@ -15,6 +15,7 @@ export async function executeSlack(
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({ channel, text: message }),
+      signal: AbortSignal.timeout(30_000),
     },
   );
 

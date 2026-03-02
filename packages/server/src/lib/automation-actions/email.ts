@@ -17,6 +17,7 @@ export async function executeEmail(
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({ to, subject, body }),
+    signal: AbortSignal.timeout(30_000),
   });
 
   if (!response.ok) {

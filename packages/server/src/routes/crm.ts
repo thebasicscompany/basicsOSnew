@@ -21,7 +21,7 @@ import {
   upsertEntityEmbedding,
   deleteEntityEmbedding,
 } from "../lib/embeddings.js";
-import { fireEvent } from "../lib/automation-engine.js";
+import { fireEvent, reloadRule } from "../lib/automation-engine.js";
 
 type BetterAuthInstance = ReturnType<typeof createAuth>;
 
@@ -466,6 +466,11 @@ export function createCrmRoutes(
     if (entityTypeU && apiKeyU && typeof id === "number") {
       const chunkText = buildEntityText(entityTypeU, updated as Record<string, unknown>);
       upsertEntityEmbedding(db, env.BASICOS_API_URL, apiKeyU, salesId, entityTypeU, id, chunkText).catch(() => {});
+    }
+
+    // Reload schedule rule if workflow definition changed
+    if (resource === "automation_rules") {
+      reloadRule(id as number).catch(() => {});
     }
 
     // Fire-and-forget: trigger automations

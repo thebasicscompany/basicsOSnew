@@ -15,6 +15,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getOne, create, update } from "basics-os/src/lib/api/crm";
+import { fetchApi } from "basics-os/src/lib/api";
 import { Button } from "basics-os/src/components/ui/button";
 import { Input } from "basics-os/src/components/ui/input";
 import { Label } from "basics-os/src/components/ui/label";
@@ -185,9 +186,54 @@ function BuilderInner() {
     onError: () => toast.error("Failed to save automation"),
   });
 
+  const triggerNow = useMutation({
+    mutationFn: () =>
+      fetchApi<{ ok: boolean }>("/api/automation-runs/trigger", {
+        method: "POST",
+        body: JSON.stringify({ ruleId }),
+      }),
+    onSuccess: () => {
+      toast.success("Run triggered");
+      setRunsPanelOpen(true);
+    },
+    onError: () => toast.error("Failed to trigger run"),
+  });
+
   const isSaving = createRule.isPending || updateRule.isPending;
 
+  function validateWorkflow(ns: WorkflowNode[], es: WorkflowEdgeType[]): string[] {
+    const errors: string[] = [];
+    const hasTrigger = ns.some((n) => n.type === "trigger_event" || n.type === "trigger_schedule");
+    if (!hasTrigger) errors.push("No trigger node — add an Event Trigger or Schedule");
+
+    const targetIds = new Set(es.map((e) => e.target));
+    for (const node of ns) {
+      if (node.type === "trigger_event" || node.type === "trigger_schedule") continue;
+      if (!targetIds.has(node.id)) {
+        errors.push(`Node "${node.type}" has no incoming connection`);
+      }
+    }
+
+    for (const node of ns) {
+      const d = node.data ?? {};
+      if (node.type === "trigger_event" && !d.event) errors.push("Event Trigger: event must be selected");
+      if (node.type === "trigger_schedule" && !d.cron) errors.push("Schedule Trigger: cron expression is required");
+      if (node.type === "action_email" && (!d.to || !d.subject)) errors.push("Send Email: 'to' and 'subject' are required");
+      if (node.type === "action_web_search" && !d.query) errors.push("Web Search: query is required");
+      if ((node.type === "action_ai" || node.type === "action_ai_agent") && !(d.prompt || d.objective)) {
+        errors.push(`${node.type === "action_ai" ? "AI Task" : "AI Agent"}: prompt/objective is required`);
+      }
+      if (node.type === "action_crm" && !d.action) errors.push("CRM Action: action must be selected");
+    }
+    return errors;
+  }
+
   const onSave = () => {
+    const validationErrors = validateWorkflow(nodes, edges);
+    if (validationErrors.length > 0) {
+      toast.error(`Fix these issues:\n• ${validationErrors.join("\n• ")}`);
+      return;
+    }
     const payload = {
       name: name.trim() || "Untitled Automation",
       workflowDefinition: {
@@ -267,17 +313,29 @@ function BuilderInner() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Run history (existing automations only) */}
+          {/* Run history + Run now (existing automations only) */}
           {!isNew && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="gap-1.5 text-muted-foreground"
-              onClick={() => setRunsPanelOpen(true)}
-            >
-              <Play className="size-4" />
-              History
-            </Button>
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-1.5 text-muted-foreground"
+                onClick={() => setRunsPanelOpen(true)}
+              >
+                <Play className="size-4" />
+                History
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => triggerNow.mutate()}
+                disabled={triggerNow.isPending}
+              >
+                <Play className="size-4" />
+                Run now
+              </Button>
+            </>
           )}
 
           {/* Save */}
@@ -575,6 +633,9 @@ function ConfigPanel({
               <SelectItem value="create_contact">Create contact</SelectItem>
               <SelectItem value="create_note">Create contact note</SelectItem>
               <SelectItem value="create_deal_note">Create deal note</SelectItem>
+              <SelectItem value="update_contact">Update contact</SelectItem>
+              <SelectItem value="update_deal">Update deal</SelectItem>
+              <SelectItem value="update_task">Update task</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -696,6 +757,152 @@ function ConfigPanel({
                 }
                 placeholder="{{ai_result}}"
                 rows={4}
+              />
+            </div>
+          </>
+        )}
+
+        {action === "update_contact" && (
+          <>
+            <div className="space-y-2">
+              <Label>Contact ID</Label>
+              <Input
+                value={(params.contactId as string) ?? ""}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  onUpdate({ params: { ...params, contactId: e.target.value } })
+                }
+                placeholder="{{trigger_data.id}}"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>First name</Label>
+              <Input
+                value={(params.firstName as string) ?? ""}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  onUpdate({ params: { ...params, firstName: e.target.value } })
+                }
+                placeholder="{{trigger_data.firstName}}"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Last name</Label>
+              <Input
+                value={(params.lastName as string) ?? ""}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  onUpdate({ params: { ...params, lastName: e.target.value } })
+                }
+                placeholder="{{trigger_data.lastName}}"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input
+                value={(params.email as string) ?? ""}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  onUpdate({ params: { ...params, email: e.target.value } })
+                }
+                placeholder="{{trigger_data.email}}"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Input
+                value={(params.status as string) ?? ""}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  onUpdate({ params: { ...params, status: e.target.value } })
+                }
+                placeholder="cold / warm / hot"
+              />
+            </div>
+          </>
+        )}
+
+        {action === "update_deal" && (
+          <>
+            <div className="space-y-2">
+              <Label>Deal ID</Label>
+              <Input
+                value={(params.dealId as string) ?? ""}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  onUpdate({ params: { ...params, dealId: e.target.value } })
+                }
+                placeholder="{{trigger_data.id}}"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Name</Label>
+              <Input
+                value={(params.name as string) ?? ""}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  onUpdate({ params: { ...params, name: e.target.value } })
+                }
+                placeholder="{{trigger_data.name}}"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Stage</Label>
+              <Input
+                value={(params.stage as string) ?? ""}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  onUpdate({ params: { ...params, stage: e.target.value } })
+                }
+                placeholder="opportunity / proposal / won"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Amount</Label>
+              <Input
+                type="number"
+                value={(params.amount as string) ?? ""}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  onUpdate({ params: { ...params, amount: e.target.value } })
+                }
+                placeholder="10000"
+              />
+            </div>
+          </>
+        )}
+
+        {action === "update_task" && (
+          <>
+            <div className="space-y-2">
+              <Label>Task ID</Label>
+              <Input
+                value={(params.taskId as string) ?? ""}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  onUpdate({ params: { ...params, taskId: e.target.value } })
+                }
+                placeholder="{{trigger_data.id}}"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Task text</Label>
+              <Input
+                value={(params.text as string) ?? ""}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  onUpdate({ params: { ...params, text: e.target.value } })
+                }
+                placeholder="Follow up with client"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Type</Label>
+              <Input
+                value={(params.type as string) ?? ""}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  onUpdate({ params: { ...params, type: e.target.value } })
+                }
+                placeholder="Todo"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Due date</Label>
+              <Input
+                type="date"
+                value={(params.dueDate as string) ?? ""}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  onUpdate({ params: { ...params, dueDate: e.target.value } })
+                }
               />
             </div>
           </>

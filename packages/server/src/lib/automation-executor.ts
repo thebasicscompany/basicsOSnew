@@ -12,6 +12,31 @@ import { executeAIAgent } from "./automation-actions/ai-agent.js";
 
 type SalesRow = { id: number; basicsApiKey?: string | null };
 
+export interface WorkflowStep {
+  nodeId: string;
+  type: string;
+  startedAt: string;
+  finishedAt: string;
+  durationMs: number;
+  outputKey?: string;
+  error?: string;
+}
+
+async function withRetry<T>(fn: () => Promise<T>, attempts = 2): Promise<T> {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const status = (err as { status?: number }).status;
+      if (status && status < 500) throw err; // don't retry 4xx
+      lastErr = err;
+      if (i < attempts - 1) await new Promise((r) => setTimeout(r, 2000));
+    }
+  }
+  throw lastErr;
+}
+
 export async function executeWorkflow(
   workflowDef: WorkflowDefinition,
   triggerData: Record<string, unknown>,
@@ -59,6 +84,7 @@ export async function executeWorkflow(
     sales_id: sales.id,
   };
 
+  const steps: WorkflowStep[] = [];
   const apiKey = sales.basicsApiKey ?? "";
 
   for (const nodeId of order) {
@@ -66,63 +92,91 @@ export async function executeWorkflow(
     if (!node) continue;
 
     const data = resolveTemplates(node.data, context);
+    const stepStart = Date.now();
+    const step: WorkflowStep = {
+      nodeId,
+      type: node.type,
+      startedAt: new Date(stepStart).toISOString(),
+      finishedAt: "",
+      durationMs: 0,
+    };
 
-    switch (node.type) {
-      case "trigger_event":
-      case "trigger_schedule":
-        // Trigger nodes just initialize context
-        break;
+    try {
+      switch (node.type) {
+        case "trigger_event":
+        case "trigger_schedule":
+          // Trigger nodes just initialize context
+          break;
 
-      case "action_email":
-        await executeEmail(data, context, apiKey, env);
-        break;
+        case "action_email":
+          await withRetry(() => executeEmail(data, context, apiKey, env));
+          break;
 
-      case "action_ai": {
-        const result = await executeAI(data, context, apiKey, env);
-        context.ai_result = result;
-        break;
+        case "action_ai": {
+          const result = await withRetry(() => executeAI(data, context, apiKey, env));
+          context.ai_result = result;
+          step.outputKey = "ai_result";
+          break;
+        }
+
+        case "action_web_search": {
+          const results = await withRetry(() => executeWebSearch(data, context, env, apiKey));
+          context.web_results = results;
+          step.outputKey = "web_results";
+          break;
+        }
+
+        case "action_crm": {
+          const crmResult = await withRetry(() => executeCrmAction(data, context, db, sales.id));
+          context.crm_result = crmResult.crm_result;
+          step.outputKey = "crm_result";
+          break;
+        }
+
+        case "action_slack": {
+          const slackResult = await withRetry(() => executeSlack(data, context, apiKey, env));
+          context.slack_result = slackResult;
+          step.outputKey = "slack_result";
+          break;
+        }
+
+        case "action_gmail_read": {
+          const gmailRead = await withRetry(() => executeGmailRead(data, context, apiKey, env));
+          context.gmail_messages = gmailRead.gmail_messages;
+          step.outputKey = "gmail_messages";
+          break;
+        }
+
+        case "action_gmail_send":
+          await withRetry(() => executeGmailSend(data, context, apiKey, env));
+          break;
+
+        case "action_ai_agent": {
+          const agentResult = await withRetry(() => executeAIAgent(data, context, db, sales.id, apiKey, env));
+          context.ai_agent_result = agentResult.ai_agent_result;
+          step.outputKey = "ai_agent_result";
+          break;
+        }
+
+        default:
+          console.warn(`[automation-executor] unknown node type: ${node.type}`);
       }
-
-      case "action_web_search": {
-        const results = await executeWebSearch(data, context, env, apiKey);
-        context.web_results = results;
-        break;
-      }
-
-      case "action_crm": {
-        const crmResult = await executeCrmAction(data, context, db, sales.id);
-        context.crm_result = crmResult.crm_result;
-        break;
-      }
-
-      case "action_slack": {
-        const slackResult = await executeSlack(data, context, apiKey, env);
-        context.slack_result = slackResult;
-        break;
-      }
-
-      case "action_gmail_read": {
-        const gmailRead = await executeGmailRead(data, context, apiKey, env);
-        context.gmail_messages = gmailRead.gmail_messages;
-        break;
-      }
-
-      case "action_gmail_send":
-        await executeGmailSend(data, context, apiKey, env);
-        break;
-
-      case "action_ai_agent": {
-        const agentResult = await executeAIAgent(data, context, db, sales.id, apiKey, env);
-        context.ai_agent_result = agentResult.ai_agent_result;
-        break;
-      }
-
-      default:
-        console.warn(`[automation-executor] unknown node type: ${node.type}`);
+    } catch (err) {
+      step.error = err instanceof Error ? err.message : String(err);
+      const now = Date.now();
+      step.finishedAt = new Date(now).toISOString();
+      step.durationMs = now - stepStart;
+      steps.push(step);
+      throw err;
     }
+
+    const now = Date.now();
+    step.finishedAt = new Date(now).toISOString();
+    step.durationMs = now - stepStart;
+    steps.push(step);
   }
 
-  return context;
+  return { ...context, _steps: steps };
 }
 
 function resolveValue(value: unknown, context: Record<string, unknown>): unknown {

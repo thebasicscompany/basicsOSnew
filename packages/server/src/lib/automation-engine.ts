@@ -124,6 +124,22 @@ export async function reloadRule(ruleId: number) {
   }
 }
 
+export async function triggerRuleNow(ruleId: number, salesId: number) {
+  if (!_boss || !_db) throw new Error("Automation engine not started");
+
+  // Verify rule belongs to salesId
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const rules: any[] = await (_db as any)
+    .select()
+    .from(schema.automationRules)
+    .where(and(eq(schema.automationRules.id, ruleId), eq(schema.automationRules.salesId, salesId)))
+    .limit(1);
+
+  if (!rules[0]) throw new Error(`Rule ${ruleId} not found for this user`);
+
+  await _boss.send("run-automation", { ruleId, salesId, triggerData: {} });
+}
+
 export async function fireEvent(
   event: string,
   payload: Record<string, unknown>,
@@ -191,13 +207,18 @@ async function runAutomation(
 
     if (!salesRow) throw new Error(`Sales user ${salesId} not found`);
 
-    const result = await executeWorkflow(
-      rule.workflowDefinition as WorkflowDefinition,
-      triggerData,
-      { id: salesRow.id as number, basicsApiKey: salesRow.basicsApiKey as string | null },
-      _db!,
-      _env!,
-    );
+    const result = await Promise.race([
+      executeWorkflow(
+        rule.workflowDefinition as WorkflowDefinition,
+        triggerData,
+        { id: salesRow.id as number, basicsApiKey: salesRow.basicsApiKey as string | null },
+        _db!,
+        _env!,
+      ),
+      new Promise<never>((_, rej) =>
+        setTimeout(() => rej(new Error("Workflow timeout after 5 minutes")), 5 * 60 * 1000)
+      ),
+    ]);
 
     await db
       .update(schema.automationRuns)
@@ -206,7 +227,7 @@ async function runAutomation(
 
     await db
       .update(schema.automationRules)
-      .set({ lastRunAt: new Date() })
+      .set({ lastRunAt: new Date(), lastRunStatus: "success" })
       .where(eq(schema.automationRules.id, ruleId));
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
@@ -217,5 +238,9 @@ async function runAutomation(
         .set({ status: "error", error, finishedAt: new Date() })
         .where(eq(schema.automationRuns.id, run.id));
     }
+    await db
+      .update(schema.automationRules)
+      .set({ lastRunAt: new Date(), lastRunStatus: "error" })
+      .where(eq(schema.automationRules.id, ruleId));
   }
 }

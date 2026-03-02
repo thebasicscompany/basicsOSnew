@@ -16,6 +16,7 @@ export async function executeWebSearch(
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({ query, numResults }),
+    signal: AbortSignal.timeout(30_000),
   });
 
   if (!res.ok) {

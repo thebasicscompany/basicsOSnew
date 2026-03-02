@@ -9,6 +9,16 @@ import {
 } from "basics-os/src/components/ui/sheet";
 import { Badge } from "basics-os/src/components/ui/badge";
 
+export interface WorkflowStep {
+  nodeId: string;
+  type: string;
+  startedAt: string;
+  finishedAt: string;
+  durationMs: number;
+  outputKey?: string;
+  error?: string;
+}
+
 export interface AutomationRun {
   id: number;
   ruleId: number;
@@ -71,6 +81,22 @@ export function AutomationRunsPanel({ ruleId, open, onOpenChange }: AutomationRu
   );
 }
 
+function stepTypeLabel(type: string): string {
+  const map: Record<string, string> = {
+    trigger_event: "Event Trigger",
+    trigger_schedule: "Schedule Trigger",
+    action_email: "Send Email",
+    action_ai: "AI Task",
+    action_web_search: "Web Search",
+    action_crm: "CRM Action",
+    action_slack: "Slack Message",
+    action_gmail_read: "Gmail Read",
+    action_gmail_send: "Gmail Send",
+    action_ai_agent: "AI Agent",
+  };
+  return map[type] ?? type;
+}
+
 function RunRow({
   run,
   formatDuration,
@@ -79,6 +105,9 @@ function RunRow({
   formatDuration: (start: string, end: string | null) => string;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const result = run.result as Record<string, unknown> | null;
+  const steps = (result?._steps ?? []) as WorkflowStep[];
+
   return (
     <div className="rounded-lg border p-3 space-y-2">
       <div className="flex items-center justify-between gap-2">
@@ -100,6 +129,29 @@ function RunRow({
       <div className="text-xs text-muted-foreground">
         Duration: {formatDuration(run.startedAt, run.finishedAt)}
       </div>
+
+      {/* Steps timeline */}
+      {steps.length > 0 && (
+        <div className="space-y-1 pt-1">
+          {steps.map((step, idx) => (
+            <div key={idx} className="flex items-center gap-2 text-xs">
+              <span className={step.error ? "text-destructive" : "text-green-600"}>
+                {step.error ? "✗" : "✓"}
+              </span>
+              <span className="font-medium">{stepTypeLabel(step.type)}</span>
+              <span className="text-muted-foreground ml-auto">
+                {step.durationMs < 1000 ? `${step.durationMs}ms` : `${(step.durationMs / 1000).toFixed(1)}s`}
+              </span>
+              {step.error && (
+                <span className="text-destructive truncate max-w-[120px]" title={step.error}>
+                  {step.error}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       <button
         type="button"
         className="text-xs text-primary hover:underline"
@@ -111,10 +163,9 @@ function RunRow({
         <pre className="text-xs bg-muted p-2 rounded overflow-auto max-h-32">
           {run.error
             ? JSON.stringify({ error: run.error }, null, 2)
-            : JSON.stringify(run.result ?? {}, null, 2)}
+            : JSON.stringify(result ?? {}, null, 2)}
         </pre>
       )}
     </div>
   );
 }
-
