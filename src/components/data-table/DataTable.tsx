@@ -259,23 +259,25 @@ export function DataTable({
     null,
   );
 
-  // ---- Column widths (local override) ----
+  // ---- Column widths (local override; only store explicitly resized/saved widths) ----
   const [columnWidths, setColumnWidths] = React.useState<
     Record<string, number>
   >(() => {
     const widths: Record<string, number> = {};
     for (const vc of viewColumns) {
-      widths[vc.fieldId] = parseWidth(vc.width);
+      if (vc.width != null && vc.width !== "") {
+        widths[vc.fieldId] = parseWidth(vc.width);
+      }
     }
     return widths;
   });
 
-  // Sync when viewColumns change externally
+  // Sync when viewColumns change externally (e.g. view switch)
   React.useEffect(() => {
     setColumnWidths((prev) => {
       const next = { ...prev };
       for (const vc of viewColumns) {
-        if (!(vc.fieldId in next)) {
+        if (vc.width != null && vc.width !== "" && !(vc.fieldId in next)) {
           next[vc.fieldId] = parseWidth(vc.width);
         }
       }
@@ -311,15 +313,19 @@ export function DataTable({
     // 1. Data columns from attributes
     for (const { attribute, viewColumn } of visibleCols) {
       const fieldType = getFieldType(attribute.uiType);
-      const colWidth =
-        columnWidths[attribute.id] ?? parseWidth(viewColumn.width);
+      const hasExplicitWidth =
+        (columnWidths[attribute.id] ?? 0) > 0 || (viewColumn.width != null && viewColumn.width !== "");
+      const colWidth = hasExplicitWidth
+        ? (columnWidths[attribute.id] ?? parseWidth(viewColumn.width))
+        : 1; /* 1px = "fit to content" per table-layout spec */
 
       cols.push({
         id: attribute.id,
         accessorFn: (row) => row[attribute.columnName],
         size: colWidth,
-        minSize: 60,
+        minSize: hasExplicitWidth ? 60 : 1,
         enableResizing: true,
+        meta: { fitContent: !hasExplicitWidth } as Record<string, unknown>,
         header: () => (
           <div className="flex items-center gap-1.5 text-xs font-medium truncate">
             <span className="text-muted-foreground">
@@ -574,7 +580,13 @@ export function DataTable({
           modifiers={[restrictToHorizontalAxis]}
           onDragEnd={handleDragEnd}
         >
-          <Table style={{ width: "max-content", minWidth: "100%" }}>
+          <Table
+            style={{
+              width: "max-content",
+              minWidth: "100%",
+              tableLayout: "auto",
+            }}
+          >
             {/* ---- Header ---- */}
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
@@ -596,6 +608,15 @@ export function DataTable({
                         stickyStyle.zIndex = 3;
                       }
 
+                      const fitContent = (header.column.columnDef.meta as { fitContent?: boolean })?.fitContent;
+                      const sizeStyle = fitContent
+                        ? { width: "max-content" as const, minWidth: "max-content" as const, whiteSpace: "nowrap" as const }
+                        : {
+                            width: header.getSize(),
+                            minWidth: header.column.columnDef.minSize,
+                            maxWidth: header.column.columnDef.maxSize,
+                          };
+
                       if (isSortable) {
                         return (
                           <SortableHeaderCell
@@ -604,9 +625,7 @@ export function DataTable({
                             colSpan={header.colSpan}
                             className={isPrimaryAttr ? "bg-background" : undefined}
                             style={{
-                              width: header.getSize(),
-                              minWidth: header.column.columnDef.minSize,
-                              maxWidth: header.column.columnDef.maxSize,
+                              ...sizeStyle,
                               ...stickyStyle,
                             }}
                           >
@@ -731,14 +750,20 @@ export function DataTable({
                         const matchedCol = visibleCols.find(
                           (c) => c.attribute.id === colId,
                         );
+                        const fitContent = (colDef.meta as { fitContent?: boolean })?.fitContent;
+                        const sizeStyle = fitContent
+                          ? { width: "max-content" as const, minWidth: "max-content" as const, whiteSpace: "nowrap" as const }
+                          : {
+                              width: cell.column.getSize(),
+                              minWidth: colDef.minSize,
+                              maxWidth: colDef.maxSize,
+                            };
 
                         return (
                           <TableCell
                             key={cell.id}
                             style={{
-                              width: cell.column.getSize(),
-                              minWidth: colDef.minSize,
-                              maxWidth: colDef.maxSize,
+                              ...sizeStyle,
                               ...stickyStyle,
                             }}
                             className={cn(
