@@ -1,6 +1,5 @@
+import { CaretDownIcon, PlusIcon } from "@phosphor-icons/react"
 import * as React from "react"
-import { ChevronsUpDown, Plus } from "lucide-react"
-
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -49,7 +48,7 @@ export function WorkspaceSwitcher({
                 <span className="truncate font-medium">{activeWorkspace.name}</span>
                 <span className="truncate text-xs">{activeWorkspace.plan}</span>
               </div>
-              <ChevronsUpDown className="ml-auto" />
+              <CaretDownIcon className="ml-auto" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -77,7 +76,7 @@ export function WorkspaceSwitcher({
             <DropdownMenuSeparator />
             <DropdownMenuItem className="gap-2 p-2">
               <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
-                <Plus className="size-4" />
+                <PlusIcon className="size-4" />
               </div>
               <div className="font-medium text-muted-foreground">Add workspace</div>
             </DropdownMenuItem>

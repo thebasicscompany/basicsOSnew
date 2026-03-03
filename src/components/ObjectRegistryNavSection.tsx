@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router";
-import { Plus } from "lucide-react";
+import { PlusIcon } from "@phosphor-icons/react";
 import {
   SidebarGroup,
   SidebarGroupAction,
@@ -10,7 +10,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { HugeiconsIcon } from "@hugeicons/react";
 import { useObjects } from "@/hooks/use-object-registry";
 import { getObjectIcon } from "@/lib/object-icon-map";
 
@@ -36,7 +35,7 @@ export function ObjectRegistryNavSection() {
           }
         }}
       >
-        <Plus className="size-4" />
+        <PlusIcon className="size-4" />
       </SidebarGroupAction>
       <SidebarGroupContent>
         <SidebarMenu>
@@ -73,7 +72,7 @@ function ObjectNavItem({
     <SidebarMenuItem>
       <SidebarMenuButton asChild isActive={isActive} tooltip={label}>
         <Link to={objectPath}>
-          <HugeiconsIcon icon={IconComponent} className="size-4 shrink-0" />
+          <IconComponent className="size-4 shrink-0" />
           {label}
         </Link>
       </SidebarMenuButton>
@@ -85,7 +84,7 @@ function ObjectNavItem({
           navigate(`${objectPath}?create=true`);
         }}
       >
-        <Plus className="size-4" />
+        <PlusIcon className="size-4" />
       </SidebarMenuAction>
     </SidebarMenuItem>
   );

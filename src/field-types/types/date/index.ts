@@ -1,4 +1,4 @@
-import { Calendar as CalendarIcon } from "lucide-react";
+import { CalendarIcon } from "@phosphor-icons/react"
 import type { FieldTypeDefinition, CalculationType } from "../../types";
 import { DateCellDisplay } from "./DateCellDisplay";
 import { DateCellEditor } from "./DateCellEditor";

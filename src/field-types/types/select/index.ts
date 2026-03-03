@@ -1,4 +1,4 @@
-import { ChevronDown } from "lucide-react";
+import { CaretDownIcon } from "@phosphor-icons/react"
 import type {
   FieldTypeDefinition,
   CalculationType,
@@ -53,7 +53,7 @@ function selectCalc(values: any[], type: CalculationType): any {
 export const SelectFieldType: FieldTypeDefinition = {
   key: "select",
   label: "Select",
-  icon: ChevronDown,
+  icon: CaretDownIcon,
   group: "standard",
 
   hasTypeConfig: true,

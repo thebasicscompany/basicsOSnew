@@ -1,16 +1,15 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router";
 import {
-  ArrowLeft,
-  Star,
-  MoreHorizontal,
-  Pencil,
-  Trash2,
-  Copy,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
-import { HugeiconsIcon } from "@hugeicons/react";
+  ArrowLeftIcon,
+  StarIcon,
+  DotsThreeIcon,
+  PencilIcon,
+  TrashIcon,
+  CopyIcon,
+  CaretLeftIcon,
+  CaretRightIcon,
+} from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -318,7 +317,7 @@ export function RecordDetailPage() {
         </p>
         <Button variant="outline" size="sm" asChild>
           <Link to="/dashboard">
-            <ArrowLeft className="mr-1.5 h-4 w-4" />
+            <ArrowLeftIcon className="mr-1.5 h-4 w-4" />
             Back to dashboard
           </Link>
         </Button>
@@ -336,7 +335,7 @@ export function RecordDetailPage() {
         <p className="text-lg font-medium">{obj.singularName} not found</p>
         <Button variant="outline" size="sm" asChild>
           <Link to={`/objects/${objectSlug}`}>
-            <ArrowLeft className="mr-1.5 h-4 w-4" />
+            <ArrowLeftIcon className="mr-1.5 h-4 w-4" />
             Back to {obj.pluralName}
           </Link>
         </Button>
@@ -381,7 +380,7 @@ export function RecordDetailPage() {
               className="shrink-0 h-10 w-10"
               onClick={() => navigate(`/objects/${objectSlug}`)}
             >
-              <ArrowLeft className="h-5 w-5" />
+              <ArrowLeftIcon className="h-5 w-5" />
             </Button>
 
             {/* Icon */}
@@ -391,8 +390,7 @@ export function RecordDetailPage() {
                 "bg-primary/10",
               )}
             >
-              <HugeiconsIcon
-                icon={IconComponent}
+              <IconComponent
                 className={cn("h-6 w-6", obj.iconColor)}
               />
             </div>
@@ -423,7 +421,7 @@ export function RecordDetailPage() {
                     navigate(`/objects/${objectSlug}/${prevId}`)
                   }
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <CaretLeftIcon className="h-4 w-4" />
                 </Button>
                 <Button
                   variant="outline"
@@ -447,7 +445,7 @@ export function RecordDetailPage() {
               className="h-8 w-8"
               onClick={handleToggleFavorite}
             >
-              <Star
+              <StarIcon
                 className={cn(
                   "h-4 w-4",
                   isFavorite
@@ -461,7 +459,7 @@ export function RecordDetailPage() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="icon" className="h-8 w-8">
-                  <MoreHorizontal className="h-4 w-4" />
+                  <DotsThreeIcon className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -472,7 +470,7 @@ export function RecordDetailPage() {
                   Edit
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleDuplicate}>
-                  <Copy className="mr-2 h-4 w-4" />
+                  <CopyIcon className="mr-2 h-4 w-4" />
                   Duplicate
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
@@ -480,7 +478,7 @@ export function RecordDetailPage() {
                   variant="destructive"
                   onClick={() => setConfirmDeleteOpen(true)}
                 >
-                  <Trash2 className="mr-2 h-4 w-4" />
+                  <TrashIcon className="mr-2 h-4 w-4" />
                   Delete
                 </DropdownMenuItem>
               </DropdownMenuContent>

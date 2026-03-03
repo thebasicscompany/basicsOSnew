@@ -1,3 +1,4 @@
+import { TrashIcon } from "@phosphor-icons/react"
 import { useEffect, useState } from "react";
 import {
   Sheet,
@@ -18,7 +19,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   useCreateContact,
@@ -172,7 +172,7 @@ export function ContactSheet({
                 onClick={() => setConfirmDeleteOpen(true)}
                 disabled={deleteContact.isPending}
               >
-                <Trash2 className="size-3" />
+                <TrashIcon className="size-3" />
                 Delete
               </Button>
             )}

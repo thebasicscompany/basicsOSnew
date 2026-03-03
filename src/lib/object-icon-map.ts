@@ -1,50 +1,48 @@
 /**
- * Maps ObjectConfig.icon slug strings to HugeIcons icon components.
+ * Maps ObjectConfig.icon slug strings to Phosphor icon components.
  *
  * Since icon imports are tree-shakeable, we maintain an explicit map.
  * Add new entries here when seeding new object types.
  */
 import {
-  Building02Icon,
+  BuildingIcon,
   UserIcon,
-  Agreement01Icon,
-  Briefcase01Icon,
-  CheckListIcon,
-  UserMultipleIcon,
-  Invoice01Icon,
-  Calendar01Icon,
-  ShoppingBag01Icon,
-  FileAttachmentIcon,
-  Notebook01Icon,
-} from "@hugeicons/core-free-icons";
+  HandshakeIcon,
+  BriefcaseIcon,
+  ListChecksIcon,
+  UsersIcon,
+  ReceiptIcon,
+  CalendarIcon,
+  ShoppingBagIcon,
+  PaperclipIcon,
+  NotebookIcon,
+} from "@phosphor-icons/react";
 
-/**
- * Icon type from hugeicons — all icon constants share the same shape.
- */
-type HugeIcon = typeof Building02Icon;
+/** Phosphor icon component type */
+type PhosphorIcon = typeof BuildingIcon;
 
-const ICON_MAP: Record<string, HugeIcon> = {
-  "building-2": Building02Icon,
-  users: UserMultipleIcon,
+const ICON_MAP: Record<string, PhosphorIcon> = {
+  "building-2": BuildingIcon,
+  users: UsersIcon,
   user: UserIcon,
-  handshake: Agreement01Icon,
-  briefcase: Briefcase01Icon,
-  checklist: CheckListIcon,
-  invoice: Invoice01Icon,
-  calendar: Calendar01Icon,
-  "shopping-bag": ShoppingBag01Icon,
-  attachment: FileAttachmentIcon,
-  notebook: Notebook01Icon,
+  handshake: HandshakeIcon,
+  briefcase: BriefcaseIcon,
+  checklist: ListChecksIcon,
+  invoice: ReceiptIcon,
+  calendar: CalendarIcon,
+  "shopping-bag": ShoppingBagIcon,
+  attachment: PaperclipIcon,
+  notebook: NotebookIcon,
   // Add more mappings as new object types are seeded
 };
 
 /** Default fallback icon when the slug has no mapping. */
-const FALLBACK_ICON = Building02Icon;
+const FALLBACK_ICON = BuildingIcon;
 
 /**
- * Resolve an icon slug (from ObjectConfig.icon) to a HugeIcons component.
+ * Resolve an icon slug (from ObjectConfig.icon) to a Phosphor icon component.
  * Returns a fallback icon when no mapping exists.
  */
-export function getObjectIcon(slug: string): HugeIcon {
+export function getObjectIcon(slug: string): PhosphorIcon {
   return ICON_MAP[slug] ?? FALLBACK_ICON;
 }

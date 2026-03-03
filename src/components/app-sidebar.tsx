@@ -1,6 +1,5 @@
 import type { ComponentProps } from "react"
-import { GalleryVerticalEnd, Search } from "lucide-react"
-
+import { LayoutIcon, MagnifyingGlassIcon } from "@phosphor-icons/react"
 import { WorkspaceSwitcher } from "@/components/workspace-switcher"
 import { NavGroup } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
@@ -18,7 +17,7 @@ import {
 } from "@/components/ui/sidebar"
 
 const WORKSPACES = [
-  { name: "Basics Hub", logo: GalleryVerticalEnd, plan: "Desktop" },
+  { name: "Basics Hub", logo: LayoutIcon, plan: "Desktop" },
 ]
 
 function dispatchSearch() {
@@ -39,7 +38,7 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
               className="text-muted-foreground"
               onClick={dispatchSearch}
             >
-              <Search className="size-4" />
+              <MagnifyingGlassIcon className="size-4" />
               <span className="flex-1">Search</span>
               <kbd className="ml-auto text-[10px] tracking-widest text-muted-foreground/60 group-data-[state=collapsed]:hidden">
                 ⌘K

@@ -1,5 +1,5 @@
+import { SparkleIcon } from "@phosphor-icons/react"
 import type { NodeProps } from "@xyflow/react";
-import { Sparkles } from "lucide-react";
 import {
   WorkflowNode,
   NodeTitle,
@@ -30,7 +30,7 @@ export function AIAgentNode({
       handles={{ target: true, source: true }}
     >
       <div className="flex flex-col items-center justify-center gap-2 p-3">
-        <Sparkles className="size-5 text-purple-400" strokeWidth={1.5} />
+        <SparkleIcon className="size-5 text-purple-400" />
         <div className="flex flex-col items-center gap-1 text-center">
           <NodeTitle className="text-sm">AI Agent</NodeTitle>
           <NodeDescription className="text-xs">{display}</NodeDescription>

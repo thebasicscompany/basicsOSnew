@@ -1,4 +1,4 @@
-import { Globe } from "lucide-react";
+import { GlobeIcon } from "@phosphor-icons/react"
 import type { FieldTypeDefinition, CalculationType } from "../../types";
 import { DomainCellDisplay } from "./DomainCellDisplay";
 import { DomainCellEditor } from "./DomainCellEditor";
@@ -49,7 +49,7 @@ function DomainFormInput({
 export const DomainFieldType: FieldTypeDefinition = {
   key: "domain",
   label: "URL",
-  icon: Globe,
+  icon: GlobeIcon,
   group: "standard",
 
   hasTypeConfig: false,

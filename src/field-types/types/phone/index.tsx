@@ -1,4 +1,4 @@
-import { Phone } from "lucide-react";
+import { PhoneIcon } from "@phosphor-icons/react"
 import type { FieldTypeDefinition, CalculationType } from "../../types";
 import { PhoneCellDisplay } from "./PhoneCellDisplay";
 import { PhoneCellEditor } from "./PhoneCellEditor";
@@ -61,7 +61,7 @@ function formatPhone(raw: string): string {
 export const PhoneFieldType: FieldTypeDefinition = {
   key: "phone",
   label: "Phone",
-  icon: Phone,
+  icon: PhoneIcon,
   group: "standard",
 
   hasTypeConfig: false,

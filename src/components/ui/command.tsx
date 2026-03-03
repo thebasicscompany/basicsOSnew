@@ -1,6 +1,6 @@
 import * as React from "react"
 import { Command as CommandPrimitive } from "cmdk"
-import { Search } from "lucide-react"
+import { MagnifyingGlassIcon } from "@phosphor-icons/react"
 
 import { cn } from "@/lib/utils"
 import {
@@ -72,7 +72,7 @@ function CommandInput({
       data-slot="command-input-wrapper"
       className="flex h-10 items-center gap-2 border-b px-3"
     >
-      <Search className="size-3.5 shrink-0 text-muted-foreground" />
+      <MagnifyingGlassIcon className="size-3.5 shrink-0 text-muted-foreground" />
       <CommandPrimitive.Input
         data-slot="command-input"
         className={cn(

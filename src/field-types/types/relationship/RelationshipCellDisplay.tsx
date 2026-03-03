@@ -1,6 +1,5 @@
+import { ArrowSquareUpRightIcon } from "@phosphor-icons/react"
 import type { CellDisplayProps } from "../../types";
-import { ArrowUpRight } from "lucide-react";
-
 interface LinkedRecord {
   id: string;
   title?: string;
@@ -43,7 +42,7 @@ export function RelationshipCellDisplay({ value }: CellDisplayProps) {
           className="bg-muted inline-flex shrink-0 items-center gap-0.5 truncate rounded px-1.5 py-0.5 text-xs font-medium"
         >
           {record.title || record.id}
-          <ArrowUpRight className="h-3 w-3 opacity-50" />
+          <ArrowSquareUpRightIcon className="h-3 w-3 opacity-50" />
         </span>
       ))}
     </div>

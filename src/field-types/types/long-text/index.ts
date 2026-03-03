@@ -1,4 +1,4 @@
-import { AlignLeft } from "lucide-react";
+import { AlignLeftIcon } from "@phosphor-icons/react"
 import type { FieldTypeDefinition, CalculationType } from "../../types";
 import { LongTextCellDisplay } from "./LongTextCellDisplay";
 import { LongTextCellEditor } from "./LongTextCellEditor";
@@ -27,7 +27,7 @@ function countCalc(values: any[], type: CalculationType): any {
 export const LongTextFieldType: FieldTypeDefinition = {
   key: "long-text",
   label: "Long Text",
-  icon: AlignLeft,
+  icon: AlignLeftIcon,
   group: "standard",
 
   hasTypeConfig: false,

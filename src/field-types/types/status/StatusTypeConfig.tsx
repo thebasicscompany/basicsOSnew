@@ -1,10 +1,9 @@
+import { DotsThreeVerticalIcon, PlusIcon, XIcon } from "@phosphor-icons/react"
 import { useState } from "react";
 import type { TypeConfigProps, StatusOption } from "../../types";
 import { Input } from "@/components/ui/input";
 import { STATUS_DOT_COLORS } from "../../colors";
 import { cn } from "@/lib/utils";
-import { Plus, X, GripVertical } from "lucide-react";
-
 export function StatusTypeConfig({ config, onChange }: TypeConfigProps) {
   const [newLabel, setNewLabel] = useState("");
   const options: StatusOption[] = config.options ?? [];
@@ -47,7 +46,7 @@ export function StatusTypeConfig({ config, onChange }: TypeConfigProps) {
             STATUS_DOT_COLORS[option.label] ?? `bg-${option.color}-500`;
           return (
             <div key={option.id} className="flex items-center gap-2">
-              <GripVertical className="text-muted-foreground h-4 w-4 shrink-0 cursor-grab" />
+              <DotsThreeVerticalIcon className="text-muted-foreground h-4 w-4 shrink-0 cursor-grab" />
               <span
                 className={cn("h-2.5 w-2.5 shrink-0 rounded-full", dotColor)}
               />
@@ -66,7 +65,7 @@ export function StatusTypeConfig({ config, onChange }: TypeConfigProps) {
                 onClick={() => removeOption(option.id)}
                 className="text-muted-foreground hover:text-destructive"
               >
-                <X className="h-3 w-3" />
+                <XIcon className="h-3 w-3" />
               </button>
             </div>
           );
@@ -90,7 +89,7 @@ export function StatusTypeConfig({ config, onChange }: TypeConfigProps) {
           onClick={addOption}
           className="text-muted-foreground hover:text-foreground"
         >
-          <Plus className="h-4 w-4" />
+          <PlusIcon className="h-4 w-4" />
         </button>
       </div>
     </div>

@@ -1,3 +1,4 @@
+import { CalendarIcon } from "@phosphor-icons/react"
 import { useState } from "react";
 import type { FormInputProps } from "../../types";
 import {
@@ -7,8 +8,6 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { CalendarIcon } from "lucide-react";
-
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
   day: "numeric",

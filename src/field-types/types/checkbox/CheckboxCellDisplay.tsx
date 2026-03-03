@@ -1,5 +1,5 @@
+import { CheckIcon } from "@phosphor-icons/react"
 import type { CellDisplayProps } from "../../types";
-import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function CheckboxCellDisplay({ value }: CellDisplayProps) {
@@ -15,7 +15,7 @@ export function CheckboxCellDisplay({ value }: CellDisplayProps) {
             : "border-input bg-background",
         )}
       >
-        {checked && <Check className="h-3 w-3" />}
+        {checked && <CheckIcon className="h-3 w-3" />}
       </div>
     </div>
   );

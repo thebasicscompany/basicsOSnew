@@ -1,3 +1,4 @@
+import { CheckIcon, CaretDownIcon } from "@phosphor-icons/react"
 import { useState } from "react";
 import type { FormInputProps, StatusOption } from "../../types";
 import {
@@ -14,8 +15,6 @@ import {
 } from "@/components/ui/command";
 import { STATUS_DOT_COLORS } from "../../colors";
 import { cn } from "@/lib/utils";
-import { Check, ChevronsUpDown } from "lucide-react";
-
 export function StatusFormInput({
   value,
   config,
@@ -53,7 +52,7 @@ export function StatusFormInput({
                 Select {attribute.name.toLowerCase()}...
               </span>
             )}
-            <ChevronsUpDown className="text-muted-foreground h-4 w-4" />
+            <CaretDownIcon className="text-muted-foreground h-4 w-4" />
           </button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-56 p-0">
@@ -87,7 +86,7 @@ export function StatusFormInput({
                       {option.label}
                     </span>
                     {(value === option.id || value === option.label) && (
-                      <Check className="text-primary ml-auto h-4 w-4" />
+                      <CheckIcon className="text-primary ml-auto h-4 w-4" />
                     )}
                   </CommandItem>
                 );

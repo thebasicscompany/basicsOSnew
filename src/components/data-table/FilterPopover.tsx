@@ -1,3 +1,4 @@
+import { PlusIcon, TrashIcon } from "@phosphor-icons/react"
 import * as React from "react";
 import {
   Popover,
@@ -16,8 +17,6 @@ import {
 import { getFieldType } from "@/field-types";
 import type { Attribute } from "@/field-types/types";
 import type { ViewFilter } from "@/types/views";
-import { Plus, Trash2 } from "lucide-react";
-
 export interface FilterPopoverProps {
   attributes: Attribute[];
   filters: ViewFilter[];
@@ -180,7 +179,7 @@ export function FilterPopover({
                       className="shrink-0 text-muted-foreground hover:text-destructive"
                       onClick={() => onRemove(filter.id)}
                     >
-                      <Trash2 className="size-3" />
+                      <TrashIcon className="size-3" />
                     </Button>
                   </div>
                 );
@@ -195,7 +194,7 @@ export function FilterPopover({
               <Select onValueChange={handleAddFilter}>
                 <SelectTrigger className="h-7 text-xs text-muted-foreground">
                   <div className="flex items-center gap-1.5">
-                    <Plus className="size-3" />
+                    <PlusIcon className="size-3" />
                     <span>Add filter</span>
                   </div>
                 </SelectTrigger>

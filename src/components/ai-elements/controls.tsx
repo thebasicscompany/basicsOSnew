@@ -1,7 +1,7 @@
 "use client";
 
 import { useReactFlow } from "@xyflow/react";
-import { Maximize2, ZoomIn, ZoomOut, Map } from "lucide-react";
+import { ArrowsOutIcon, MagnifyingGlassPlusIcon, MagnifyingGlassMinusIcon, MapTrifoldIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Panel } from "@/components/ai-elements/panel";
@@ -35,7 +35,7 @@ export const WorkflowControls = ({
           title="Zoom in"
           variant="secondary"
         >
-          <ZoomIn className="size-4" />
+          <MagnifyingGlassPlusIcon className="size-4" />
         </Button>
         <Button
           className="border hover:bg-black/5 disabled:opacity-100 dark:hover:bg-white/5 disabled:[&>svg]:text-muted-foreground"
@@ -44,7 +44,7 @@ export const WorkflowControls = ({
           title="Zoom out"
           variant="secondary"
         >
-          <ZoomOut className="size-4" />
+          <MagnifyingGlassMinusIcon className="size-4" />
         </Button>
         <Button
           className="border hover:bg-black/5 disabled:opacity-100 dark:hover:bg-white/5 disabled:[&>svg]:text-muted-foreground"
@@ -53,7 +53,7 @@ export const WorkflowControls = ({
           title="Fit view"
           variant="secondary"
         >
-          <Maximize2 className="size-4" />
+          <ArrowsOutIcon className="size-4" />
         </Button>
         {onMinimapToggle && (
           <Button
@@ -63,7 +63,7 @@ export const WorkflowControls = ({
             title={showMinimap ? "Hide minimap" : "Show minimap"}
             variant="secondary"
           >
-            <Map className="size-4" />
+            <MapTrifoldIcon className="size-4" />
           </Button>
         )}
       </ButtonGroup>

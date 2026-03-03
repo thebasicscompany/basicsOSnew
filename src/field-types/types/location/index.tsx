@@ -1,4 +1,4 @@
-import { MapPin } from "lucide-react";
+import { MapPinIcon } from "@phosphor-icons/react"
 import type { FieldTypeDefinition, CalculationType } from "../../types";
 import { LocationCellDisplay } from "./LocationCellDisplay";
 import { LocationCellEditor } from "./LocationCellEditor";
@@ -122,7 +122,7 @@ function LocationFormInput({
 export const LocationFieldType: FieldTypeDefinition = {
   key: "location",
   label: "Location",
-  icon: MapPin,
+  icon: MapPinIcon,
   group: "standard",
 
   hasTypeConfig: true,

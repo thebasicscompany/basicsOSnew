@@ -1,4 +1,4 @@
-import { User } from "lucide-react";
+import { UserIcon } from "@phosphor-icons/react"
 import type { FieldTypeDefinition, CalculationType } from "../../types";
 import { UserCellDisplay } from "./UserCellDisplay";
 import { UserCellEditor } from "./UserCellEditor";
@@ -58,7 +58,7 @@ function countCalc(values: any[], type: CalculationType): any {
 export const UserFieldType: FieldTypeDefinition = {
   key: "user",
   label: "User",
-  icon: User,
+  icon: UserIcon,
   group: "standard",
 
   hasTypeConfig: false,

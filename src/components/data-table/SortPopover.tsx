@@ -1,3 +1,4 @@
+import { CaretDownIcon, CaretUpIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react"
 import * as React from "react";
 import {
   Popover,
@@ -14,8 +15,6 @@ import {
 } from "@/components/ui/select";
 import type { Attribute } from "@/field-types/types";
 import type { ViewSort } from "@/types/views";
-import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
-
 export interface SortPopoverProps {
   attributes: Attribute[];
   sorts: ViewSort[];
@@ -111,12 +110,12 @@ export function SortPopover({
                     >
                       {sort.direction === "asc" ? (
                         <>
-                          <ArrowUp className="size-3" />
+                          <CaretUpIcon className="size-3" />
                           A-Z
                         </>
                       ) : (
                         <>
-                          <ArrowDown className="size-3" />
+                          <CaretDownIcon className="size-3" />
                           Z-A
                         </>
                       )}
@@ -129,7 +128,7 @@ export function SortPopover({
                       className="shrink-0 text-muted-foreground hover:text-destructive"
                       onClick={() => onRemove(sort.id)}
                     >
-                      <Trash2 className="size-3" />
+                      <TrashIcon className="size-3" />
                     </Button>
                   </div>
                 );
@@ -144,7 +143,7 @@ export function SortPopover({
               <Select onValueChange={handleAddSort}>
                 <SelectTrigger className="h-7 text-xs text-muted-foreground">
                   <div className="flex items-center gap-1.5">
-                    <Plus className="size-3" />
+                    <PlusIcon className="size-3" />
                     <span>Add sort</span>
                   </div>
                 </SelectTrigger>

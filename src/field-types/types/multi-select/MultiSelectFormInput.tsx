@@ -1,3 +1,4 @@
+import { CheckIcon, CaretDownIcon, XIcon } from "@phosphor-icons/react"
 import { useState } from "react";
 import type { FormInputProps, SelectOption } from "../../types";
 import {
@@ -14,8 +15,6 @@ import {
 } from "@/components/ui/command";
 import { getColorClasses, getColorByHash } from "../../colors";
 import { cn } from "@/lib/utils";
-import { Check, ChevronsUpDown, X } from "lucide-react";
-
 export function MultiSelectFormInput({
   value,
   config,
@@ -84,7 +83,7 @@ export function MultiSelectFormInput({
                       }}
                       className="hover:text-foreground"
                     >
-                      <X className="h-3 w-3" />
+                      <XIcon className="h-3 w-3" />
                     </button>
                   </span>
                 );
@@ -94,7 +93,7 @@ export function MultiSelectFormInput({
                 Select {attribute.name.toLowerCase()}...
               </span>
             )}
-            <ChevronsUpDown className="text-muted-foreground ml-auto h-4 w-4 shrink-0" />
+            <CaretDownIcon className="text-muted-foreground ml-auto h-4 w-4 shrink-0" />
           </button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-56 p-0">
@@ -125,7 +124,7 @@ export function MultiSelectFormInput({
                       {option.label}
                     </span>
                     {isSelected && (
-                      <Check className="text-primary ml-auto h-4 w-4" />
+                      <CheckIcon className="text-primary ml-auto h-4 w-4" />
                     )}
                   </CommandItem>
                 );

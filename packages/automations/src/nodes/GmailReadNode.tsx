@@ -1,5 +1,5 @@
+import { TrayIcon } from "@phosphor-icons/react"
 import type { NodeProps } from "@xyflow/react";
-import { Inbox } from "lucide-react";
 import {
   WorkflowNode,
   NodeTitle,
@@ -32,7 +32,7 @@ export function GmailReadNode({
       handles={{ target: true, source: true }}
     >
       <div className="flex flex-col items-center justify-center gap-2 p-3">
-        <Inbox className="size-5 text-red-400" strokeWidth={1.5} />
+        <TrayIcon className="size-5 text-red-400" />
         <div className="flex flex-col items-center gap-1 text-center">
           <NodeTitle className="text-sm">Gmail Read</NodeTitle>
           <NodeDescription className="text-xs">{display}</NodeDescription>

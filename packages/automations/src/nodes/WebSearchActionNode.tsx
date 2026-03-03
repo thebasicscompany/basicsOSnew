@@ -1,5 +1,5 @@
+import { MagnifyingGlassIcon } from "@phosphor-icons/react"
 import type { NodeProps } from "@xyflow/react";
-import { Search } from "lucide-react";
 import {
   WorkflowNode,
   NodeTitle,
@@ -29,7 +29,7 @@ export function WebSearchActionNode({
       handles={{ target: true, source: true }}
     >
       <div className="flex flex-col items-center justify-center gap-2 p-3">
-        <Search className="size-5 text-blue-400" strokeWidth={1.5} />
+        <MagnifyingGlassIcon className="size-5 text-blue-400" />
         <div className="flex flex-col items-center gap-1 text-center">
           <NodeTitle className="text-sm">Web Search</NodeTitle>
           <NodeDescription className="text-xs">{display} ({num})</NodeDescription>

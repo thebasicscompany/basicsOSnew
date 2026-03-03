@@ -1,3 +1,4 @@
+import { PlusIcon, XIcon } from "@phosphor-icons/react"
 import { useState } from "react";
 import type { TypeConfigProps, SelectOption } from "../../types";
 import { Input } from "@/components/ui/input";
@@ -7,8 +8,6 @@ import {
   TAG_COLOR_PALETTE,
 } from "../../colors";
 import { cn } from "@/lib/utils";
-import { Plus, X } from "lucide-react";
-
 export function SelectTypeConfig({ config, onChange }: TypeConfigProps) {
   const [newLabel, setNewLabel] = useState("");
   const options: SelectOption[] = config.options ?? [];
@@ -75,7 +74,7 @@ export function SelectTypeConfig({ config, onChange }: TypeConfigProps) {
                 onClick={() => removeOption(option.id)}
                 className="text-muted-foreground hover:text-destructive ml-auto"
               >
-                <X className="h-3 w-3" />
+                <XIcon className="h-3 w-3" />
               </button>
             </div>
           );
@@ -99,7 +98,7 @@ export function SelectTypeConfig({ config, onChange }: TypeConfigProps) {
           onClick={addOption}
           className="text-muted-foreground hover:text-foreground"
         >
-          <Plus className="h-4 w-4" />
+          <PlusIcon className="h-4 w-4" />
         </button>
       </div>
     </div>

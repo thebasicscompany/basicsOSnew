@@ -1,7 +1,6 @@
+import { CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react"
 import { useRef, useEffect, useState } from "react";
 import type { CellEditorProps } from "../../types";
-import { ChevronUp, ChevronDown } from "lucide-react";
-
 export function CurrencyCellEditor({
   value,
   onSave,
@@ -75,7 +74,7 @@ export function CurrencyCellEditor({
           }}
           className="text-muted-foreground hover:text-foreground flex h-3 items-center justify-center"
         >
-          <ChevronUp className="h-3 w-3" />
+          <CaretUpIcon className="h-3 w-3" />
         </button>
         <button
           type="button"
@@ -86,7 +85,7 @@ export function CurrencyCellEditor({
           }}
           className="text-muted-foreground hover:text-foreground flex h-3 items-center justify-center"
         >
-          <ChevronDown className="h-3 w-3" />
+          <CaretDownIcon className="h-3 w-3" />
         </button>
       </div>
     </div>

@@ -1,3 +1,4 @@
+import { CheckIcon } from "@phosphor-icons/react"
 import { useState } from "react";
 import type { CellEditorProps, StatusOption } from "../../types";
 import {
@@ -14,8 +15,6 @@ import {
 } from "@/components/ui/command";
 import { STATUS_DOT_COLORS } from "../../colors";
 import { cn } from "@/lib/utils";
-import { Check } from "lucide-react";
-
 export function StatusCellEditor({
   value,
   config,
@@ -68,7 +67,7 @@ export function StatusCellEditor({
                     {option.label}
                   </span>
                   {(value === option.id || value === option.label) && (
-                    <Check className="text-primary ml-auto h-4 w-4" />
+                    <CheckIcon className="text-primary ml-auto h-4 w-4" />
                   )}
                 </CommandItem>
               );

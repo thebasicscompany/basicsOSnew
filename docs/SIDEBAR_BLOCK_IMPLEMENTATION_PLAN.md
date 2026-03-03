@@ -148,10 +148,10 @@ Define a single source of truth for **static** nav groups (Apps, Automations). R
 
 ```ts
 // Example shape — adapt to your NavMain/NavGroup component API
-import type { LucideIcon } from "lucide-react";
+import type { ComponentType } from "react";
 import { ROUTES } from "@basics-os/hub"; // or from src/lib/routes
 
-export type NavItem = { title: string; path: string; icon?: LucideIcon };
+export type NavItem = { title: string; path: string; icon?: ComponentType<{ className?: string }> };
 export type NavGroupConfig = { label: string; items: NavItem[] };
 
 export const SIDEBAR_NAV_APPS: NavGroupConfig = {

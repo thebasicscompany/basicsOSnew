@@ -1,4 +1,4 @@
-import { ChevronRight } from "lucide-react"
+import { CaretRightIcon } from "@phosphor-icons/react"
 import { Link, useLocation } from "react-router"
 
 import {
@@ -25,7 +25,7 @@ export function NavGroup({ label, items }: NavGroupConfig) {
         <SidebarGroupLabel asChild>
           <CollapsibleTrigger className="flex w-full items-center">
             {label}
-            <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+            <CaretRightIcon className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
           </CollapsibleTrigger>
         </SidebarGroupLabel>
         <CollapsibleContent>

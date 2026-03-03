@@ -1,4 +1,4 @@
-import { DollarSign } from "lucide-react";
+import { CurrencyDollarIcon } from "@phosphor-icons/react"
 import type { FieldTypeDefinition, CalculationType } from "../../types";
 import { CurrencyCellDisplay } from "./CurrencyCellDisplay";
 import { CurrencyCellEditor } from "./CurrencyCellEditor";
@@ -53,7 +53,7 @@ function numericCalc(values: any[], type: CalculationType): any {
 export const CurrencyFieldType: FieldTypeDefinition = {
   key: "currency",
   label: "Currency",
-  icon: DollarSign,
+  icon: CurrencyDollarIcon,
   group: "standard",
 
   hasTypeConfig: false,

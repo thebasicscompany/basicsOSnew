@@ -1,4 +1,4 @@
-import { Type } from "lucide-react";
+import { TextAaIcon } from "@phosphor-icons/react"
 import type { FieldTypeDefinition, CalculationType } from "../../types";
 import { TextCellDisplay } from "./TextCellDisplay";
 import { TextCellEditor } from "./TextCellEditor";
@@ -28,7 +28,7 @@ function countCalc(values: any[], type: CalculationType): any {
 export const TextFieldType: FieldTypeDefinition = {
   key: "text",
   label: "Text",
-  icon: Type,
+  icon: TextAaIcon,
   group: "standard",
 
   hasTypeConfig: false,

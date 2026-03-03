@@ -1,4 +1,4 @@
-import { Mail } from "lucide-react";
+import { EnvelopeIcon } from "@phosphor-icons/react"
 import type { FieldTypeDefinition, CalculationType } from "../../types";
 import { EmailCellDisplay } from "./EmailCellDisplay";
 import { EmailCellEditor } from "./EmailCellEditor";
@@ -52,7 +52,7 @@ function EmailFormInput({
 export const EmailFieldType: FieldTypeDefinition = {
   key: "email",
   label: "Email",
-  icon: Mail,
+  icon: EnvelopeIcon,
   group: "standard",
 
   hasTypeConfig: false,

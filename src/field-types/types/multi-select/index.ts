@@ -1,4 +1,4 @@
-import { List } from "lucide-react";
+import { ListIcon } from "@phosphor-icons/react"
 import type {
   FieldTypeDefinition,
   CalculationType,
@@ -65,7 +65,7 @@ function multiSelectCalc(values: any[], type: CalculationType): any {
 export const MultiSelectFieldType: FieldTypeDefinition = {
   key: "multi-select",
   label: "Multi Select",
-  icon: List,
+  icon: ListIcon,
   group: "standard",
 
   hasTypeConfig: true,

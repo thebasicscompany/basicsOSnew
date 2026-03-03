@@ -1,3 +1,4 @@
+import { WarningCircleIcon, ArrowClockwiseIcon } from "@phosphor-icons/react"
 import type { FallbackProps } from "react-error-boundary";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -7,8 +8,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { AlertCircle, RotateCcw } from "lucide-react";
-
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   if (typeof error === "string") return error;
@@ -25,7 +24,7 @@ export function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
   return (
     <div className="flex flex-col items-center gap-6 p-8 max-w-xl mx-auto" role="alert">
       <Alert variant="destructive" className="w-full">
-        <AlertCircle className="h-4 w-4" />
+        <WarningCircleIcon className="h-4 w-4" />
         <AlertTitle>Something went wrong</AlertTitle>
         <AlertDescription className="mt-2">{message}</AlertDescription>
       </Alert>
@@ -48,7 +47,7 @@ export function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
           Go back
         </Button>
         <Button onClick={resetErrorBoundary} className="gap-2">
-          <RotateCcw className="h-4 w-4" />
+          <ArrowClockwiseIcon className="h-4 w-4" />
           Try again
         </Button>
       </div>

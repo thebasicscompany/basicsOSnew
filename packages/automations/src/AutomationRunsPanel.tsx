@@ -1,3 +1,4 @@
+import { CheckCircleIcon, XCircleIcon, CopyIcon, CircleNotchIcon } from "@phosphor-icons/react"
 import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchApi } from "basics-os/src/lib/api";
@@ -9,8 +10,6 @@ import {
 } from "basics-os/src/components/ui/sheet";
 import { Button } from "basics-os/src/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "basics-os/src/components/ui/tabs";
-import { CheckCircle2, XCircle, Loader2, Copy } from "lucide-react";
-
 export interface AutomationRun {
   id: number;
   ruleId: number;
@@ -121,10 +120,10 @@ function RunRow({ run }: { run: AutomationRun }) {
 
   const StatusIcon = () => {
     if (run.status === "success")
-      return <CheckCircle2 className="size-4 text-green-600 dark:text-green-500 shrink-0" />;
+      return <CheckCircleIcon className="size-4 text-green-600 dark:text-green-500 shrink-0" />;
     if (run.status === "error")
-      return <XCircle className="size-4 text-destructive shrink-0" />;
-    return <Loader2 className="size-4 shrink-0 animate-spin text-muted-foreground" />;
+      return <IconCircleX className="size-4 text-destructive shrink-0" />;
+    return <CircleNotchIcon className="size-4 shrink-0 animate-spin text-muted-foreground" />;
   };
 
   return (
@@ -171,7 +170,7 @@ function JsonBlock({ run }: { run: AutomationRun }) {
           onClick={copy}
           title="Copy to clipboard"
         >
-          <Copy className="size-3.5" />
+          <CopyIcon className="size-3.5" />
         </Button>
         <pre className="text-xs bg-muted p-3 pr-10 rounded overflow-auto max-h-40 border">
           {text}

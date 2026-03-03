@@ -1,6 +1,5 @@
+import { ArrowSquareOutIcon } from "@phosphor-icons/react"
 import type { CellDisplayProps } from "../../types";
-import { ExternalLink } from "lucide-react";
-
 function ensureProtocol(url: string): string {
   if (/^https?:\/\//i.test(url)) return url;
   return `https://${url}`;
@@ -33,7 +32,7 @@ export function DomainCellDisplay({ value }: CellDisplayProps) {
       title={String(value)}
     >
       {display}
-      <ExternalLink className="h-3 w-3 shrink-0 opacity-60" />
+      <ArrowSquareOutIcon className="h-3 w-3 shrink-0 opacity-60" />
     </a>
   );
 }

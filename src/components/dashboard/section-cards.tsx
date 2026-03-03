@@ -1,4 +1,4 @@
-import { Users, Building2, Handshake, DollarSign } from "lucide-react";
+import { UsersIcon, BuildingIcon, HandshakeIcon, CurrencyDollarIcon } from "@phosphor-icons/react";
 import { useRecords } from "@/hooks/use-records";
 
 function formatCurrency(n: number) {
@@ -59,25 +59,25 @@ export function SectionCards() {
       <MetricCard
         label="Contacts"
         value={(contacts?.total ?? 0).toLocaleString()}
-        icon={Users}
+        icon={UsersIcon}
         isPending={contactsPending}
       />
       <MetricCard
         label="Companies"
         value={(companies?.total ?? 0).toLocaleString()}
-        icon={Building2}
+        icon={BuildingIcon}
         isPending={companiesPending}
       />
       <MetricCard
         label="Open Deals"
         value={openDeals.toLocaleString()}
-        icon={Handshake}
+        icon={HandshakeIcon}
         isPending={dealsPending}
       />
       <MetricCard
         label="Pipeline Value"
         value={formatCurrency(pipelineValue)}
-        icon={DollarSign}
+        icon={CurrencyDollarIcon}
         isPending={dealsPending}
       />
     </div>

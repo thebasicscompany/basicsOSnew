@@ -1,5 +1,5 @@
+import { ListChecksIcon } from "@phosphor-icons/react"
 import type { NodeProps } from "@xyflow/react";
-import { ListTodo } from "lucide-react";
 import {
   WorkflowNode,
   NodeTitle,
@@ -28,7 +28,7 @@ export function CrmActionNode({
       handles={{ target: true, source: true }}
     >
       <div className="flex flex-col items-center justify-center gap-2 p-3">
-        <ListTodo className="size-5 text-green-500" strokeWidth={1.5} />
+        <ListChecksIcon className="size-5 text-green-500" />
         <div className="flex flex-col items-center gap-1 text-center">
           <NodeTitle className="text-sm">CRM Action</NodeTitle>
           <NodeDescription className="text-xs">{label}</NodeDescription>

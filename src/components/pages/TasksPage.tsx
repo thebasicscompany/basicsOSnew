@@ -1,3 +1,4 @@
+import { CircleNotchIcon, PlusIcon, MagnifyingGlassIcon, SquareIcon, CheckSquareIcon, TrashIcon } from "@phosphor-icons/react"
 import { useState, useMemo } from "react";
 import {
   startOfToday,
@@ -11,7 +12,6 @@ import {
   format,
   addDays,
 } from "date-fns";
-import { CheckSquare, Square, Plus, Loader2, Trash2, Search } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -92,7 +92,7 @@ function TaskRow({
           disabled={markDone.isPending}
           className="shrink-0 text-muted-foreground hover:text-primary transition-colors"
         >
-          {isDone ? <CheckSquare className="size-3.5 text-primary" /> : <Square className="size-3.5" />}
+          {isDone ? <CheckSquareIcon className="size-3.5 text-primary" /> : <SquareIcon className="size-3.5" />}
         </button>
         <span className={`min-w-0 flex-1 truncate text-[13px] ${isDone ? "line-through text-muted-foreground" : ""}`}>
           {task.text ?? "—"}
@@ -121,7 +121,7 @@ function TaskRow({
           className="shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-all"
           aria-label="Delete task"
         >
-          <Trash2 className="size-3" />
+          <TrashIcon className="size-3" />
         </button>
       </div>
 
@@ -262,7 +262,7 @@ function AddTaskDialog({
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button size="sm" onClick={handleSubmit} disabled={createTask.isPending}>
-            {createTask.isPending && <Loader2 className="mr-1.5 size-3.5 animate-spin" />}
+            {createTask.isPending && <CircleNotchIcon className="mr-1.5 size-3.5 animate-spin" />}
             Create
           </Button>
         </DialogFooter>
@@ -338,13 +338,13 @@ export function TasksPage() {
           <span />
         )}
         <Button size="sm" onClick={() => setAddOpen(true)} className="h-7 gap-1 text-[13px]">
-          <Plus className="size-3.5" />
+          <PlusIcon className="size-3.5" />
           Add task
         </Button>
       </div>
 
       <div className="relative mb-3 max-w-xs">
-        <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+        <MagnifyingGlassIcon className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
         <Input
           placeholder="Search tasks…"
           value={search}
@@ -356,7 +356,7 @@ export function TasksPage() {
       <div className="flex-1 space-y-3">
         {tasksPending && (
           <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
-            <Loader2 className="size-3.5 animate-spin" />
+            <CircleNotchIcon className="size-3.5 animate-spin" />
             Loading…
           </div>
         )}

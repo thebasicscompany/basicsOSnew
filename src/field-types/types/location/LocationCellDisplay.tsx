@@ -1,6 +1,5 @@
+import { MapPinIcon } from "@phosphor-icons/react"
 import type { CellDisplayProps } from "../../types";
-import { MapPin } from "lucide-react";
-
 interface LocationValue {
   city?: string;
   state?: string;
@@ -41,7 +40,7 @@ export function LocationCellDisplay({ value }: CellDisplayProps) {
 
   return (
     <span className="inline-flex items-center gap-1 truncate text-sm">
-      <MapPin className="text-muted-foreground h-3 w-3 shrink-0" />
+      <MapPinIcon className="text-muted-foreground h-3 w-3 shrink-0" />
       {formatLocation(loc)}
     </span>
   );

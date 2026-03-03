@@ -1,6 +1,6 @@
+import { StarIcon } from "@phosphor-icons/react"
 import { useState } from "react";
 import type { CellEditorProps } from "../../types";
-import { Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function RatingCellEditor({ value, config, onSave }: CellEditorProps) {
@@ -32,7 +32,7 @@ export function RatingCellEditor({ value, config, onSave }: CellEditorProps) {
           onMouseEnter={() => setHovered(i)}
           onClick={() => handleClick(i)}
         >
-          <Star
+          <StarIcon
             className={cn(
               "h-4 w-4 transition-colors",
               i < displayRating

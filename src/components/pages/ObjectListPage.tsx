@@ -1,6 +1,6 @@
+import { SortAscendingIcon, CaretDownIcon, FunnelIcon, PlusIcon, XIcon } from "@phosphor-icons/react"
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router";
-import { ArrowUpDown, ChevronDown, Filter, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -177,7 +177,7 @@ export function ObjectListPage() {
                     {actionsCount}
                   </Badge>
                 )}
-                <ChevronDown className="size-3.5" />
+                <CaretDownIcon className="size-3.5" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-auto min-w-[280px] p-3">
@@ -195,7 +195,7 @@ export function ObjectListPage() {
                   }}
                 >
                   <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs">
-                    <ArrowUpDown className="size-3.5" />
+                    <SortAscendingIcon className="size-3.5" />
                     Sort
                     {hasActiveSorts && (
                       <Badge variant="secondary" className="ml-0.5 h-4 min-w-4 px-1 text-[10px]">
@@ -222,7 +222,7 @@ export function ObjectListPage() {
                   }}
                 >
                   <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs">
-                    <Filter className="size-3.5" />
+                    <FunnelIcon className="size-3.5" />
                     Filter
                     {hasActiveFilters && (
                       <Badge variant="secondary" className="ml-0.5 h-4 min-w-4 px-1 text-[10px]">
@@ -261,7 +261,7 @@ export function ObjectListPage() {
           </DropdownMenu>
         )}
         <Button size="sm" onClick={() => setCreateOpen(true)} className="h-8 gap-1">
-          <Plus className="h-4 w-4" />
+          <PlusIcon className="h-4 w-4" />
           New {obj.singularName}
         </Button>
       </>
@@ -384,7 +384,7 @@ export function ObjectListPage() {
                 variant="outline"
                 className="gap-1 pl-2 pr-1 py-0.5 text-xs font-normal"
               >
-                <ArrowUpDown className="size-3 text-muted-foreground" />
+                <SortAscendingIcon className="size-3 text-muted-foreground" />
                 <span>{attr?.name ?? sort.fieldId}</span>
                 <span className="text-muted-foreground">
                   {sort.direction === "asc" ? "A-Z" : "Z-A"}
@@ -395,7 +395,7 @@ export function ObjectListPage() {
                   onClick={() => viewState.removeSort(sort.id)}
                   aria-label="Remove sort"
                 >
-                  <X className="size-3" />
+                  <XIcon className="size-3" />
                 </button>
               </Badge>
             );
@@ -416,7 +416,7 @@ export function ObjectListPage() {
                     {filter.logicalOp}
                   </span>
                 )}
-                <Filter className="size-3 text-muted-foreground" />
+                <FunnelIcon className="size-3 text-muted-foreground" />
                 <span>{attr?.name ?? filter.fieldId}</span>
                 <span className="text-muted-foreground">{filter.operator}</span>
                 {filter.value !== undefined &&
@@ -430,7 +430,7 @@ export function ObjectListPage() {
                   onClick={() => viewState.removeFilter(filter.id)}
                   aria-label="Remove filter"
                 >
-                  <X className="size-3" />
+                  <XIcon className="size-3" />
                 </button>
               </Badge>
             );

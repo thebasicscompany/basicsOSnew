@@ -1,4 +1,4 @@
-import { CheckSquare } from "lucide-react";
+import { CheckSquareIcon } from "@phosphor-icons/react"
 import type { FieldTypeDefinition, CalculationType } from "../../types";
 import { CheckboxCellDisplay } from "./CheckboxCellDisplay";
 import { CheckboxCellEditor } from "./CheckboxCellEditor";
@@ -67,7 +67,7 @@ function CheckboxFormInput({
 export const CheckboxFieldType: FieldTypeDefinition = {
   key: "checkbox",
   label: "Checkbox",
-  icon: CheckSquare,
+  icon: CheckSquareIcon,
   group: "standard",
 
   hasTypeConfig: false,

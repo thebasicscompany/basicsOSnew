@@ -1,11 +1,4 @@
-import {
-  BadgeCheck,
-  ChevronsUpDown,
-  Download,
-  LogOut,
-  Settings,
-  User,
-} from "lucide-react"
+import { IdentificationCardIcon, CaretDownIcon, DownloadSimpleIcon, SignOutIcon, GearIcon, UserIcon } from "@phosphor-icons/react"
 import { Link, useNavigate } from "react-router"
 
 import {
@@ -47,7 +40,7 @@ export function NavUser() {
   const user = session?.user
   if (!user) return null
 
-  const name = user.name ?? user.email ?? "User"
+  const name = user.name ?? user.email ?? "IconUser"
   const email = user.email ?? ""
   const avatar = user.image ?? ""
   const initials = getInitials(name)
@@ -74,7 +67,7 @@ export function NavUser() {
                 <span className="truncate font-medium">{name}</span>
                 <span className="truncate text-xs">{email}</span>
               </div>
-              <ChevronsUpDown className="ml-auto size-4" />
+              <CaretDownIcon className="ml-auto size-4" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
@@ -99,26 +92,26 @@ export function NavUser() {
             <DropdownMenuGroup>
               <DropdownMenuItem asChild>
                 <Link to={ROUTES.PROFILE}>
-                  <BadgeCheck className="size-4" />
+                  <IdentificationCardIcon className="size-4" />
                   Profile
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link to={ROUTES.SETTINGS}>
-                  <Settings className="size-4" />
+                  <GearIcon className="size-4" />
                   Settings
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link to={ROUTES.IMPORT}>
-                  <Download className="size-4" />
+                  <DownloadSimpleIcon className="size-4" />
                   Import
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleSignOut}>
-              <LogOut className="size-4" />
+              <SignOutIcon className="size-4" />
               Log out
             </DropdownMenuItem>
           </DropdownMenuContent>

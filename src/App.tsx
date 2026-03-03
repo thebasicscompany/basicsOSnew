@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-route
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ErrorBoundary } from "react-error-boundary";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/sonner";
 import { ROUTES } from "@basics-os/hub";
 import { AutomationsApp } from "@basics-os/automations";
 import { VoiceApp } from "@basics-os/voice";
@@ -103,6 +104,7 @@ const App = () => (
     <BrowserRouter>
       <TooltipProvider>
         <AppRoutes />
+        <Toaster />
       </TooltipProvider>
     </BrowserRouter>
   </QueryClientProvider>

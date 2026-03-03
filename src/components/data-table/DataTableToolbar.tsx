@@ -1,3 +1,4 @@
+import { SortAscendingIcon, ColumnsIcon, FunnelIcon, DotsThreeVerticalIcon, XIcon } from "@phosphor-icons/react"
 import * as React from "react";
 import {
   DndContext,
@@ -28,13 +29,6 @@ import {
 import { getFieldType } from "@/field-types";
 import type { Attribute } from "@/field-types/types";
 import type { ViewSort, ViewFilter, ViewColumn } from "@/types/views";
-import {
-  ArrowUpDown,
-  Columns3,
-  Filter,
-  GripVertical,
-  X,
-} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SortPopover } from "./SortPopover";
 import { FilterPopover } from "./FilterPopover";
@@ -113,7 +107,7 @@ export function DataTableToolbar({
           onUpdate={onUpdateSort}
         >
           <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs">
-            <ArrowUpDown className="size-3.5" />
+            <SortAscendingIcon className="size-3.5" />
             Sort
             {hasActiveSorts && (
               <Badge
@@ -126,7 +120,7 @@ export function DataTableToolbar({
           </Button>
         </SortPopover>
 
-        {/* Filter button */}
+        {/* FunnelIcon button */}
         <FilterPopover
           attributes={attributes}
           filters={filters}
@@ -135,8 +129,8 @@ export function DataTableToolbar({
           onUpdate={onUpdateFilter}
         >
           <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs">
-            <Filter className="size-3.5" />
-            Filter
+            <FunnelIcon className="size-3.5" />
+            FunnelIcon
             {hasActiveFilters && (
               <Badge
                 variant="secondary"
@@ -193,7 +187,7 @@ export function DataTableToolbar({
                 variant="outline"
                 className="gap-1 pl-2 pr-1 py-0.5 text-xs font-normal"
               >
-                <ArrowUpDown className="size-3 text-muted-foreground" />
+                <SortAscendingIcon className="size-3 text-muted-foreground" />
                 <span>{attr?.name ?? sort.fieldId}</span>
                 <span className="text-muted-foreground">
                   {sort.direction === "asc" ? "A-Z" : "Z-A"}
@@ -202,7 +196,7 @@ export function DataTableToolbar({
                   className="ml-0.5 rounded-sm hover:bg-muted p-0.5"
                   onClick={() => onRemoveSort(sort.id)}
                 >
-                  <X className="size-3" />
+                  <XIcon className="size-3" />
                 </button>
               </Badge>
             );
@@ -212,7 +206,7 @@ export function DataTableToolbar({
             <Separator orientation="vertical" className="h-4" />
           )}
 
-          {/* Filter pills */}
+          {/* FunnelIcon pills */}
           {filters.map((filter, idx) => {
             const attr = attrMap.get(filter.fieldId);
             return (
@@ -226,7 +220,7 @@ export function DataTableToolbar({
                     {filter.logicalOp}
                   </span>
                 )}
-                <Filter className="size-3 text-muted-foreground" />
+                <FunnelIcon className="size-3 text-muted-foreground" />
                 <span>{attr?.name ?? filter.fieldId}</span>
                 <span className="text-muted-foreground">{filter.operator}</span>
                 {filter.value !== undefined &&
@@ -238,7 +232,7 @@ export function DataTableToolbar({
                   className="ml-0.5 rounded-sm hover:bg-muted p-0.5"
                   onClick={() => onRemoveFilter(filter.id)}
                 >
-                  <X className="size-3" />
+                  <XIcon className="size-3" />
                 </button>
               </Badge>
             );
@@ -332,7 +326,7 @@ export function ColumnsPopover({
     <Popover>
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs">
-          <Columns3 className="size-3.5" />
+          <ColumnsIcon className="size-3.5" />
           Columns
           <Badge
             variant="secondary"
@@ -417,7 +411,7 @@ function SortableColumnRow({
           {...dndAttributes}
           {...listeners}
         >
-          <GripVertical className="size-3" />
+          <DotsThreeVerticalIcon className="size-3" />
         </button>
       )}
       <span className="text-muted-foreground shrink-0">

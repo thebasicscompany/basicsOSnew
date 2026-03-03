@@ -1,3 +1,4 @@
+import { CheckIcon } from "@phosphor-icons/react"
 import { useState } from "react";
 import type { CellEditorProps, SelectOption } from "../../types";
 import {
@@ -14,8 +15,6 @@ import {
 } from "@/components/ui/command";
 import { getColorClasses, getColorByHash } from "../../colors";
 import { cn } from "@/lib/utils";
-import { Check } from "lucide-react";
-
 export function SelectCellEditor({
   value,
   config,
@@ -76,7 +75,7 @@ export function SelectCellEditor({
                     {option.label}
                   </span>
                   {(value === option.id || value === option.label) && (
-                    <Check className="text-primary ml-auto h-4 w-4" />
+                    <CheckIcon className="text-primary ml-auto h-4 w-4" />
                   )}
                 </CommandItem>
               );

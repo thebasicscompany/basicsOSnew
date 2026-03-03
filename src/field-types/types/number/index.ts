@@ -1,4 +1,4 @@
-import { Hash } from "lucide-react";
+import { HashIcon } from "@phosphor-icons/react"
 import type { FieldTypeDefinition, CalculationType } from "../../types";
 import { NumberCellDisplay } from "./NumberCellDisplay";
 import { NumberCellEditor } from "./NumberCellEditor";
@@ -46,7 +46,7 @@ function numericCalc(values: any[], type: CalculationType): any {
 export const NumberFieldType: FieldTypeDefinition = {
   key: "number",
   label: "Number",
-  icon: Hash,
+  icon: HashIcon,
   group: "standard",
 
   hasTypeConfig: false,

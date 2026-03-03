@@ -77,7 +77,7 @@ function mapViewColumn(raw: ViewColumnRaw): ViewColumn {
   };
 }
 
-function mapViewSort(raw: NocoViewSortRaw): ViewSort {
+function mapViewSort(raw: ViewSortRaw): ViewSort {
   return {
     id: raw.id,
     fieldId: raw.fk_column_id,

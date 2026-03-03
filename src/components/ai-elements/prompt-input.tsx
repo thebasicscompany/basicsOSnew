@@ -56,12 +56,12 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import {
-  CornerDownLeftIcon,
+  KeyReturnIcon,
   ImageIcon,
   PlusIcon,
   SquareIcon,
   XIcon,
-} from "lucide-react";
+} from "@phosphor-icons/react";
 import { nanoid } from "nanoid";
 import {
   Children,
@@ -1103,7 +1103,7 @@ export const PromptInputSubmit = ({
 }: PromptInputSubmitProps) => {
   const isGenerating = status === "submitted" || status === "streaming";
 
-  let Icon = <CornerDownLeftIcon className="size-4" />;
+  let Icon = <KeyReturnIcon className="size-4" />;
 
   if (status === "submitted") {
     Icon = <Spinner />;

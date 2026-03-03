@@ -1,4 +1,4 @@
-import { Link2 } from "lucide-react";
+import { LinkIcon } from "@phosphor-icons/react"
 import type { FieldTypeDefinition, CalculationType } from "../../types";
 import { RelationshipCellDisplay } from "./RelationshipCellDisplay";
 import { RelationshipCellEditor } from "./RelationshipCellEditor";
@@ -56,7 +56,7 @@ function relationshipCalc(values: any[], type: CalculationType): any {
 export const RelationshipFieldType: FieldTypeDefinition = {
   key: "relationship",
   label: "Link to Record",
-  icon: Link2,
+  icon: LinkIcon,
   group: "relational",
 
   hasTypeConfig: true,

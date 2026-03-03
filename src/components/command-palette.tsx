@@ -11,19 +11,18 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from "@/components/ui/command";
-import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  Home01Icon,
+  HouseIcon,
   UserIcon,
-  Building02Icon,
-  Agreement01Icon,
-  CheckListIcon,
-  Settings01Icon,
-  FileImportIcon,
-  AiChat01Icon,
-  Link01Icon,
-  Add01Icon,
-} from "@hugeicons/core-free-icons";
+  BuildingIcon,
+  HandshakeIcon,
+  ListChecksIcon,
+  GearIcon,
+  UploadSimpleIcon,
+  RobotIcon,
+  LinkIcon,
+  PlusIcon,
+} from "@phosphor-icons/react";
 import { ROUTES } from "@basics-os/hub";
 import { getList } from "@/lib/api/crm";
 import { mapRecords } from "@/lib/crm/field-mapper";
@@ -148,7 +147,7 @@ export function CommandPalette() {
                       }
                       className="gap-2"
                     >
-                      <HugeiconsIcon icon={UserIcon} className="size-4 shrink-0" />
+                      <UserIcon className="size-4 shrink-0" />
                       <span className="flex-1 truncate">{displayName}</span>
                       {c.companyName && (
                         <span className="text-xs text-muted-foreground">
@@ -173,10 +172,7 @@ export function CommandPalette() {
                       }
                       className="gap-2"
                     >
-                      <HugeiconsIcon
-                        icon={Building02Icon}
-                        className="size-4 shrink-0"
-                      />
+                      <BuildingIcon className="size-4 shrink-0" />
                       <span className="flex-1 truncate">{c.name}</span>
                       {c.sector && (
                         <span className="text-xs text-muted-foreground">
@@ -203,8 +199,7 @@ export function CommandPalette() {
                       }
                       className="gap-2"
                     >
-                      <HugeiconsIcon
-                        icon={Agreement01Icon}
+                      <HandshakeIcon
                         className="size-4 shrink-0"
                       />
                       <span className="flex-1 truncate">{d.name}</span>
@@ -221,12 +216,12 @@ export function CommandPalette() {
             {recentItems.length > 0 && (
               <CommandGroup heading="Recent">
                 {recentItems.map((item) => {
-                  const icon =
+                  const IconComponent =
                     item.type === "contact"
                       ? UserIcon
                       : item.type === "company"
-                        ? Building02Icon
-                        : Agreement01Icon;
+                        ? BuildingIcon
+                        : HandshakeIcon;
                   const path =
                     item.type === "contact"
                       ? `/objects/contacts/${item.id}`
@@ -240,7 +235,7 @@ export function CommandPalette() {
                       onSelect={() => run(() => navigate(path))}
                       className="gap-2"
                     >
-                      <HugeiconsIcon icon={icon} className="size-4 shrink-0" />
+                      <IconComponent className="size-4 shrink-0" />
                       <span className="flex-1 truncate">{item.name}</span>
                     </CommandItem>
                   );
@@ -253,44 +248,35 @@ export function CommandPalette() {
                 onSelect={() => run(() => navigate(ROUTES.CRM))}
                 className="gap-2"
               >
-                <HugeiconsIcon icon={Home01Icon} className="size-4 shrink-0" />
+                <HouseIcon className="size-4 shrink-0" />
                 Dashboard
               </CommandItem>
               <CommandItem
                 onSelect={() => run(() => navigate("/objects/contacts"))}
                 className="gap-2"
               >
-                <HugeiconsIcon icon={UserIcon} className="size-4 shrink-0" />
+                <UserIcon className="size-4 shrink-0" />
                 Contacts
               </CommandItem>
               <CommandItem
                 onSelect={() => run(() => navigate("/objects/companies"))}
                 className="gap-2"
               >
-                <HugeiconsIcon
-                  icon={Building02Icon}
-                  className="size-4 shrink-0"
-                />
+                <BuildingIcon className="size-4 shrink-0" />
                 Companies
               </CommandItem>
               <CommandItem
                 onSelect={() => run(() => navigate("/objects/deals"))}
                 className="gap-2"
               >
-                <HugeiconsIcon
-                  icon={Agreement01Icon}
-                  className="size-4 shrink-0"
-                />
+                <HandshakeIcon className="size-4 shrink-0" />
                 Deals
               </CommandItem>
               <CommandItem
                 onSelect={() => run(() => navigate(ROUTES.TASKS))}
                 className="gap-2"
               >
-                <HugeiconsIcon
-                  icon={CheckListIcon}
-                  className="size-4 shrink-0"
-                />
+                <ListChecksIcon className="size-4 shrink-0" />
                 Tasks
               </CommandItem>
             </CommandGroup>
@@ -311,10 +297,7 @@ export function CommandPalette() {
                         }
                         className="gap-2"
                       >
-                        <HugeiconsIcon
-                          icon={IconComponent}
-                          className="size-4 shrink-0"
-                        />
+                        <IconComponent className="size-4 shrink-0" />
                         <span className="flex-1 truncate">
                           Go to {obj.pluralName}
                         </span>
@@ -343,10 +326,7 @@ export function CommandPalette() {
                         }
                         className="gap-2"
                       >
-                        <HugeiconsIcon
-                          icon={Add01Icon}
-                          className="size-4 shrink-0"
-                        />
+                        <PlusIcon className="size-4 shrink-0" />
                         <span className="flex-1 truncate">
                           Create {obj.singularName}
                         </span>
@@ -363,44 +343,35 @@ export function CommandPalette() {
                 onSelect={() => run(() => navigate(ROUTES.CHAT))}
                 className="gap-2"
               >
-                <HugeiconsIcon
-                  icon={AiChat01Icon}
-                  className="size-4 shrink-0"
-                />
+                <RobotIcon className="size-4 shrink-0" />
                 AI Chat
               </CommandItem>
               <CommandItem
                 onSelect={() => run(() => navigate(ROUTES.CONNECTIONS))}
                 className="gap-2"
               >
-                <HugeiconsIcon icon={Link01Icon} className="size-4 shrink-0" />
+                <LinkIcon className="size-4 shrink-0" />
                 Connections
               </CommandItem>
               <CommandItem
                 onSelect={() => run(() => navigate(ROUTES.PROFILE))}
                 className="gap-2"
               >
-                <HugeiconsIcon icon={UserIcon} className="size-4 shrink-0" />
+                <UserIcon className="size-4 shrink-0" />
                 Profile
               </CommandItem>
               <CommandItem
                 onSelect={() => run(() => navigate(ROUTES.SETTINGS))}
                 className="gap-2"
               >
-                <HugeiconsIcon
-                  icon={Settings01Icon}
-                  className="size-4 shrink-0"
-                />
+                <GearIcon className="size-4 shrink-0" />
                 Settings
               </CommandItem>
               <CommandItem
                 onSelect={() => run(() => navigate(ROUTES.IMPORT))}
                 className="gap-2"
               >
-                <HugeiconsIcon
-                  icon={FileImportIcon}
-                  className="size-4 shrink-0"
-                />
+                <UploadSimpleIcon className="size-4 shrink-0" />
                 Import data
               </CommandItem>
             </CommandGroup>

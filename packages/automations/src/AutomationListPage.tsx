@@ -1,3 +1,4 @@
+import { RobotIcon, DotsThreeIcon, PlusIcon } from "@phosphor-icons/react"
 import { useNavigate } from "react-router";
 import { useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -23,8 +24,6 @@ import {
 import { AutomationRunsPanel } from "./AutomationRunsPanel";
 import { toast } from "sonner";
 import { useState } from "react";
-import { MoreHorizontal, Plus, Workflow } from "lucide-react";
-
 export interface AutomationRule {
   id: number;
   salesId: number;
@@ -83,7 +82,7 @@ export function AutomationListPage() {
   const headerActionsNode = useMemo(
     () => (
       <Button onClick={() => navigate("/automations/create")}>
-        <Plus className="mr-2 size-4" />
+        <PlusIcon className="mr-2 size-4" />
         New Automation
       </Button>
     ),
@@ -104,14 +103,14 @@ export function AutomationListPage() {
       {!isPending && !isError && rules.length === 0 && (
         <div className="flex flex-col items-center justify-center rounded-xl border border-dashed py-20 text-center">
           <div className="mb-4 flex size-14 items-center justify-center rounded-full bg-muted">
-            <Workflow className="size-7 text-muted-foreground" />
+            <RobotIcon className="size-7 text-muted-foreground" />
           </div>
           <p className="text-base font-semibold">No automations yet</p>
           <p className="mt-1 mb-6 max-w-xs text-sm text-muted-foreground">
             Build workflows that run automatically when deals, contacts, or tasks change.
           </p>
           <Button onClick={() => navigate("/automations/create")}>
-            <Plus className="mr-2 size-4" />
+            <PlusIcon className="mr-2 size-4" />
             Create your first automation
           </Button>
         </div>
@@ -173,7 +172,7 @@ export function AutomationListPage() {
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="size-8">
-                              <MoreHorizontal className="size-4" />
+                              <DotsThreeIcon className="size-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">

@@ -1,4 +1,4 @@
-import { CircleDot } from "lucide-react";
+import { CircleIcon } from "@phosphor-icons/react"
 import type {
   FieldTypeDefinition,
   CalculationType,
@@ -53,7 +53,7 @@ function statusCalc(values: any[], type: CalculationType): any {
 export const StatusFieldType: FieldTypeDefinition = {
   key: "status",
   label: "Status",
-  icon: CircleDot,
+  icon: CircleIcon,
   group: "standard",
 
   hasTypeConfig: true,

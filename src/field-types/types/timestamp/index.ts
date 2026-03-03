@@ -1,4 +1,4 @@
-import { Clock } from "lucide-react";
+import { ClockIcon } from "@phosphor-icons/react"
 import type { FieldTypeDefinition, CalculationType } from "../../types";
 import { TimestampCellDisplay } from "./TimestampCellDisplay";
 import { TimestampCellEditor } from "./TimestampCellEditor";
@@ -73,7 +73,7 @@ function timestampCalc(values: any[], type: CalculationType): any {
 export const TimestampFieldType: FieldTypeDefinition = {
   key: "timestamp",
   label: "Timestamp",
-  icon: Clock,
+  icon: ClockIcon,
   group: "standard",
 
   hasTypeConfig: false,

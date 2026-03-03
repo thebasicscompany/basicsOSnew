@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowSquareOutIcon, EyeIcon, EyeSlashIcon } from "@phosphor-icons/react"
 import { useState, useCallback } from "react";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "";
@@ -13,7 +14,6 @@ async function persistApiKey(key: string | null) {
   });
 }
 
-import { EyeIcon, EyeOffIcon, ExternalLinkIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useGateway } from "@/hooks/useGateway";
 import { Button } from "@/components/ui/button";
@@ -109,7 +109,7 @@ export function SettingsPage() {
                   onClick={() => setShowPassword((p) => !p)}
                   aria-label={showPassword ? "Hide key" : "Show key"}
                 >
-                  {showPassword ? <EyeOffIcon className="size-3.5" /> : <EyeIcon className="size-3.5" />}
+                  {showPassword ? <EyeSlashIcon className="size-3.5" /> : <EyeIcon className="size-3.5" />}
                 </Button>
               </div>
               <Button size="sm" className="h-8 text-[13px]" onClick={handleSave} disabled={!inputValue.trim()}>
@@ -152,7 +152,7 @@ export function SettingsPage() {
               className="inline-flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground transition-colors"
             >
               Get an API key from basics.so
-              <ExternalLinkIcon className="size-3" />
+              <ArrowSquareOutIcon className="size-3" />
             </a>
           </div>
         </div>

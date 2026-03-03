@@ -1,5 +1,5 @@
+import { UploadSimpleIcon } from "@phosphor-icons/react"
 import { useCallback, useState } from "react";
-import { Upload, FileUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePageTitle } from "@/contexts/page-header";
 
@@ -51,7 +51,7 @@ export function ImportPage() {
           }`}
         >
           <div className="flex size-10 items-center justify-center rounded-full bg-muted">
-            <Upload className="size-4 text-muted-foreground" />
+            <UploadSimpleIcon className="size-4 text-muted-foreground" />
           </div>
           <div>
             <p className="text-[13px] font-medium">
@@ -67,7 +67,7 @@ export function ImportPage() {
             className="mt-1 h-7 gap-1.5 text-[13px]"
             onClick={handleFileSelect}
           >
-            <FileUp className="size-3.5" />
+            <UploadSimpleIcon className="size-3.5" />
             Choose file
           </Button>
         </div>

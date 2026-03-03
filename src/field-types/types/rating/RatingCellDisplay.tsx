@@ -1,5 +1,5 @@
+import { StarIcon } from "@phosphor-icons/react"
 import type { CellDisplayProps } from "../../types";
-import { Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function RatingCellDisplay({ value, config }: CellDisplayProps) {
@@ -16,7 +16,7 @@ export function RatingCellDisplay({ value, config }: CellDisplayProps) {
   return (
     <div className="flex items-center gap-0.5">
       {Array.from({ length: maxRating }, (_, i) => (
-        <Star
+        <StarIcon
           key={i}
           className={cn(
             "h-3.5 w-3.5",

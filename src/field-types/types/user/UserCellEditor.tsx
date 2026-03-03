@@ -1,3 +1,4 @@
+import { CheckIcon } from "@phosphor-icons/react"
 import { useState } from "react";
 import type { CellEditorProps } from "../../types";
 import {
@@ -13,8 +14,6 @@ import {
   CommandItem,
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import { Check } from "lucide-react";
-
 interface UserOption {
   id: string;
   name?: string;
@@ -126,7 +125,7 @@ export function UserCellEditor({
                     <span className="text-sm">{displayName}</span>
                   </span>
                   {isSelected && (
-                    <Check className="text-primary ml-auto h-4 w-4" />
+                    <CheckIcon className="text-primary ml-auto h-4 w-4" />
                   )}
                 </CommandItem>
               );

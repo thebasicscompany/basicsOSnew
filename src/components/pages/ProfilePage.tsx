@@ -1,8 +1,8 @@
+import { SignOutIcon } from "@phosphor-icons/react"
 import { useNavigate } from "react-router";
 import { useMe } from "@/hooks/use-me";
 import { authClient } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
 import { usePageTitle } from "@/contexts/page-header";
 
 export function ProfilePage() {
@@ -51,7 +51,7 @@ export function ProfilePage() {
           className="h-8 gap-1.5 text-[13px] text-destructive hover:text-destructive"
           onClick={handleLogout}
         >
-          <LogOut className="size-3.5" />
+          <SignOutIcon className="size-3.5" />
           Sign out
         </Button>
       </div>

@@ -1,6 +1,6 @@
+import { SquaresFourIcon, ListIcon, PlusIcon, XIcon } from "@phosphor-icons/react"
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { Grid3X3, List, Plus, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 export interface ViewSelectorProps {
@@ -16,11 +16,11 @@ export interface ViewSelectorProps {
 function getViewIcon(type: string) {
   switch (type) {
     case "grid":
-      return Grid3X3;
+      return SquaresFourIcon;
     case "kanban":
-      return List;
+      return ListIcon;
     default:
-      return Grid3X3;
+      return SquaresFourIcon;
   }
 }
 
@@ -118,7 +118,7 @@ export function ViewSelector({
                 className="opacity-0 group-hover/view:opacity-100 p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-opacity"
                 aria-label="Delete view"
               >
-                <X className="size-3" />
+                <XIcon className="size-3" />
               </button>
             )}
           </div>
@@ -130,7 +130,7 @@ export function ViewSelector({
           onClick={onCreateView}
           className="flex items-center gap-1 px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground border-b-2 border-transparent transition-colors"
         >
-          <Plus className="size-3.5" />
+          <PlusIcon className="size-3.5" />
         </button>
       )}
     </div>

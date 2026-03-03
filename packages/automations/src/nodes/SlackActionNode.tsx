@@ -1,5 +1,5 @@
+import { ChatCircleIcon } from "@phosphor-icons/react"
 import type { NodeProps } from "@xyflow/react";
-import { MessageSquare } from "lucide-react";
 import {
   WorkflowNode,
   NodeTitle,
@@ -32,7 +32,7 @@ export function SlackActionNode({
       handles={{ target: true, source: true }}
     >
       <div className="flex flex-col items-center justify-center gap-2 p-3">
-        <MessageSquare className="size-5 text-blue-400" strokeWidth={1.5} />
+        <ChatCircleIcon className="size-5 text-blue-400" />
         <div className="flex flex-col items-center gap-1 text-center">
           <NodeTitle className="text-sm">Slack Message</NodeTitle>
           <NodeDescription className="text-xs">{display}</NodeDescription>

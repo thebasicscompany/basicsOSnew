@@ -1,5 +1,5 @@
+import { PaperPlaneTiltIcon } from "@phosphor-icons/react"
 import type { NodeProps } from "@xyflow/react";
-import { Send } from "lucide-react";
 import {
   WorkflowNode,
   NodeTitle,
@@ -33,7 +33,7 @@ export function GmailSendNode({
       handles={{ target: true, source: true }}
     >
       <div className="flex flex-col items-center justify-center gap-2 p-3">
-        <Send className="size-5 text-red-400" strokeWidth={1.5} />
+        <IconSend className="size-5 text-red-400" strokeWidth={1.5} />
         <div className="flex flex-col items-center gap-1 text-center">
           <NodeTitle className="text-sm">Gmail Send</NodeTitle>
           <NodeDescription className="text-xs">{display}</NodeDescription>

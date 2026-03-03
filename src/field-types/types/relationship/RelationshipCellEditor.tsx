@@ -1,3 +1,4 @@
+import { ArrowSquareUpRightIcon, CheckIcon } from "@phosphor-icons/react"
 import { useState } from "react";
 import type { CellEditorProps } from "../../types";
 import {
@@ -12,8 +13,6 @@ import {
   CommandEmpty,
   CommandItem,
 } from "@/components/ui/command";
-import { Check, ArrowUpRight } from "lucide-react";
-
 interface LinkedRecord {
   id: string;
   title?: string;
@@ -107,11 +106,11 @@ export function RelationshipCellEditor({
                   onSelect={() => toggleRecord(record)}
                 >
                   <span className="inline-flex items-center gap-1 text-sm">
-                    <ArrowUpRight className="h-3 w-3 opacity-50" />
+                    <ArrowSquareUpRightIcon className="h-3 w-3 opacity-50" />
                     {record.title || record.id}
                   </span>
                   {isSelected && (
-                    <Check className="text-primary ml-auto h-4 w-4" />
+                    <CheckIcon className="text-primary ml-auto h-4 w-4" />
                   )}
                 </CommandItem>
               );

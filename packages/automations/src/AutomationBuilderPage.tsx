@@ -1,3 +1,4 @@
+import { CaretLeftIcon, FloppyDiskIcon, CircleNotchIcon, PlayIcon, PlusIcon, TrashIcon, XIcon } from "@phosphor-icons/react"
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import {
@@ -57,8 +58,6 @@ import {
   GmailSendNode,
 } from "./nodes";
 import { toast } from "sonner";
-import { ChevronLeft, Loader2, Play, PlayCircle, Plus, Save, Trash2, X } from "lucide-react";
-
 const NODE_TYPES = {
   trigger_event: TriggerEventNode,
   trigger_schedule: TriggerScheduleNode,
@@ -277,7 +276,7 @@ function BuilderInner() {
           className="mr-auto gap-1.5 text-muted-foreground hover:text-foreground"
           onClick={() => navigate("/automations")}
         >
-          <ChevronLeft className="size-4" />
+          <CaretLeftIcon className="size-4" />
           Back
         </Button>
 
@@ -296,7 +295,7 @@ function BuilderInner() {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="gap-1.5">
-              <Plus className="size-4" />
+              <PlusIcon className="size-4" />
               Add node
             </Button>
           </DropdownMenuTrigger>
@@ -327,9 +326,9 @@ function BuilderInner() {
               disabled={runNowMutation.isPending}
             >
               {runNowMutation.isPending ? (
-                <Loader2 className="size-4 animate-spin" />
+                <CircleNotchIcon className="size-4 animate-spin" />
               ) : (
-                <PlayCircle className="size-4" />
+                <PlayIcon className="size-4" />
               )}
               Run now
             </Button>
@@ -339,7 +338,7 @@ function BuilderInner() {
               className="gap-1.5 text-muted-foreground"
               onClick={() => setRunsPanelOpen(true)}
             >
-              <Play className="size-4" />
+              <PlayIcon className="size-4" />
               History
             </Button>
             <div className="flex items-center gap-2">
@@ -354,7 +353,7 @@ function BuilderInner() {
         )}
 
         <Button size="sm" onClick={onSave} disabled={isSaving} className="gap-1.5">
-          {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
+          {isSaving ? <CircleNotchIcon className="size-4 animate-spin" /> : <FloppyDiskIcon className="size-4" />}
           Save
         </Button>
       </div>
@@ -425,7 +424,7 @@ function BuilderInner() {
                 title="Delete node"
                 onClick={handleDeleteNode}
               >
-                <Trash2 className="size-4" />
+                <TrashIcon className="size-4" />
               </Button>
               <Button
                 variant="ghost"
@@ -434,7 +433,7 @@ function BuilderInner() {
                 title="Close"
                 onClick={() => setPanelOpen(false)}
               >
-                <X className="size-4" />
+                <XIcon className="size-4" />
               </Button>
             </div>
 

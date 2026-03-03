@@ -1,4 +1,4 @@
-import { Star } from "lucide-react";
+import { StarIcon } from "@phosphor-icons/react"
 import type { FieldTypeDefinition, CalculationType } from "../../types";
 import { RatingCellDisplay } from "./RatingCellDisplay";
 import { RatingCellEditor } from "./RatingCellEditor";
@@ -65,7 +65,7 @@ function RatingFormInput({
           onClick={() => onChange(i + 1 === currentRating ? null : i + 1)}
           className="p-0"
         >
-          <Star
+          <StarIcon
             className={`h-5 w-5 transition-colors ${
               i < currentRating
                 ? "fill-yellow-400 text-yellow-400"
@@ -81,7 +81,7 @@ function RatingFormInput({
 export const RatingFieldType: FieldTypeDefinition = {
   key: "rating",
   label: "Rating",
-  icon: Star,
+  icon: StarIcon,
   group: "standard",
 
   hasTypeConfig: false,

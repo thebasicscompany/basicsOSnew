@@ -1,3 +1,4 @@
+import { CaretLeftIcon, CaretRightIcon, CaretDoubleLeftIcon, CaretDoubleRightIcon, DotsThreeVerticalIcon, PlusIcon } from "@phosphor-icons/react"
 import * as React from "react";
 import {
   flexRender,
@@ -38,14 +39,6 @@ import { getFieldType } from "@/field-types";
 import type { Attribute } from "@/field-types/types";
 import type { ViewColumn, ViewSort, ViewFilter } from "@/types/views";
 import { cn } from "@/lib/utils";
-import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  GripVertical,
-  Plus,
-} from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -150,7 +143,7 @@ function SortableHeaderCell({
           {...dndAttributes}
           {...listeners}
         >
-          <GripVertical className="size-3" />
+          <DotsThreeVerticalIcon className="size-3" />
         </button>
         {children}
       </div>
@@ -352,7 +345,7 @@ export function DataTable({
             className="flex items-center justify-center w-full h-full text-muted-foreground hover:text-foreground"
             onClick={onAddColumn}
           >
-            <Plus className="size-4" />
+            <PlusIcon className="size-4" />
           </button>
         ) : null,
       cell: () => null,
@@ -646,7 +639,7 @@ export function DataTable({
                           size="sm"
                           onClick={onNewRecord}
                         >
-                          <Plus className="size-3.5 mr-1" />
+                          <PlusIcon className="size-3.5 mr-1" />
                           New {singularName}
                         </Button>
                       )}
@@ -784,7 +777,7 @@ export function DataTable({
               onClick={() => onPaginationChange(1, pagination.perPage)}
               disabled={!canPrevPage}
             >
-              <ChevronsLeft className="size-3.5" />
+              <CaretDoubleLeftIcon className="size-3.5" />
             </Button>
             <Button
               aria-label="Go to previous page"
@@ -795,7 +788,7 @@ export function DataTable({
               }
               disabled={!canPrevPage}
             >
-              <ChevronLeft className="size-3.5" />
+              <CaretLeftIcon className="size-3.5" />
             </Button>
             <Button
               aria-label="Go to next page"
@@ -806,7 +799,7 @@ export function DataTable({
               }
               disabled={!canNextPage}
             >
-              <ChevronRight className="size-3.5" />
+              <CaretRightIcon className="size-3.5" />
             </Button>
             <Button
               aria-label="Go to last page"
@@ -815,7 +808,7 @@ export function DataTable({
               onClick={() => onPaginationChange(totalPages, pagination.perPage)}
               disabled={!canNextPage}
             >
-              <ChevronsRight className="size-3.5" />
+              <CaretDoubleRightIcon className="size-3.5" />
             </Button>
           </div>
         </div>

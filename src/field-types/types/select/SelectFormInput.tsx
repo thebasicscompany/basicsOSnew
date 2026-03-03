@@ -1,3 +1,4 @@
+import { CheckIcon, CaretDownIcon } from "@phosphor-icons/react"
 import { useState } from "react";
 import type { FormInputProps, SelectOption } from "../../types";
 import {
@@ -14,8 +15,6 @@ import {
 } from "@/components/ui/command";
 import { getColorClasses, getColorByHash } from "../../colors";
 import { cn } from "@/lib/utils";
-import { Check, ChevronsUpDown } from "lucide-react";
-
 export function SelectFormInput({
   value,
   config,
@@ -60,7 +59,7 @@ export function SelectFormInput({
                 Select {attribute.name.toLowerCase()}...
               </span>
             )}
-            <ChevronsUpDown className="text-muted-foreground h-4 w-4" />
+            <CaretDownIcon className="text-muted-foreground h-4 w-4" />
           </button>
         </PopoverTrigger>
         <PopoverContent align="start" className="w-56 p-0">
@@ -96,7 +95,7 @@ export function SelectFormInput({
                       {option.label}
                     </span>
                     {(value === option.id || value === option.label) && (
-                      <Check className="text-primary ml-auto h-4 w-4" />
+                      <CheckIcon className="text-primary ml-auto h-4 w-4" />
                     )}
                   </CommandItem>
                 );
