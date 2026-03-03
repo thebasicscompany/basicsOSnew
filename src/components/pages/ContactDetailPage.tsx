@@ -3,7 +3,6 @@ import { useParams, useNavigate } from "react-router";
 import { ArrowLeft, Pencil, Trash2, CheckSquare, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -41,21 +40,20 @@ const CONTACT_STATUS_OPTIONS: InlineSelectOption[] = [
 function FieldRow({ label, value }: { label: string; value: React.ReactNode }) {
   if (!value) return null;
   return (
-    <div className="flex gap-3 py-2">
-      <span className="w-32 shrink-0 text-sm text-muted-foreground">{label}</span>
-      <span className="text-sm">{value}</span>
+    <div className="flex items-start gap-2 py-1.5">
+      <span className="w-28 shrink-0 pt-0.5 text-[12px] text-muted-foreground">{label}</span>
+      <span className="min-w-0 flex-1 text-[13px]">{value}</span>
     </div>
   );
 }
 
-function Avatar({ src, name, size = "lg" }: { src?: string | null; name: string; size?: "lg" | "sm" }) {
+function Avatar({ src, name }: { src?: string | null; name: string }) {
   const initials = name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
-  const cls = size === "lg" ? "h-16 w-16 text-xl" : "h-9 w-9 text-sm";
   if (src) {
-    return <img src={src} alt={name} className={`${cls} rounded-full object-cover`} />;
+    return <img src={src} alt={name} className="size-10 rounded-full object-cover" />;
   }
   return (
-    <div className={`${cls} rounded-full bg-primary/10 flex items-center justify-center font-semibold text-primary`}>
+    <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
       {initials || "?"}
     </div>
   );
@@ -104,7 +102,7 @@ export function ContactDetailPage() {
 
   const displayName = contact
     ? [contact.firstName, contact.lastName].filter(Boolean).join(" ") || contact.email || "Unnamed"
-    : "…";
+    : "";
 
   const handleDelete = async () => {
     if (!contactId) return;
@@ -128,95 +126,84 @@ export function ContactDetailPage() {
 
   if (isPending) {
     return (
-      <div className="space-y-4">
-        <div className="h-8 w-48 rounded bg-muted animate-pulse" />
-        <div className="h-32 rounded-lg bg-muted animate-pulse" />
+      <div className="p-4 space-y-4">
+        <div className="h-6 w-32 rounded bg-muted animate-pulse" />
+        <div className="h-24 rounded-lg bg-muted animate-pulse" />
       </div>
     );
   }
 
   if (isError || !contact) {
-    return (
-      <div className="p-8 text-center text-destructive">Contact not found.</div>
-    );
+    return <div className="p-8 text-center text-destructive">Contact not found.</div>;
   }
 
   return (
     <>
-      <div className="space-y-6">
+      <div className="flex h-full flex-col overflow-auto p-4">
         {/* Back */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="gap-1.5 -ml-2"
+        <button
+          className="mb-3 flex items-center gap-1 text-[13px] text-muted-foreground hover:text-foreground transition-colors w-fit"
           onClick={() => navigate(ROUTES.CRM_CONTACTS)}
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="size-3.5" />
           Contacts
-        </Button>
+        </button>
 
         {/* Header */}
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-4">
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <div className="flex items-center gap-3 min-w-0">
             <Avatar src={contact.avatar?.src} name={displayName} />
             <div className="min-w-0">
-              <div className="flex flex-wrap items-baseline gap-2 text-2xl font-semibold tracking-tight">
+              <div className="flex flex-wrap items-baseline gap-1.5">
                 <InlineTextField
                   value={contact.firstName}
                   onSave={async (v) => updateContact.mutateAsync({ id: contactId!, data: { firstName: v || null } })}
                   isSaving={updateContact.isPending}
-                  className="min-h-0 rounded px-1 py-0.5 text-2xl font-semibold hover:bg-muted/50"
+                  className="min-h-0 rounded px-1 py-0 text-lg font-semibold hover:bg-muted/50"
                 />
                 <InlineTextField
                   value={contact.lastName}
                   onSave={async (v) => updateContact.mutateAsync({ id: contactId!, data: { lastName: v || null } })}
                   isSaving={updateContact.isPending}
-                  className="min-h-0 rounded px-1 py-0.5 text-2xl font-semibold hover:bg-muted/50"
+                  className="min-h-0 rounded px-1 py-0 text-lg font-semibold hover:bg-muted/50"
                 />
               </div>
-              <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+              <div className="mt-0.5 flex flex-wrap items-center gap-2 text-[12px] text-muted-foreground">
                 {contact.title && <span>{contact.title}</span>}
                 {contact.title && company && <span>·</span>}
                 {company && (
-                  <button
-                    className="hover:underline text-foreground"
-                    onClick={() => navigate(`/companies/${company.id}`)}
-                  >
+                  <button className="hover:underline text-foreground" onClick={() => navigate(`/companies/${company.id}`)}>
                     {company.name}
                   </button>
                 )}
-                {contact.status && (
-                  <ContactStatusBadge status={contact.status} />
-                )}
+                {contact.status && <ContactStatusBadge status={contact.status} />}
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setEditOpen(true)}>
-              <Pencil className="h-3.5 w-3.5" />
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Button variant="ghost" size="sm" className="h-7 gap-1 text-[13px]" onClick={() => setEditOpen(true)}>
+              <Pencil className="size-3" />
               Edit
             </Button>
-            <Button variant="destructive" size="sm" className="gap-1.5" onClick={() => setConfirmDeleteOpen(true)}>
-              <Trash2 className="h-3.5 w-3.5" />
+            <Button variant="ghost" size="sm" className="h-7 gap-1 text-[13px] text-destructive hover:text-destructive" onClick={() => setConfirmDeleteOpen(true)}>
+              <Trash2 className="size-3" />
               Delete
             </Button>
           </div>
         </div>
 
-        <Separator />
+        <div className="h-px bg-border mb-4" />
 
-        {/* Body: fields + tabs */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
-          {/* Left: fields */}
-          <div className="space-y-1 divide-y">
+        {/* Body: two columns */}
+        <div className="grid flex-1 grid-cols-1 gap-6 lg:grid-cols-[260px_1fr]">
+          {/* Fields */}
+          <div className="divide-y divide-border/50">
             <FieldRow
               label="First name"
               value={
                 <InlineTextField
                   value={contact.firstName}
-                  onSave={async (v) => {
-                    await updateContact.mutateAsync({ id: contactId!, data: { firstName: v || null } });
-                  }}
+                  onSave={async (v) => updateContact.mutateAsync({ id: contactId!, data: { firstName: v || null } })}
                   isSaving={updateContact.isPending}
                 />
               }
@@ -226,9 +213,7 @@ export function ContactDetailPage() {
               value={
                 <InlineTextField
                   value={contact.lastName}
-                  onSave={async (v) => {
-                    await updateContact.mutateAsync({ id: contactId!, data: { lastName: v || null } });
-                  }}
+                  onSave={async (v) => updateContact.mutateAsync({ id: contactId!, data: { lastName: v || null } })}
                   isSaving={updateContact.isPending}
                 />
               }
@@ -236,23 +221,11 @@ export function ContactDetailPage() {
             <FieldRow
               label="Email"
               value={
-                contact.email ? (
-                  <InlineTextField
-                    value={contact.email}
-                    onSave={async (v) => {
-                      await updateContact.mutateAsync({ id: contactId!, data: { email: v || null } });
-                    }}
-                    isSaving={updateContact.isPending}
-                  />
-                ) : (
-                  <InlineTextField
-                    value={null}
-                    onSave={async (v) => {
-                      await updateContact.mutateAsync({ id: contactId!, data: { email: v || null } });
-                    }}
-                    isSaving={updateContact.isPending}
-                  />
-                )
+                <InlineTextField
+                  value={contact.email}
+                  onSave={async (v) => updateContact.mutateAsync({ id: contactId!, data: { email: v || null } })}
+                  isSaving={updateContact.isPending}
+                />
               }
             />
             {(contact.phoneJsonb ?? []).map((p, i) => (
@@ -263,9 +236,7 @@ export function ContactDetailPage() {
               value={
                 <InlineTextField
                   value={contact.title}
-                  onSave={async (v) => {
-                    await updateContact.mutateAsync({ id: contactId!, data: { title: v || null } });
-                  }}
+                  onSave={async (v) => updateContact.mutateAsync({ id: contactId!, data: { title: v || null } })}
                   isSaving={updateContact.isPending}
                 />
               }
@@ -276,9 +247,7 @@ export function ContactDetailPage() {
                 <InlineSelectField
                   value={contact.status}
                   options={CONTACT_STATUS_OPTIONS}
-                  onSave={async (v) => {
-                    await updateContact.mutateAsync({ id: contactId!, data: { status: v || null } });
-                  }}
+                  onSave={async (v) => updateContact.mutateAsync({ id: contactId!, data: { status: v || null } })}
                   isSaving={updateContact.isPending}
                 />
               }
@@ -288,30 +257,25 @@ export function ContactDetailPage() {
               value={
                 <InlineTextField
                   value={contact.linkedinUrl}
-                  onSave={async (v) => {
-                    await updateContact.mutateAsync({ id: contactId!, data: { linkedinUrl: v || null } });
-                  }}
+                  onSave={async (v) => updateContact.mutateAsync({ id: contactId!, data: { linkedinUrl: v || null } })}
                   isSaving={updateContact.isPending}
                 />
               }
             />
             <FieldRow label="First seen" value={contact.firstSeen ? new Date(contact.firstSeen).toLocaleDateString() : null} />
             <FieldRow label="Last seen" value={contact.lastSeen ? new Date(contact.lastSeen).toLocaleDateString() : null} />
-            <div className="py-2">
-              <p className="text-sm text-muted-foreground mb-1">Background</p>
+            <div className="py-1.5">
+              <p className="text-[12px] text-muted-foreground mb-1">Background</p>
               <InlineTextareaField
                 value={contact.background}
-                onSave={async (v) => {
-                  await updateContact.mutateAsync({ id: contactId!, data: { background: v || null } });
-                }}
+                onSave={async (v) => updateContact.mutateAsync({ id: contactId!, data: { background: v || null } })}
                 isSaving={updateContact.isPending}
                 rows={3}
               />
             </div>
             {contact.customFields && Object.keys(contact.customFields).length > 0 && (
               <>
-                <Separator className="my-2" />
-                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground py-2">Custom Fields</p>
+                <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70 py-2">Custom Fields</p>
                 {Object.entries(contact.customFields).map(([k, v]) => (
                   <FieldRow key={k} label={k} value={String(v ?? "")} />
                 ))}
@@ -319,29 +283,33 @@ export function ContactDetailPage() {
             )}
           </div>
 
-          {/* Right: tabs */}
+          {/* Tabs */}
           <Tabs defaultValue="notes">
-            <TabsList>
-              <TabsTrigger value="notes">Notes {notes.length > 0 && `(${notes.length})`}</TabsTrigger>
-              <TabsTrigger value="activity">Activity</TabsTrigger>
-              <TabsTrigger value="tasks">Tasks {contactTasks.length > 0 && `(${contactTasks.length})`}</TabsTrigger>
-              <TabsTrigger value="deals">Deals {contactDeals.length > 0 && `(${contactDeals.length})`}</TabsTrigger>
+            <TabsList className="h-8 gap-0 rounded-none border-b border-border bg-transparent p-0">
+              <TabsTrigger value="notes" className="h-8 rounded-none border-b-2 border-transparent px-3 text-[12px] font-medium data-[state=active]:border-primary data-[state=active]:shadow-none">
+                Notes {notes.length > 0 && `(${notes.length})`}
+              </TabsTrigger>
+              <TabsTrigger value="activity" className="h-8 rounded-none border-b-2 border-transparent px-3 text-[12px] font-medium data-[state=active]:border-primary data-[state=active]:shadow-none">
+                Activity
+              </TabsTrigger>
+              <TabsTrigger value="tasks" className="h-8 rounded-none border-b-2 border-transparent px-3 text-[12px] font-medium data-[state=active]:border-primary data-[state=active]:shadow-none">
+                Tasks {contactTasks.length > 0 && `(${contactTasks.length})`}
+              </TabsTrigger>
+              <TabsTrigger value="deals" className="h-8 rounded-none border-b-2 border-transparent px-3 text-[12px] font-medium data-[state=active]:border-primary data-[state=active]:shadow-none">
+                Deals {contactDeals.length > 0 && `(${contactDeals.length})`}
+              </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="notes" className="mt-4">
+            <TabsContent value="notes" className="mt-3">
               <NotesFeed
                 notes={notes}
                 isLoading={notesPending}
-                onAdd={async (text) => {
-                  await createNote.mutateAsync({ contactId: contactId!, text });
-                }}
-                onDelete={(noteId) =>
-                  deleteNote.mutate({ id: noteId, contactId: contactId! })
-                }
+                onAdd={async (text) => { await createNote.mutateAsync({ contactId: contactId!, text }); }}
+                onDelete={(noteId) => deleteNote.mutate({ id: noteId, contactId: contactId! })}
               />
             </TabsContent>
 
-            <TabsContent value="activity" className="mt-4">
+            <TabsContent value="activity" className="mt-3">
               {(() => {
                 const activity = [
                   ...notes.map((n) => ({ type: "note" as const, id: n.id, date: n.date, text: n.text, done: false })),
@@ -354,25 +322,25 @@ export function ContactDetailPage() {
                   })),
                 ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
                 if (activity.length === 0) {
-                  return <p className="py-4 text-center text-sm text-muted-foreground">No activity yet.</p>;
+                  return <p className="py-4 text-center text-[13px] text-muted-foreground">No activity yet.</p>;
                 }
                 return (
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     {activity.map((item) =>
                       item.type === "note" ? (
-                        <div key={`note-${item.id}`} className="flex gap-3 rounded-md border bg-card p-3 text-sm">
-                          <FileText className="h-4 w-4 shrink-0 text-muted-foreground mt-0.5" />
+                        <div key={`note-${item.id}`} className="flex gap-2 rounded-md border border-border/50 p-2.5 text-[13px]">
+                          <FileText className="size-3.5 shrink-0 text-muted-foreground mt-0.5" />
                           <div className="min-w-0 flex-1">
                             <p className="whitespace-pre-wrap leading-relaxed">{item.text}</p>
-                            <time className="text-xs text-muted-foreground">{new Date(item.date).toLocaleString()}</time>
+                            <time className="text-[11px] text-muted-foreground">{new Date(item.date).toLocaleString()}</time>
                           </div>
                         </div>
                       ) : (
-                        <div key={`task-${item.id}`} className="flex gap-3 rounded-md border bg-card p-3 text-sm">
-                          <CheckSquare className={`h-4 w-4 shrink-0 mt-0.5 ${item.done ? "text-primary" : "text-muted-foreground"}`} />
+                        <div key={`task-${item.id}`} className="flex gap-2 rounded-md border border-border/50 p-2.5 text-[13px]">
+                          <CheckSquare className={`size-3.5 shrink-0 mt-0.5 ${item.done ? "text-primary" : "text-muted-foreground"}`} />
                           <div className="min-w-0 flex-1">
                             <p className={item.done ? "line-through text-muted-foreground" : ""}>{item.text}</p>
-                            <time className="text-xs text-muted-foreground">{new Date(item.date).toLocaleString()}</time>
+                            <time className="text-[11px] text-muted-foreground">{new Date(item.date).toLocaleString()}</time>
                           </div>
                         </div>
                       )
@@ -382,45 +350,36 @@ export function ContactDetailPage() {
               })()}
             </TabsContent>
 
-            <TabsContent value="tasks" className="mt-4 space-y-4">
+            <TabsContent value="tasks" className="mt-3 space-y-3">
               <div className="flex gap-2">
                 <Input
                   placeholder="New task…"
                   value={newTaskText}
                   onChange={(e) => setNewTaskText(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleAddTask()}
+                  className="h-8 text-[13px]"
                 />
-                <Button size="sm" onClick={handleAddTask} disabled={!newTaskText.trim()}>
+                <Button size="sm" className="h-8 text-[13px]" onClick={handleAddTask} disabled={!newTaskText.trim()}>
                   Add
                 </Button>
               </div>
               {contactTasks.length === 0 ? (
-                <p className="py-4 text-center text-sm text-muted-foreground">No tasks.</p>
+                <p className="py-4 text-center text-[13px] text-muted-foreground">No tasks.</p>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-1">
                   {contactTasks.map((t) => (
-                    <div key={t.id} className="flex items-center gap-3 rounded-md border bg-card p-3 text-sm">
-                      <button
-                        onClick={() => markDone.mutate({ id: t.id, done: !t.doneDate })}
-                        className="shrink-0"
-                      >
-                        <CheckSquare className={`h-4 w-4 ${t.doneDate ? "text-primary" : "text-muted-foreground"}`} />
+                    <div key={t.id} className="flex items-center gap-2 rounded-md border border-border/50 px-2.5 py-2 text-[13px]">
+                      <button onClick={() => markDone.mutate({ id: t.id, done: !t.doneDate })} className="shrink-0">
+                        <CheckSquare className={`size-3.5 ${t.doneDate ? "text-primary" : "text-muted-foreground"}`} />
                       </button>
                       <span className={`flex-1 ${t.doneDate ? "line-through text-muted-foreground" : ""}`}>
                         {t.text}
                       </span>
                       {t.dueDate && (
-                        <span className="text-xs text-muted-foreground">
-                          {new Date(t.dueDate).toLocaleDateString()}
-                        </span>
+                        <span className="text-[11px] text-muted-foreground">{new Date(t.dueDate).toLocaleDateString()}</span>
                       )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                        onClick={() => deleteTask.mutate(t.id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
+                      <Button variant="ghost" size="icon" className="size-6 text-muted-foreground hover:text-destructive" onClick={() => deleteTask.mutate(t.id)}>
+                        <Trash2 className="size-3" />
                       </Button>
                     </div>
                   ))}
@@ -428,23 +387,23 @@ export function ContactDetailPage() {
               )}
             </TabsContent>
 
-            <TabsContent value="deals" className="mt-4">
+            <TabsContent value="deals" className="mt-3">
               {contactDeals.length === 0 ? (
-                <p className="py-4 text-center text-sm text-muted-foreground">No deals linked.</p>
+                <p className="py-4 text-center text-[13px] text-muted-foreground">No deals linked.</p>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-1">
                   {contactDeals.map((d) => (
                     <button
                       key={d.id}
-                      className="w-full text-left rounded-md border bg-card p-3 hover:bg-accent transition-colors"
+                      className="w-full text-left rounded-md border border-border/50 p-2.5 hover:bg-muted/50 transition-colors"
                       onClick={() => navigate(`/deals/${d.id}`)}
                     >
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-medium">{d.name}</span>
+                        <span className="text-[13px] font-medium">{d.name}</span>
                         <DealStageBadge stage={d.stage} />
                       </div>
                       {d.amount != null && (
-                        <p className="mt-0.5 text-xs text-muted-foreground">
+                        <p className="mt-0.5 text-[11px] text-muted-foreground tabular-nums">
                           {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(d.amount)}
                         </p>
                       )}
@@ -457,10 +416,8 @@ export function ContactDetailPage() {
         </div>
       </div>
 
-      {/* Edit sheet */}
       <ContactSheet open={editOpen} onOpenChange={setEditOpen} contact={contact} />
 
-      {/* Delete confirm */}
       <Dialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -470,8 +427,8 @@ export function ContactDetailPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmDeleteOpen(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={deleteContact.isPending}>
+            <Button variant="outline" size="sm" onClick={() => setConfirmDeleteOpen(false)}>Cancel</Button>
+            <Button variant="destructive" size="sm" onClick={handleDelete} disabled={deleteContact.isPending}>
               {deleteContact.isPending ? "Deleting…" : "Delete"}
             </Button>
           </DialogFooter>

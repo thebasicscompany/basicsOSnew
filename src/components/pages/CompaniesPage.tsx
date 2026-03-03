@@ -1,118 +1,47 @@
-import { useState, useEffect } from "react";
-import { useSearchParams, useNavigate } from "react-router";
-import { type ColumnDef } from "@tanstack/react-table";
+import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Plus, Building2 } from "lucide-react";
-import { useCompanies, useDeleteCompany, type CompanySummary } from "@/hooks/use-companies";
-import { SectorBadge } from "@/components/status-badge";
-import { DataTable } from "@/components/data-table";
-import { DataTableColumnHeader } from "@/components/tablecn/data-table/data-table-column-header";
+import {
+  useCompanies,
+  useDeleteCompany,
+  useUpdateCompany,
+  type CompanySummary,
+} from "@/hooks/use-companies";
 import { CompanySheet } from "@/components/sheets/CompanySheet";
-import { ManageColumnsDialog } from "@/components/manage-columns-dialog";
-import { useCustomColumns } from "@/hooks/use-custom-columns";
+import { SpreadsheetGrid } from "@/components/spreadsheet";
+import { ExpandedRowModal } from "@/components/spreadsheet/ExpandedRowModal";
 
-function CompanyNameCell({ row }: { row: { original: CompanySummary } }) {
-  const c = row.original;
-  const initials = c.name.slice(0, 2).toUpperCase();
-  return (
-    <div className="flex items-center gap-2">
-      {c.logo?.src ? (
-        <img
-          src={c.logo.src}
-          alt={c.name}
-          className="h-7 w-7 shrink-0 rounded object-cover"
-        />
-      ) : (
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-primary/10 text-xs font-semibold text-primary">
-          {initials}
-        </div>
-      )}
-      <span className="truncate">{c.name}</span>
-    </div>
-  );
-}
-
-const BASE_COLUMNS: ColumnDef<CompanySummary>[] = [
-  {
-    accessorKey: "name",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Name" />
-    ),
-    meta: { title: "Name" },
-    cell: ({ row }) => <CompanyNameCell row={row} />,
-  },
-  {
-    accessorKey: "sector",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Sector" />
-    ),
-    meta: { title: "Sector" },
-    cell: ({ getValue }) => (
-      <SectorBadge sector={getValue<string | null>()} />
-    ),
-  },
-  {
-    accessorKey: "website",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Website" />
-    ),
-    meta: { title: "Website" },
-    cell: ({ getValue }) => {
-      const url = getValue<string | null>();
-      return url ? (
-        <a
-          href={url.startsWith("http") ? url : `https://${url}`}
-          target="_blank"
-          rel="noreferrer"
-          className="text-primary hover:underline"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {url}
-        </a>
-      ) : null;
-    },
-  },
-  {
-    accessorKey: "city",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="City" />
-    ),
-    meta: { title: "City" },
-  },
-  {
-    accessorKey: "nbContacts",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Contacts" />
-    ),
-    meta: { title: "Contacts" },
-  },
-  {
-    accessorKey: "nbDeals",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Deals" />
-    ),
-    meta: { title: "Deals" },
-  },
-];
+type Row = Record<string, unknown> & { id?: number | string };
 
 export function CompaniesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [selected, setSelected] = useState<CompanySummary | null>(null);
+  const [expandedRow, setExpandedRow] = useState<Row | null>(null);
 
   const openParam = searchParams.get("open");
   const openNew = openParam === "new";
-  const openId = openParam && openParam !== "new" ? parseInt(openParam, 10) : null;
+  const openId =
+    openParam && openParam !== "new" ? parseInt(openParam, 10) : null;
 
   const { data, isPending, isError } = useCompanies({
-    pagination: { page: 1, perPage: 100 },
+    pagination: { page: 1, perPage: 500 },
   });
   const deleteCompany = useDeleteCompany();
+  const updateCompany = useUpdateCompany();
+
+  const handleCellUpdate = useCallback(
+    (rowId: number | string, field: string, value: unknown) => {
+      updateCompany.mutate({
+        id: Number(rowId),
+        data: { [field]: value } as Partial<CompanySummary>,
+      });
+    },
+    [updateCompany],
+  );
 
   useEffect(() => {
     if (openNew) {
-      setSelected(null);
       setSheetOpen(true);
       setSearchParams({}, { replace: true });
     }
@@ -122,21 +51,13 @@ export function CompaniesPage() {
     if (openId && data?.data) {
       const found = data.data.find((c) => c.id === openId);
       if (found) {
-        setSelected(found);
-        setSheetOpen(true);
+        setExpandedRow(found as unknown as Row);
         setSearchParams({}, { replace: true });
       }
     }
   }, [openId, data?.data, setSearchParams]);
-  const customColumns = useCustomColumns<CompanySummary>("companies");
-  const columns = [...BASE_COLUMNS, ...customColumns];
-
-  const handleRowClick = (row: CompanySummary) => {
-    navigate(`/companies/${row.id}`);
-  };
 
   const handleNew = () => {
-    setSelected(null);
     setSheetOpen(true);
   };
 
@@ -148,55 +69,74 @@ export function CompaniesPage() {
     );
   }
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Companies</h1>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">
-            {data ? `${data.total} total` : ""}
-          </span>
-          <Button size="sm" onClick={handleNew} className="gap-1">
-            <Plus className="h-4 w-4" />
-            New Company
-          </Button>
-        </div>
-      </div>
+  const rows = (data?.data ?? []) as Row[];
 
-      {!isPending && (data?.data ?? []).length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border bg-card py-16 text-center">
-          <Building2 className="size-10 text-muted-foreground/40" />
-          <div>
-            <p className="font-medium">No companies yet</p>
-            <p className="text-sm text-muted-foreground">Add your first company to get started.</p>
-          </div>
-          <Button size="sm" onClick={handleNew} className="gap-1">
-            <Plus className="h-4 w-4" />
-            New Company
-          </Button>
+  if (!isPending && rows.length === 0) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
+        <Building2 className="size-8 text-muted-foreground/30" />
+        <div>
+          <p className="text-sm font-medium">No companies yet</p>
+          <p className="text-[12px] text-muted-foreground">
+            Add your first company to get started.
+          </p>
         </div>
-      ) : (
-        <DataTable
-          columns={columns}
-          data={data?.data ?? []}
-          isLoading={isPending}
-          onRowClick={handleRowClick}
-          toolbar={<ManageColumnsDialog resource="companies" />}
-          onBulkDelete={async (ids) => {
-            for (const id of ids) {
-              await deleteCompany.mutateAsync(id);
-            }
-          }}
+        <Button
+          size="sm"
+          onClick={handleNew}
+          className="h-7 gap-1 text-[13px]"
+        >
+          <Plus className="size-3.5" />
+          New Company
+        </Button>
+        <CompanySheet
+          open={sheetOpen}
+          onOpenChange={setSheetOpen}
+          company={null}
         />
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full flex-col">
+      <SpreadsheetGrid
+        resource="companies_summary"
+        data={rows}
+        total={data?.total}
+        isLoading={isPending}
+        onCellUpdate={handleCellUpdate}
+        readOnlyColumns={["nbContacts", "nbDeals"]}
+        hiddenColumns={["salesId"]}
+        onRowExpand={(row) => setExpandedRow(row)}
+        onNewRow={handleNew}
+        onBulkDelete={async (ids) => {
+          for (const id of ids) await deleteCompany.mutateAsync(id);
+        }}
+      />
+
+      <ExpandedRowModal
+        open={!!expandedRow}
+        onOpenChange={(open) => {
+          if (!open) setExpandedRow(null);
+        }}
+        resource="companies_summary"
+        row={expandedRow}
+        title={(expandedRow?.name as string) ?? "Untitled"}
+        onFieldUpdate={handleCellUpdate}
+        onDelete={(id) => {
+          deleteCompany.mutate(id);
+          setExpandedRow(null);
+        }}
+        readOnlyColumns={["nbContacts", "nbDeals"]}
+        allRows={rows}
+        onNavigateRow={(row) => setExpandedRow(row)}
+      />
 
       <CompanySheet
         open={sheetOpen}
-        onOpenChange={(open) => {
-          setSheetOpen(open);
-          if (!open) setSelected(null);
-        }}
-        company={selected}
+        onOpenChange={setSheetOpen}
+        company={null}
       />
     </div>
   );

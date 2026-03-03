@@ -1,0 +1,442 @@
+import * as React from "react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import { CSS } from "@dnd-kit/utilities";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { getFieldType } from "@/field-types";
+import type { Attribute } from "@/field-types/types";
+import type { ViewSort, ViewFilter, ViewColumn } from "@/types/views";
+import {
+  ArrowUpDown,
+  Columns3,
+  Filter,
+  GripVertical,
+  Plus,
+  X,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { SortPopover } from "./SortPopover";
+import { FilterPopover } from "./FilterPopover";
+
+export interface DataTableToolbarProps {
+  objectSlug: string;
+  singularName: string;
+  sorts: ViewSort[];
+  filters: ViewFilter[];
+  attributes: Attribute[];
+  viewColumns?: ViewColumn[];
+  onToggleColumn?: (columnId: string, show: boolean) => void;
+  onReorderColumn?: (columnId: string, newOrder: number) => void;
+  onAddSort: (sort: Omit<ViewSort, "id">) => void;
+  onRemoveSort: (sortId: string) => void;
+  onUpdateSort?: (sortId: string, updates: Partial<ViewSort>) => void;
+  onAddFilter: (filter: Omit<ViewFilter, "id">) => void;
+  onRemoveFilter: (filterId: string) => void;
+  onUpdateFilter?: (filterId: string, updates: Partial<ViewFilter>) => void;
+  onNewRecord: () => void;
+  isDirty?: boolean;
+  onSave?: () => void;
+  onDiscard?: () => void;
+  selectedCount?: number;
+  onBulkDelete?: () => void;
+}
+
+export function DataTableToolbar({
+  objectSlug,
+  singularName,
+  sorts,
+  filters,
+  attributes,
+  viewColumns,
+  onToggleColumn,
+  onReorderColumn,
+  onAddSort,
+  onRemoveSort,
+  onUpdateSort,
+  onAddFilter,
+  onRemoveFilter,
+  onUpdateFilter,
+  onNewRecord,
+  isDirty = false,
+  onSave,
+  onDiscard,
+  selectedCount = 0,
+  onBulkDelete,
+}: DataTableToolbarProps) {
+  const hasActiveSorts = sorts.length > 0;
+  const hasActiveFilters = filters.length > 0;
+
+  // Build a name map for display
+  const attrMap = React.useMemo(
+    () => new Map(attributes.map((a) => [a.id, a])),
+    [attributes],
+  );
+
+  // Columns panel: merge ALL attributes with viewColumns for full list
+  const columnItems = React.useMemo(() => {
+    if (!viewColumns) return [];
+    const vcMap = new Map(viewColumns.map((vc) => [vc.fieldId, vc]));
+
+    // Start with viewColumns that match attributes, in order
+    const matched: Array<{
+      vc: ViewColumn;
+      attr: Attribute;
+    }> = [];
+    const sortedVcs = [...viewColumns].sort((a, b) => a.order - b.order);
+    for (const vc of sortedVcs) {
+      const attr = attrMap.get(vc.fieldId);
+      if (attr) {
+        matched.push({ vc, attr });
+      }
+    }
+
+    // Append any attributes not present in viewColumns (hidden by default)
+    for (const attr of attributes) {
+      if (!vcMap.has(attr.id)) {
+        matched.push({
+          vc: {
+            id: `virtual-${attr.id}`,
+            fieldId: attr.id,
+            title: attr.name,
+            show: false,
+            order: matched.length,
+          },
+          attr,
+        });
+      }
+    }
+
+    return matched;
+  }, [viewColumns, attributes, attrMap]);
+
+  const visibleCount = columnItems.filter((c) => c.vc.show).length;
+
+  return (
+    <div className="flex flex-col gap-2">
+      {/* Row 1: Toolbar buttons */}
+      <div className="flex items-center gap-2">
+        {/* Sort button */}
+        <SortPopover
+          attributes={attributes}
+          sorts={sorts}
+          onAdd={onAddSort}
+          onRemove={onRemoveSort}
+          onUpdate={onUpdateSort}
+        >
+          <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs">
+            <ArrowUpDown className="size-3.5" />
+            Sort
+            {hasActiveSorts && (
+              <Badge
+                variant="secondary"
+                className="ml-0.5 h-4 min-w-4 px-1 text-[10px]"
+              >
+                {sorts.length}
+              </Badge>
+            )}
+          </Button>
+        </SortPopover>
+
+        {/* Filter button */}
+        <FilterPopover
+          attributes={attributes}
+          filters={filters}
+          onAdd={onAddFilter}
+          onRemove={onRemoveFilter}
+          onUpdate={onUpdateFilter}
+        >
+          <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs">
+            <Filter className="size-3.5" />
+            Filter
+            {hasActiveFilters && (
+              <Badge
+                variant="secondary"
+                className="ml-0.5 h-4 min-w-4 px-1 text-[10px]"
+              >
+                {filters.length}
+              </Badge>
+            )}
+          </Button>
+        </FilterPopover>
+
+        {/* Columns visibility + reorder */}
+        {viewColumns && onToggleColumn && (
+          <ColumnsPopover
+            items={columnItems}
+            visibleCount={visibleCount}
+            totalCount={columnItems.length}
+            onToggle={onToggleColumn}
+            onReorder={onReorderColumn}
+          />
+        )}
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Dirty state actions */}
+        {isDirty && onSave && onDiscard && (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={onDiscard}
+            >
+              Discard changes
+            </Button>
+            <Button size="sm" className="h-7 text-xs" onClick={onSave}>
+              Save for everyone
+            </Button>
+          </div>
+        )}
+
+        {/* New record button */}
+        <Button size="sm" className="h-7 gap-1.5 text-xs" onClick={onNewRecord}>
+          <Plus className="size-3.5" />
+          New {singularName}
+        </Button>
+      </div>
+
+      {/* Row 2: Active sort/filter pills */}
+      {(hasActiveSorts || hasActiveFilters) && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          {/* Sort pills */}
+          {sorts.map((sort) => {
+            const attr = attrMap.get(sort.fieldId);
+            return (
+              <Badge
+                key={sort.id}
+                variant="outline"
+                className="gap-1 pl-2 pr-1 py-0.5 text-xs font-normal"
+              >
+                <ArrowUpDown className="size-3 text-muted-foreground" />
+                <span>{attr?.name ?? sort.fieldId}</span>
+                <span className="text-muted-foreground">
+                  {sort.direction === "asc" ? "A-Z" : "Z-A"}
+                </span>
+                <button
+                  className="ml-0.5 rounded-sm hover:bg-muted p-0.5"
+                  onClick={() => onRemoveSort(sort.id)}
+                >
+                  <X className="size-3" />
+                </button>
+              </Badge>
+            );
+          })}
+
+          {hasActiveSorts && hasActiveFilters && (
+            <Separator orientation="vertical" className="h-4" />
+          )}
+
+          {/* Filter pills */}
+          {filters.map((filter, idx) => {
+            const attr = attrMap.get(filter.fieldId);
+            return (
+              <Badge
+                key={filter.id}
+                variant="outline"
+                className="gap-1 pl-2 pr-1 py-0.5 text-xs font-normal"
+              >
+                {idx > 0 && (
+                  <span className="text-muted-foreground mr-0.5">
+                    {filter.logicalOp}
+                  </span>
+                )}
+                <Filter className="size-3 text-muted-foreground" />
+                <span>{attr?.name ?? filter.fieldId}</span>
+                <span className="text-muted-foreground">{filter.operator}</span>
+                {filter.value !== undefined &&
+                  filter.value !== null &&
+                  filter.value !== "" && (
+                    <span className="font-medium">{String(filter.value)}</span>
+                  )}
+                <button
+                  className="ml-0.5 rounded-sm hover:bg-muted p-0.5"
+                  onClick={() => onRemoveFilter(filter.id)}
+                >
+                  <X className="size-3" />
+                </button>
+              </Badge>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Columns Popover — full attribute list with drag-to-reorder and toggles
+// ---------------------------------------------------------------------------
+
+interface ColumnItem {
+  vc: ViewColumn;
+  attr: Attribute;
+}
+
+function ColumnsPopover({
+  items,
+  visibleCount,
+  totalCount,
+  onToggle,
+  onReorder,
+}: {
+  items: ColumnItem[];
+  visibleCount: number;
+  totalCount: number;
+  onToggle: (columnId: string, show: boolean) => void;
+  onReorder?: (columnId: string, newOrder: number) => void;
+}) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 3 } }),
+    useSensor(KeyboardSensor),
+  );
+
+  const itemIds = React.useMemo(() => items.map((i) => i.vc.id), [items]);
+
+  const handleDragEnd = React.useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event;
+      if (!over || active.id === over.id || !onReorder) return;
+
+      const oldIndex = itemIds.indexOf(String(active.id));
+      const newIndex = itemIds.indexOf(String(over.id));
+      if (oldIndex === -1 || newIndex === -1) return;
+
+      // Reorder: update every affected item's order
+      const reordered = arrayMove(items, oldIndex, newIndex);
+      reordered.forEach((item, idx) => {
+        if (item.vc.order !== idx) {
+          onReorder(item.vc.id, idx);
+        }
+      });
+    },
+    [items, itemIds, onReorder],
+  );
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs">
+          <Columns3 className="size-3.5" />
+          Columns
+          <Badge
+            variant="secondary"
+            className="ml-0.5 h-4 min-w-4 px-1 text-[10px]"
+          >
+            {visibleCount}
+          </Badge>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-0" align="start">
+        <div className="px-3 py-2 border-b">
+          <p className="text-xs font-medium text-muted-foreground">
+            {visibleCount} of {totalCount} columns visible
+          </p>
+        </div>
+        <div className="max-h-72 overflow-y-auto py-1">
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            modifiers={[restrictToVerticalAxis]}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={itemIds}
+              strategy={verticalListSortingStrategy}
+            >
+              {items.map((item) => (
+                <SortableColumnRow
+                  key={item.vc.id}
+                  item={item}
+                  onToggle={onToggle}
+                  canDrag={!!onReorder}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function SortableColumnRow({
+  item,
+  onToggle,
+  canDrag,
+}: {
+  item: ColumnItem;
+  onToggle: (columnId: string, show: boolean) => void;
+  canDrag: boolean;
+}) {
+  const {
+    attributes: dndAttributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.vc.id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  const fieldType = getFieldType(item.attr.uiType);
+  const FieldIcon = fieldType.icon;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "flex items-center gap-2 px-2 py-1 mx-1 rounded-sm hover:bg-accent/50",
+        isDragging && "z-50 bg-background shadow-sm",
+      )}
+    >
+      {canDrag && (
+        <button
+          className="cursor-grab touch-none text-muted-foreground hover:text-foreground shrink-0"
+          {...dndAttributes}
+          {...listeners}
+        >
+          <GripVertical className="size-3" />
+        </button>
+      )}
+      <span className="text-muted-foreground shrink-0">
+        <FieldIcon className="size-3.5" />
+      </span>
+      <span className="text-sm truncate flex-1">{item.attr.name}</span>
+      <Switch
+        checked={item.vc.show}
+        onCheckedChange={(checked) => onToggle(item.vc.id, checked)}
+        className="scale-75"
+      />
+    </div>
+  );
+}

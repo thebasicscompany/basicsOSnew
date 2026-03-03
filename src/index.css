@@ -43,7 +43,7 @@
 }
 
 :root {
-  --radius: 0.625rem;
+  --radius: 0.5rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -59,7 +59,7 @@
   --accent: oklch(0.97 0 0);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
+  --border: oklch(0.932 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
   --chart-1: oklch(0.646 0.222 41.116);
@@ -73,7 +73,7 @@
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.97 0 0);
   --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-border: oklch(0.932 0 0);
   --sidebar-ring: oklch(0.708 0 0);
   --avatar-0: oklch(0.85 0.08 240);
   --avatar-1: oklch(0.88 0.1 340);
@@ -85,13 +85,8 @@
   --avatar-7: oklch(0.88 0.09 10);
   --avatar-8: oklch(0.92 0.08 80);
   --avatar-9: oklch(0.86 0.09 270);
-  /* Twenty-style table (from twenty-ui: gray4, gray9, accent.quaternary=indigo2) */
-  --twenty-border-light: #f1f1f1;
-  --twenty-font-tertiary: #999999;
-  --twenty-bg-secondary: #fcfcfc;
-  --twenty-accent-quaternary: #f4f3ff;
-  /* Twenty-style sidebar (gray2 background) */
-  --twenty-sidebar-bg: #fcfcfc;
+  --row-height: 36px;
+  --sidebar-width: 220px;
 }
 
 .dark {
@@ -136,12 +131,6 @@
   --avatar-7: oklch(0.38 0.14 10);
   --avatar-8: oklch(0.4 0.11 80);
   --avatar-9: oklch(0.36 0.13 270);
-  /* Twenty-style table (dark mode) */
-  --twenty-border-light: oklch(1 0 0 / 15%);
-  --twenty-font-tertiary: oklch(0.556 0 0);
-  --twenty-bg-secondary: oklch(0.22 0 0);
-  --twenty-accent-quaternary: oklch(0.35 0.08 264);
-  --twenty-sidebar-bg: oklch(0.22 0 0);
 }
 
 a,
@@ -192,5 +181,9 @@ input[type="time"] {
   }
   body {
     @apply bg-background text-foreground;
+    font-size: 13px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }

@@ -7,16 +7,12 @@ import { VoiceApp } from "@basics-os/voice";
 import { MCPViewerApp } from "@basics-os/mcp-viewer";
 
 import { GatewayProvider } from "@/providers/GatewayProvider";
+import { NocoDBProvider } from "@/providers/NocoDBProvider";
+import { ObjectRegistryProvider } from "@/providers/ObjectRegistryProvider";
 import { ErrorFallback } from "@/components/error-fallback";
 import { ProtectedRoute } from "@/lib/auth";
 import { StartPage } from "@/components/auth/start-page";
 import { SignupPage } from "@/components/auth/signup-page";
-import { ContactsPage } from "@/components/pages/ContactsPage";
-import { ContactDetailPage } from "@/components/pages/ContactDetailPage";
-import { CompaniesPage } from "@/components/pages/CompaniesPage";
-import { CompanyDetailPage } from "@/components/pages/CompanyDetailPage";
-import { DealsPage } from "@/components/pages/DealsPage";
-import { DealDetailPage } from "@/components/pages/DealDetailPage";
 import { DashboardPage } from "@/components/pages/DashboardPage";
 import { ProfilePage } from "@/components/pages/ProfilePage";
 import { SettingsPage } from "@/components/pages/SettingsPage";
@@ -25,6 +21,9 @@ import { ChatPage } from "@/components/pages/ChatPage";
 import { ConnectionsPage } from "@/components/pages/ConnectionsPage";
 import { TasksPage } from "@/components/pages/TasksPage";
 import { CommandPalette } from "@/components/command-palette";
+import { ObjectListPage } from "@/components/pages/ObjectListPage";
+import { RecordDetailPage } from "@/components/pages/RecordDetailPage";
+import { ObjectRegistryNavSection } from "@/components/ObjectRegistryNavSection";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -58,20 +57,18 @@ function AppRoutes() {
         <Route
           element={
             <ProtectedRoute>
-              <>
-                <HubLayout />
-                <CommandPalette />
-              </>
+              <NocoDBProvider>
+                <ObjectRegistryProvider>
+                  <>
+                    <HubLayout extraNavContent={<ObjectRegistryNavSection />} />
+                    <CommandPalette />
+                  </>
+                </ObjectRegistryProvider>
+              </NocoDBProvider>
             </ProtectedRoute>
           }
         >
           <Route path={ROUTES.CRM} element={<DashboardPage />} />
-          <Route path={ROUTES.CRM_CONTACTS} element={<ContactsPage />} />
-          <Route path={ROUTES.CRM_CONTACT_DETAIL} element={<ContactDetailPage />} />
-          <Route path={ROUTES.CRM_COMPANIES} element={<CompaniesPage />} />
-          <Route path={ROUTES.CRM_COMPANY_DETAIL} element={<CompanyDetailPage />} />
-          <Route path={ROUTES.CRM_DEALS} element={<DealsPage />} />
-          <Route path={ROUTES.CRM_DEAL_DETAIL} element={<DealDetailPage />} />
           <Route path={`${ROUTES.AUTOMATIONS}/*`} element={<AutomationsApp />} />
           <Route path={ROUTES.VOICE} element={<VoiceApp />} />
           <Route path={ROUTES.MCP} element={<MCPViewerApp />} />
@@ -81,6 +78,19 @@ function AppRoutes() {
           <Route path={ROUTES.CONNECTIONS} element={<ConnectionsPage />} />
           <Route path={ROUTES.TASKS} element={<TasksPage />} />
           <Route path={ROUTES.IMPORT} element={<ImportPage />} />
+
+          {/* Records (NocoDB-backed objects) */}
+          <Route path="/objects/:objectSlug" element={<ObjectListPage />} />
+          <Route path="/objects/:objectSlug/:recordId" element={<RecordDetailPage />} />
+
+          {/* Redirects: old CRM routes → new objects routes */}
+          <Route path="/contacts" element={<Navigate to="/objects/contacts" replace />} />
+          <Route path="/contacts/:id" element={<Navigate to="/objects/contacts" replace />} />
+          <Route path="/companies" element={<Navigate to="/objects/companies" replace />} />
+          <Route path="/companies/:id" element={<Navigate to="/objects/companies" replace />} />
+          <Route path="/deals" element={<Navigate to="/objects/deals" replace />} />
+          <Route path="/deals/:id" element={<Navigate to="/objects/deals" replace />} />
+
           {/* Catch-all: redirect to dashboard */}
           <Route path="*" element={<Navigate to={ROUTES.CRM} replace />} />
         </Route>

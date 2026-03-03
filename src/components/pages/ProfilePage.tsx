@@ -2,7 +2,7 @@ import { useNavigate } from "react-router";
 import { useMe } from "@/hooks/use-me";
 import { authClient } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { LogOut } from "lucide-react";
 
 export function ProfilePage() {
   const navigate = useNavigate();
@@ -14,38 +14,43 @@ export function ProfilePage() {
   };
 
   return (
-    <div className="max-w-lg space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Profile</h1>
-        <p className="text-sm text-muted-foreground">Your account details</p>
-      </div>
-      <Separator />
-      {isPending ? (
-        <div className="text-sm text-muted-foreground">Loading…</div>
-      ) : isError ? (
-        <div className="flex items-center gap-3 text-sm text-destructive">
-          Failed to load profile.
-          <Button variant="outline" size="sm" onClick={() => refetch()}>
-            Retry
-          </Button>
-        </div>
-      ) : me ? (
-        <div className="space-y-4">
-          <div className="grid grid-cols-[120px_1fr] gap-2 text-sm">
-            <span className="text-muted-foreground font-medium">Name</span>
-            <span>{me.fullName}</span>
-            {me.administrator && (
-              <>
-                <span className="text-muted-foreground font-medium">Role</span>
-                <span>Administrator</span>
-              </>
-            )}
+    <div className="flex h-full flex-col overflow-auto p-4">
+      <h1 className="mb-1 text-lg font-semibold">Profile</h1>
+      <p className="mb-4 text-[12px] text-muted-foreground">Your account details</p>
+
+      <div className="max-w-sm space-y-4">
+        {isPending ? (
+          <div className="text-[13px] text-muted-foreground">Loading…</div>
+        ) : isError ? (
+          <div className="flex items-center gap-3 text-[13px] text-destructive">
+            Failed to load profile.
+            <Button variant="outline" size="sm" className="h-7 text-[13px]" onClick={() => refetch()}>
+              Retry
+            </Button>
           </div>
-        </div>
-      ) : null}
-      <Separator />
-      <div>
-        <Button variant="destructive" onClick={handleLogout}>
+        ) : me ? (
+          <div className="rounded-lg border p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                {me.fullName?.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() || "?"}
+              </div>
+              <div>
+                <p className="text-[13px] font-medium">{me.fullName}</p>
+                {me.administrator && (
+                  <p className="text-[11px] text-muted-foreground">Administrator</p>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 gap-1.5 text-[13px] text-destructive hover:text-destructive"
+          onClick={handleLogout}
+        >
+          <LogOut className="size-3.5" />
           Sign out
         </Button>
       </div>

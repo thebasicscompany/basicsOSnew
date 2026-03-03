@@ -12,6 +12,12 @@ export default defineConfig({
         "@": path.resolve(__dirname, "src"),
         "@renderer": path.resolve(__dirname, "src/renderer/src"),
         "basics-os/src": path.resolve(__dirname, "src"),
+        // Force the frontend to use the 2.x provider-utils that @ai-sdk/react
+        // needs, not the 4.x one hoisted by the server's @ai-sdk/openai.
+        "@ai-sdk/provider-utils": path.resolve(
+          __dirname,
+          "node_modules/.pnpm/@ai-sdk+provider-utils@2.2.8_zod@3.25.76/node_modules/@ai-sdk/provider-utils",
+        ),
       },
     },
     plugins: [react(), tailwindcss()],

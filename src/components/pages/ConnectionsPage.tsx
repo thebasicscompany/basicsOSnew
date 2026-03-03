@@ -5,8 +5,6 @@ import { useSearchParams } from "react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Separator } from "@/components/ui/separator";
 import { useGateway } from "@/hooks/useGateway";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "";
@@ -20,16 +18,8 @@ interface Connection {
 }
 
 const PROVIDERS = [
-  {
-    id: "slack",
-    name: "Slack",
-    description: "Send messages to channels and DMs",
-  },
-  {
-    id: "google",
-    name: "Gmail",
-    description: "Read and send emails from your Google account",
-  },
+  { id: "slack", name: "Slack", description: "Send messages to channels and DMs" },
+  { id: "google", name: "Gmail", description: "Read and send emails from your Google account" },
 ] as const;
 
 export function ConnectionsPage() {
@@ -37,7 +27,6 @@ export function ConnectionsPage() {
   const queryClient = useQueryClient();
   const { hasKey } = useGateway();
 
-  // Show toast when redirected back from OAuth
   useEffect(() => {
     const connected = searchParams.get("connected");
     if (connected) {
@@ -78,52 +67,37 @@ export function ConnectionsPage() {
     connections.find((c) => c.provider === providerId);
 
   return (
-    <div className="max-w-lg space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Connections</h1>
-        <p className="text-sm text-muted-foreground">
-          Connect services to use in your automations.
-        </p>
-      </div>
-      <Separator />
+    <div className="flex h-full flex-col overflow-auto p-4">
+      <h1 className="mb-1 text-lg font-semibold">Connections</h1>
+      <p className="mb-4 text-[12px] text-muted-foreground">Connect services to use in your automations.</p>
 
       {!hasKey && (
-        <Alert>
-          <AlertDescription>
-            Add your Basics API key in{" "}
-            <a href="/settings" className="font-medium text-primary underline">
-              Settings →
-            </a>{" "}
-            to use connections.
-          </AlertDescription>
-        </Alert>
+        <div className="mb-4 rounded-md border border-border bg-muted/50 p-3 text-[13px] text-muted-foreground">
+          Add your Basics API key in{" "}
+          <a href="/settings" className="font-medium text-foreground underline">Settings</a>{" "}
+          to use connections.
+        </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid max-w-lg gap-3 sm:grid-cols-2">
         {PROVIDERS.map((provider) => {
           const conn = getConnection(provider.id);
           return (
-            <div
-              key={provider.id}
-              className="flex flex-col gap-3 rounded-lg border bg-card p-4"
-            >
+            <div key={provider.id} className="flex flex-col gap-3 rounded-lg border p-3">
               <div>
-                <p className="text-sm font-medium">{provider.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {provider.description}
-                </p>
+                <p className="text-[13px] font-medium">{provider.name}</p>
+                <p className="text-[11px] text-muted-foreground">{provider.description}</p>
               </div>
               {conn ? (
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
-                    <span className="size-2 rounded-full bg-green-500" />
-                    <span className="text-xs text-muted-foreground">
-                      {conn.accountName ?? "Connected"}
-                    </span>
+                    <span className="size-1.5 rounded-full bg-green-500" />
+                    <span className="text-[11px] text-muted-foreground">{conn.accountName ?? "Connected"}</span>
                   </div>
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
+                    className="h-6 text-[12px]"
                     onClick={() => disconnectMutation.mutate(provider.id)}
                     disabled={disconnectMutation.isPending}
                   >
@@ -134,10 +108,11 @@ export function ConnectionsPage() {
                 <Button
                   variant="outline"
                   size="sm"
+                  className="h-7 text-[13px]"
                   onClick={() => handleConnect(provider.id)}
                   disabled={!hasKey}
                 >
-                  Connect →
+                  Connect
                 </Button>
               )}
             </div>

@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { useDeals } from "@/hooks/use-deals";
+import { useRecords } from "@/hooks/use-records";
 
 const chartConfig = {
   deals: {
@@ -40,7 +40,7 @@ const chartConfig = {
 type ChartPoint = { date: string; deals: number; value: number };
 
 function buildChartData(
-  deals: { createdAt?: string; amount?: number | null }[],
+  deals: Record<string, any>[],
   days: number,
 ): ChartPoint[] {
   const now = new Date();
@@ -57,12 +57,14 @@ function buildChartData(
   }
 
   for (const deal of deals) {
-    if (!deal.createdAt) continue;
-    const key = deal.createdAt.slice(0, 10);
+    // Raw NocoDB column name: created_at
+    const createdAt = deal.created_at ?? deal.CreatedAt;
+    if (!createdAt) continue;
+    const key = String(createdAt).slice(0, 10);
     const pt = points.find((p) => p.date === key);
     if (pt) {
       pt.deals += 1;
-      pt.value += deal.amount ?? 0;
+      pt.value += Number(deal.amount) || 0;
     }
   }
 
@@ -74,13 +76,14 @@ export function ChartAreaInteractive() {
 
   const days = timeRange === "7d" ? 7 : timeRange === "30d" ? 30 : 90;
 
-  const { data, isPending } = useDeals({
-    pagination: { page: 1, perPage: 200 },
-    sort: { field: "createdAt", order: "DESC" },
+  const { data, isPending } = useRecords("deals", {
+    page: 1,
+    perPage: 200,
+    sort: { field: "created_at", order: "DESC" },
   });
 
   const chartData = React.useMemo(
-    () => buildChartData(data?.data ?? [], days),
+    () => buildChartData((data?.data ?? []) as Record<string, any>[], days),
     [data, days],
   );
 

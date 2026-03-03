@@ -10,6 +10,8 @@ import { createCrmRoutes } from "./routes/crm.js";
 import { createCustomFieldRoutes } from "./routes/custom-fields.js";
 import { createConnectionsRoutes } from "./routes/connections.js";
 import { createGatewayChatRoutes } from "./routes/gateway-chat.js";
+import { createNocoDBConfigRoutes } from "./routes/nocodb-config.js";
+import { createObjectConfigRoutes } from "./routes/object-config.js";
 
 export function createApp(db: Db, env: Env) {
   const auth = createAuth(db, env.BETTER_AUTH_URL, env.BETTER_AUTH_SECRET);
@@ -58,6 +60,12 @@ export function createApp(db: Db, env: Env) {
 
   // Custom field definitions
   app.route("/api/custom_field_defs", createCustomFieldRoutes(db, auth));
+
+  // NocoDB configuration (token broker)
+  app.route("/api/nocodb-config", createNocoDBConfigRoutes(db, auth, env));
+
+  // Object configuration + favorites
+  app.route("/api/object-config", createObjectConfigRoutes(db, auth, env));
 
   // CRM REST API
   app.route("/api", createCrmRoutes(db, auth, env));

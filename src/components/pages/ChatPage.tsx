@@ -70,11 +70,7 @@ const SUGGESTIONS = [
 
 function PromptInputAttachmentsDisplay() {
   const attachments = usePromptInputAttachments();
-
-  if (attachments.files.length === 0) {
-    return null;
-  }
-
+  if (attachments.files.length === 0) return null;
   return (
     <Attachments variant="inline">
       {attachments.files.map((attachment) => (
@@ -103,76 +99,44 @@ export function ChatPage() {
       }
       const hasText = Boolean(message.text?.trim());
       const hasAttachments = Boolean(message.files?.length);
-
-      if (!(hasText || hasAttachments)) {
-        return;
-      }
+      if (!(hasText || hasAttachments)) return;
 
       const text = message.text?.trim() || "Sent with attachments";
-
       if (hasAttachments) {
         toast.success("Files attached", {
           description: `${message.files!.length} file(s) attached. Note: The assistant currently supports text only.`,
         });
       }
-
-      await append({
-        role: "user",
-        content: text,
-      });
+      await append({ role: "user", content: text });
     },
     [append, hasKey]
   );
 
   const handleSuggestionClick = useCallback(
-    (suggestion: string) => {
-      append({
-        role: "user",
-        content: suggestion,
-      });
-    },
+    (suggestion: string) => { append({ role: "user", content: suggestion }); },
     [append]
   );
 
-  // All user/assistant messages visible in the conversation
-  const allVisible = messages.filter(
-    (m) => m.role === "user" || m.role === "assistant"
-  );
-
-  // Detect the brief window where an assistant message exists but has no text yet
+  const allVisible = messages.filter((m) => m.role === "user" || m.role === "assistant");
   const lastMsg = allVisible.at(-1);
-  const lastAssistantIsEmpty =
-    lastMsg?.role === "assistant" && !getTextContent(lastMsg);
-
-  // Show "Thinking..." when submitted (no reply yet) or streaming with no text yet
-  const isThinking =
-    status === "submitted" ||
-    (status === "streaming" && lastAssistantIsEmpty);
-
-  // Drop the empty assistant placeholder while the thinking indicator is shown
-  const displayMessages =
-    isThinking && lastAssistantIsEmpty
-      ? allVisible.slice(0, -1)
-      : allVisible;
-
+  const lastAssistantIsEmpty = lastMsg?.role === "assistant" && !getTextContent(lastMsg);
+  const isThinking = status === "submitted" || (status === "streaming" && lastAssistantIsEmpty);
+  const displayMessages = isThinking && lastAssistantIsEmpty ? allVisible.slice(0, -1) : allVisible;
   const isEmpty = allVisible.length === 0;
 
   return (
-    <div
-      className="-m-4 flex min-h-0 flex-col overflow-hidden"
-      style={{ height: "calc(100svh - 4rem)" }}
-    >
+    <div className="flex h-full flex-col overflow-hidden">
       <PromptInputProvider>
-        <Conversation className="min-h-0 flex-1 border-b">
+        <Conversation className="min-h-0 flex-1 border-b border-border">
           <ConversationContent>
             {isEmpty && status === "idle" && (
-              <div className="flex size-full flex-col items-center justify-center gap-3 p-8 text-center">
+              <div className="flex size-full flex-col items-center justify-center gap-2 p-8 text-center">
                 {!hasKey ? (
-                  <p className="text-muted-foreground text-sm">
+                  <p className="text-[13px] text-muted-foreground">
                     Add your Basics API key in Settings to use the assistant.
                   </p>
                 ) : (
-                  <p className="text-muted-foreground text-sm">
+                  <p className="text-[13px] text-muted-foreground">
                     Ask about your CRM — create tasks, add notes, or update deals.
                   </p>
                 )}
@@ -188,46 +152,40 @@ export function ChatPage() {
             {isThinking && (
               <Message from="assistant">
                 <MessageContent>
-                  <Shimmer className="text-sm">Thinking...</Shimmer>
+                  <Shimmer className="text-[13px]">Thinking...</Shimmer>
                 </MessageContent>
               </Message>
             )}
           </ConversationContent>
           <ConversationScrollButton />
         </Conversation>
-        <div className="shrink-0 space-y-4 pt-4">
+        <div className="shrink-0 space-y-3 p-4">
           {isEmpty && (
-            <Suggestions className="px-4">
+            <Suggestions>
               {SUGGESTIONS.map((suggestion) => (
-                <Suggestion
-                  key={suggestion}
-                  suggestion={suggestion}
-                  onClick={handleSuggestionClick}
-                />
+                <Suggestion key={suggestion} suggestion={suggestion} onClick={handleSuggestionClick} />
               ))}
             </Suggestions>
           )}
-          <div className="w-full px-4 pb-4">
-            <PromptInput globalDrop multiple onSubmit={handleSubmit}>
-              <PromptInputHeader>
-                <PromptInputAttachmentsDisplay />
-              </PromptInputHeader>
-              <PromptInputBody>
-                <PromptInputTextarea placeholder="Ask about your CRM..." />
-              </PromptInputBody>
-              <PromptInputFooter>
-                <PromptInputTools>
-                  <PromptInputActionMenu>
-                    <PromptInputActionMenuTrigger />
-                    <PromptInputActionMenuContent>
-                      <PromptInputActionAddAttachments />
-                    </PromptInputActionMenuContent>
-                  </PromptInputActionMenu>
-                </PromptInputTools>
-                <PromptInputSubmit status={status} onStop={stop} />
-              </PromptInputFooter>
-            </PromptInput>
-          </div>
+          <PromptInput globalDrop multiple onSubmit={handleSubmit}>
+            <PromptInputHeader>
+              <PromptInputAttachmentsDisplay />
+            </PromptInputHeader>
+            <PromptInputBody>
+              <PromptInputTextarea placeholder="Ask about your CRM..." />
+            </PromptInputBody>
+            <PromptInputFooter>
+              <PromptInputTools>
+                <PromptInputActionMenu>
+                  <PromptInputActionMenuTrigger />
+                  <PromptInputActionMenuContent>
+                    <PromptInputActionAddAttachments />
+                  </PromptInputActionMenuContent>
+                </PromptInputActionMenu>
+              </PromptInputTools>
+              <PromptInputSubmit status={status} onStop={stop} />
+            </PromptInputFooter>
+          </PromptInput>
         </div>
       </PromptInputProvider>
     </div>

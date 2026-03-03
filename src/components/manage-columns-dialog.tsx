@@ -17,10 +17,16 @@ import {
 } from "@/components/ui/select";
 import { Trash2, Plus, Settings2 } from "lucide-react";
 import {
-  useCustomFieldDefs,
-  useCreateCustomFieldDef,
-  useDeleteCustomFieldDef,
-} from "@/hooks/use-custom-field-defs";
+  useTableColumns,
+  useCreateColumn,
+  useDeleteColumn,
+} from "@/hooks/use-nocodb-columns";
+
+/** System/metadata columns to hide from the manage dialog */
+const SYSTEM_COLUMNS = new Set([
+  "id", "Id", "nc_order", "created_at", "updated_at",
+  "CreatedAt", "UpdatedAt", "sales_id",
+]);
 
 interface ManageColumnsDialogProps {
   resource: "contacts" | "companies" | "deals";
@@ -31,22 +37,21 @@ export function ManageColumnsDialog({ resource }: ManageColumnsDialogProps) {
   const [label, setLabel] = useState("");
   const [fieldType, setFieldType] = useState<string>("text");
 
-  const { data: defs = [] } = useCustomFieldDefs(resource);
-  const createDef = useCreateCustomFieldDef();
-  const deleteDef = useDeleteCustomFieldDef();
+  const { data: columns = [] } = useTableColumns(resource);
+  const createColumn = useCreateColumn();
+  const deleteColumn = useDeleteColumn();
+
+  // Filter out system/auto columns
+  const userColumns = columns.filter(
+    (col) => !col.system && !col.pk && !col.ai && !SYSTEM_COLUMNS.has(col.column_name),
+  );
 
   const handleAdd = async () => {
     if (!label.trim()) return;
-    const name = label
-      .toLowerCase()
-      .replace(/\s+/g, "_")
-      .replace(/[^a-z0-9_]/g, "");
-    await createDef.mutateAsync({
+    await createColumn.mutateAsync({
       resource,
-      name: name || "field",
-      label: label.trim(),
-      fieldType: fieldType as "text" | "number" | "date" | "select" | "boolean",
-      options: fieldType === "select" ? [] : undefined,
+      title: label.trim(),
+      fieldType,
     });
     setLabel("");
     setFieldType("text");
@@ -62,31 +67,35 @@ export function ManageColumnsDialog({ resource }: ManageColumnsDialogProps) {
       </DialogTrigger>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Manage Custom Columns</DialogTitle>
+          <DialogTitle>Manage Columns</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-2">
-          {defs.length === 0 && (
+          {userColumns.length === 0 && (
             <p className="text-sm text-muted-foreground">
               No custom columns yet.
             </p>
           )}
-          {defs.map((def) => (
+          {userColumns.map((col) => (
             <div
-              key={def.id}
+              key={col.id}
               className="flex items-center justify-between rounded-md border px-3 py-2"
             >
               <div>
-                <span className="text-sm font-medium">{def.label}</span>
+                <span className="text-sm font-medium">
+                  {col.title || col.column_name}
+                </span>
                 <span className="ml-2 text-xs text-muted-foreground">
-                  ({def.fieldType})
+                  ({col.uidt})
                 </span>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7 text-destructive hover:text-destructive"
-                onClick={() => deleteDef.mutate({ id: def.id, resource })}
+                onClick={() =>
+                  deleteColumn.mutate({ columnId: col.id, resource })
+                }
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
@@ -108,17 +117,18 @@ export function ManageColumnsDialog({ resource }: ManageColumnsDialogProps) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="text">Text</SelectItem>
+              <SelectItem value="longText">Long Text</SelectItem>
               <SelectItem value="number">Number</SelectItem>
               <SelectItem value="date">Date</SelectItem>
               <SelectItem value="boolean">Checkbox</SelectItem>
-              <SelectItem value="select">
-                Dropdown (define options after)
-              </SelectItem>
+              <SelectItem value="email">Email</SelectItem>
+              <SelectItem value="url">URL</SelectItem>
+              <SelectItem value="select">Single Select</SelectItem>
             </SelectContent>
           </Select>
           <Button
             onClick={handleAdd}
-            disabled={!label.trim() || createDef.isPending}
+            disabled={!label.trim() || createColumn.isPending}
             className="w-full gap-1"
           >
             <Plus className="h-4 w-4" />

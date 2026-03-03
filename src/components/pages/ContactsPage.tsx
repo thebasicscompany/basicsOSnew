@@ -1,117 +1,61 @@
-import { useState, useEffect } from "react";
-import { useSearchParams, useNavigate } from "react-router";
-import { type ColumnDef } from "@tanstack/react-table";
+import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router";
 import { Button } from "@/components/ui/button";
 import { Plus, Users } from "lucide-react";
-import { useContacts, useDeleteContact, type ContactSummary } from "@/hooks/use-contacts";
-import { ContactStatusBadge } from "@/components/status-badge";
-import { DataTable } from "@/components/data-table";
-import { DataTableColumnHeader } from "@/components/tablecn/data-table/data-table-column-header";
+import {
+  useContacts,
+  useDeleteContact,
+  useUpdateContact,
+  type ContactSummary,
+} from "@/hooks/use-contacts";
+import {
+  useContactNotes,
+  useCreateContactNote,
+  useDeleteContactNote,
+} from "@/hooks/use-contact-notes";
 import { ContactSheet } from "@/components/sheets/ContactSheet";
-import { ManageColumnsDialog } from "@/components/manage-columns-dialog";
-import { useCustomColumns } from "@/hooks/use-custom-columns";
-import { cn } from "@/lib/utils";
+import { SpreadsheetGrid } from "@/components/spreadsheet";
+import {
+  ExpandedRowModal,
+  type ExpandedRowTab,
+} from "@/components/spreadsheet/ExpandedRowModal";
+import { NotesFeed } from "@/components/notes-feed";
 
-const BASE_COLUMNS: ColumnDef<ContactSummary>[] = [
-  {
-    id: "avatar",
-    header: () => null,
-    cell: ({ row }) => {
-      const c = row.original;
-      const name = [c.firstName, c.lastName].filter(Boolean).join(" ") || c.email || "?";
-      const initials = name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase();
-      if (c.avatar?.src) {
-        return (
-          <img
-            src={c.avatar.src}
-            alt={name}
-            className="h-8 w-8 shrink-0 rounded-full object-cover"
-          />
-        );
-      }
-      return (
-        <div
-          className={cn(
-            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-medium text-primary"
-          )}
-        >
-          {initials || "?"}
-        </div>
-      );
-    },
-    enableSorting: false,
-    enableHiding: false,
-  },
-  {
-    accessorKey: "firstName",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="First Name" />
-    ),
-    meta: { title: "First Name" },
-  },
-  {
-    accessorKey: "lastName",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Last Name" />
-    ),
-    meta: { title: "Last Name" },
-  },
-  {
-    accessorKey: "email",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Email" />
-    ),
-    meta: { title: "Email" },
-  },
-  {
-    accessorKey: "companyName",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Company" />
-    ),
-    meta: { title: "Company" },
-  },
-  {
-    accessorKey: "status",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Status" />
-    ),
-    meta: { title: "Status" },
-    cell: ({ getValue }) => (
-      <ContactStatusBadge status={getValue<string | null>()} />
-    ),
-  },
-  {
-    accessorKey: "nbTasks",
-    header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Tasks" />
-    ),
-    meta: { title: "Tasks" },
-  },
-];
+type Row = Record<string, unknown> & { id?: number | string };
 
 export function ContactsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [selected, setSelected] = useState<ContactSummary | null>(null);
+  const [expandedRow, setExpandedRow] = useState<Row | null>(null);
 
   const openParam = searchParams.get("open");
   const openNew = openParam === "new";
-  const openId = openParam && openParam !== "new" ? parseInt(openParam, 10) : null;
+  const openId =
+    openParam && openParam !== "new" ? parseInt(openParam, 10) : null;
 
   const { data, isPending, isError } = useContacts({
-    pagination: { page: 1, perPage: 100 },
+    pagination: { page: 1, perPage: 500 },
   });
   const deleteContact = useDeleteContact();
+  const updateContact = useUpdateContact();
+
+  const expandedId = expandedRow?.id ? Number(expandedRow.id) : null;
+  const { data: notesData } = useContactNotes(expandedId);
+  const createNote = useCreateContactNote();
+  const deleteNote = useDeleteContactNote();
+
+  const handleCellUpdate = useCallback(
+    (rowId: number | string, field: string, value: unknown) => {
+      updateContact.mutate({
+        id: Number(rowId),
+        data: { [field]: value } as Partial<ContactSummary>,
+      });
+    },
+    [updateContact],
+  );
 
   useEffect(() => {
     if (openNew) {
-      setSelected(null);
       setSheetOpen(true);
       setSearchParams({}, { replace: true });
     }
@@ -121,21 +65,13 @@ export function ContactsPage() {
     if (openId && data?.data) {
       const found = data.data.find((c) => c.id === openId);
       if (found) {
-        setSelected(found);
-        setSheetOpen(true);
+        setExpandedRow(found as unknown as Row);
         setSearchParams({}, { replace: true });
       }
     }
   }, [openId, data?.data, setSearchParams]);
-  const customColumns = useCustomColumns<ContactSummary>("contacts");
-  const columns = [...BASE_COLUMNS, ...customColumns];
-
-  const handleRowClick = (row: ContactSummary) => {
-    navigate(`/contacts/${row.id}`);
-  };
 
   const handleNew = () => {
-    setSelected(null);
     setSheetOpen(true);
   };
 
@@ -147,55 +83,106 @@ export function ContactsPage() {
     );
   }
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight">Contacts</h1>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">
-            {data ? `${data.total} total` : ""}
-          </span>
-          <Button size="sm" onClick={handleNew} className="gap-1">
-            <Plus className="h-4 w-4" />
-            New Contact
-          </Button>
-        </div>
-      </div>
+  const rows = (data?.data ?? []) as Row[];
+  const expandedTitle = expandedRow
+    ? [expandedRow.firstName as string, expandedRow.lastName as string]
+        .filter(Boolean)
+        .join(" ") || "Untitled"
+    : undefined;
 
-      {!isPending && (data?.data ?? []).length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-lg border bg-card py-16 text-center">
-          <Users className="size-10 text-muted-foreground/40" />
-          <div>
-            <p className="font-medium">No contacts yet</p>
-            <p className="text-sm text-muted-foreground">Add your first contact to get started.</p>
-          </div>
-          <Button size="sm" onClick={handleNew} className="gap-1">
-            <Plus className="h-4 w-4" />
-            New Contact
-          </Button>
+  const notesTabs: ExpandedRowTab[] = expandedId
+    ? [
+        {
+          value: "notes",
+          label: "Notes",
+          content: (
+            <NotesFeed
+              notes={notesData?.data ?? []}
+              isLoading={!notesData}
+              onAdd={async (text) => {
+                if (expandedId)
+                  await createNote.mutateAsync({
+                    contactId: expandedId,
+                    text,
+                  });
+              }}
+              onDelete={(noteId) => {
+                if (expandedId)
+                  deleteNote.mutate({ id: noteId, contactId: expandedId });
+              }}
+            />
+          ),
+        },
+      ]
+    : [];
+
+  if (!isPending && rows.length === 0) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
+        <Users className="size-8 text-muted-foreground/30" />
+        <div>
+          <p className="text-sm font-medium">No contacts yet</p>
+          <p className="text-[12px] text-muted-foreground">
+            Add your first contact to get started.
+          </p>
         </div>
-      ) : (
-        <DataTable
-          columns={columns}
-          data={data?.data ?? []}
-          isLoading={isPending}
-          onRowClick={handleRowClick}
-          toolbar={<ManageColumnsDialog resource="contacts" />}
-          onBulkDelete={async (ids) => {
-            for (const id of ids) {
-              await deleteContact.mutateAsync(id);
-            }
-          }}
+        <Button
+          size="sm"
+          onClick={handleNew}
+          className="h-7 gap-1 text-[13px]"
+        >
+          <Plus className="size-3.5" />
+          New Contact
+        </Button>
+        <ContactSheet
+          open={sheetOpen}
+          onOpenChange={setSheetOpen}
+          contact={null}
         />
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full flex-col">
+      <SpreadsheetGrid
+        resource="contacts_summary"
+        data={rows}
+        total={data?.total}
+        isLoading={isPending}
+        onCellUpdate={handleCellUpdate}
+        readOnlyColumns={["companyName", "nbTasks"]}
+        hiddenColumns={["salesId"]}
+        onRowExpand={(row) => setExpandedRow(row)}
+        onNewRow={handleNew}
+        onBulkDelete={async (ids) => {
+          for (const id of ids) await deleteContact.mutateAsync(id);
+        }}
+      />
+
+      <ExpandedRowModal
+        open={!!expandedRow}
+        onOpenChange={(open) => {
+          if (!open) setExpandedRow(null);
+        }}
+        resource="contacts_summary"
+        row={expandedRow}
+        title={expandedTitle}
+        onFieldUpdate={handleCellUpdate}
+        onDelete={(id) => {
+          deleteContact.mutate(id);
+          setExpandedRow(null);
+        }}
+        readOnlyColumns={["companyName", "nbTasks"]}
+        extraTabs={notesTabs}
+        allRows={rows}
+        onNavigateRow={(row) => setExpandedRow(row)}
+      />
 
       <ContactSheet
         open={sheetOpen}
-        onOpenChange={(open) => {
-          setSheetOpen(open);
-          if (!open) setSelected(null);
-        }}
-        contact={selected}
+        onOpenChange={setSheetOpen}
+        contact={null}
       />
     </div>
   );

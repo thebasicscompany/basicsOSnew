@@ -1,16 +1,5 @@
-import { TrendingUp, Users, Building2, Handshake, DollarSign } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardAction,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { useContacts } from "@/hooks/use-contacts";
-import { useCompanies } from "@/hooks/use-companies";
-import { useDeals } from "@/hooks/use-deals";
+import { Users, Building2, Handshake, DollarSign } from "lucide-react";
+import { useRecords } from "@/hooks/use-records";
 
 function formatCurrency(n: number) {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
@@ -18,111 +7,79 @@ function formatCurrency(n: number) {
   return `$${n}`;
 }
 
-export function SectionCards() {
-  const { data: contacts, isPending: contactsPending } = useContacts({
-    pagination: { page: 1, perPage: 1 },
-  });
-  const { data: companies, isPending: companiesPending } = useCompanies({
-    pagination: { page: 1, perPage: 1 },
-  });
-  const { data: deals, isPending: dealsPending } = useDeals({
-    pagination: { page: 1, perPage: 200 },
-  });
+function MetricCard({
+  label,
+  value,
+  icon: Icon,
+  isPending,
+}: {
+  label: string;
+  value: string;
+  icon: React.ComponentType<{ className?: string }>;
+  isPending: boolean;
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-card p-4">
+      <div className="flex items-center justify-between">
+        <span className="text-[12px] text-muted-foreground">{label}</span>
+        <Icon className="size-4 text-muted-foreground/50" />
+      </div>
+      <p className="mt-1 text-2xl font-semibold tabular-nums">
+        {isPending ? "—" : value}
+      </p>
+    </div>
+  );
+}
 
-  const pipelineValue = deals?.data.reduce((sum, d) => sum + (d.amount ?? 0), 0) ?? 0;
-  const openDeals = deals?.data.filter((d) => !d.closingDate).length ?? 0;
+export function SectionCards() {
+  const { data: contacts, isPending: contactsPending } = useRecords(
+    "contacts",
+    { page: 1, perPage: 1 },
+  );
+  const { data: companies, isPending: companiesPending } = useRecords(
+    "companies",
+    { page: 1, perPage: 1 },
+  );
+  const { data: deals, isPending: dealsPending } = useRecords(
+    "deals",
+    { page: 1, perPage: 200 },
+  );
+
+  const dealsData = (deals?.data ?? []) as Record<string, any>[];
+  const pipelineValue = dealsData.reduce(
+    (sum, d) => sum + (Number(d.amount) || 0),
+    0,
+  );
+  const openDeals = dealsData.filter(
+    (d) => !["won", "lost"].includes(d.stage),
+  ).length;
 
   return (
-    <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 px-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs lg:px-6 @xl/main:grid-cols-2 @5xl/main:grid-cols-4">
-      {/* Contacts */}
-      <Card className="@container/card">
-        <CardHeader>
-          <CardDescription>Total Contacts</CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            {contactsPending ? "—" : (contacts?.total ?? 0).toLocaleString()}
-          </CardTitle>
-          <CardAction>
-            <Badge variant="outline">
-              <Users className="size-3" />
-              Contacts
-            </Badge>
-          </CardAction>
-        </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            All contacts in CRM <Users className="size-4" />
-          </div>
-          <div className="text-muted-foreground">Across all companies</div>
-        </CardFooter>
-      </Card>
-
-      {/* Companies */}
-      <Card className="@container/card">
-        <CardHeader>
-          <CardDescription>Companies</CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            {companiesPending ? "—" : (companies?.total ?? 0).toLocaleString()}
-          </CardTitle>
-          <CardAction>
-            <Badge variant="outline">
-              <Building2 className="size-3" />
-              Accounts
-            </Badge>
-          </CardAction>
-        </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            Active accounts <Building2 className="size-4" />
-          </div>
-          <div className="text-muted-foreground">Organizations tracked</div>
-        </CardFooter>
-      </Card>
-
-      {/* Deals */}
-      <Card className="@container/card">
-        <CardHeader>
-          <CardDescription>Open Deals</CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            {dealsPending ? "—" : openDeals.toLocaleString()}
-          </CardTitle>
-          <CardAction>
-            <Badge variant="outline">
-              <TrendingUp className="size-3" />
-              Active
-            </Badge>
-          </CardAction>
-        </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            Deals in pipeline <Handshake className="size-4" />
-          </div>
-          <div className="text-muted-foreground">
-            {dealsPending ? "—" : `${deals?.total ?? 0} total deals`}
-          </div>
-        </CardFooter>
-      </Card>
-
-      {/* Pipeline value */}
-      <Card className="@container/card">
-        <CardHeader>
-          <CardDescription>Pipeline Value</CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
-            {dealsPending ? "—" : formatCurrency(pipelineValue)}
-          </CardTitle>
-          <CardAction>
-            <Badge variant="outline">
-              <DollarSign className="size-3" />
-              Revenue
-            </Badge>
-          </CardAction>
-        </CardHeader>
-        <CardFooter className="flex-col items-start gap-1.5 text-sm">
-          <div className="line-clamp-1 flex gap-2 font-medium">
-            Total deal value <DollarSign className="size-4" />
-          </div>
-          <div className="text-muted-foreground">Across all open deals</div>
-        </CardFooter>
-      </Card>
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <MetricCard
+        label="Contacts"
+        value={(contacts?.total ?? 0).toLocaleString()}
+        icon={Users}
+        isPending={contactsPending}
+      />
+      <MetricCard
+        label="Companies"
+        value={(companies?.total ?? 0).toLocaleString()}
+        icon={Building2}
+        isPending={companiesPending}
+      />
+      <MetricCard
+        label="Open Deals"
+        value={openDeals.toLocaleString()}
+        icon={Handshake}
+        isPending={dealsPending}
+      />
+      <MetricCard
+        label="Pipeline Value"
+        value={formatCurrency(pipelineValue)}
+        icon={DollarSign}
+        isPending={dealsPending}
+      />
     </div>
   );
 }

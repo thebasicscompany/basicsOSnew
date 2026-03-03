@@ -26,11 +26,14 @@ import {
 } from "@hugeicons/core-free-icons";
 import { ROUTES } from "@basics-os/hub";
 import { getList } from "@/lib/api/crm";
+import { mapRecords } from "@/lib/nocodb/field-mapper";
 import type { ContactSummary } from "@/hooks/use-contacts";
 import type { CompanySummary } from "@/hooks/use-companies";
 import type { Deal } from "@/hooks/use-deals";
 import { useRecentItems } from "@/hooks/use-recent-items";
 import { DealStageBadge } from "@/components/status-badge";
+import { useObjects } from "@/hooks/use-object-registry";
+import { getObjectIcon } from "@/lib/object-icon-map";
 
 const COMMAND_PALETTE_KEY = "k";
 
@@ -39,6 +42,7 @@ export function CommandPalette() {
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
   const [recentItems] = useRecentItems();
+  const objects = useObjects();
 
   const isSearching = search.length >= 2;
 
@@ -60,33 +64,39 @@ export function CommandPalette() {
 
   const { data: contactsData } = useQuery({
     queryKey: ["search:contacts", search],
-    queryFn: () =>
-      getList<ContactSummary>("contacts_summary", {
+    queryFn: async () => {
+      const result = await getList<Record<string, unknown>>("contacts", {
         filter: { q: search },
         pagination: { page: 1, perPage: 5 },
-      }),
+      });
+      return { data: mapRecords(result.data) as ContactSummary[], total: result.total };
+    },
     enabled: isSearching,
     staleTime: 10_000,
   });
 
   const { data: companiesData } = useQuery({
     queryKey: ["search:companies", search],
-    queryFn: () =>
-      getList<CompanySummary>("companies_summary", {
+    queryFn: async () => {
+      const result = await getList<Record<string, unknown>>("companies", {
         filter: { q: search },
         pagination: { page: 1, perPage: 5 },
-      }),
+      });
+      return { data: mapRecords(result.data) as CompanySummary[], total: result.total };
+    },
     enabled: isSearching,
     staleTime: 10_000,
   });
 
   const { data: dealsData } = useQuery({
     queryKey: ["search:deals", search],
-    queryFn: () =>
-      getList<Deal>("deals", {
+    queryFn: async () => {
+      const result = await getList<Record<string, unknown>>("deals", {
         filter: { q: search },
         pagination: { page: 1, perPage: 5 },
-      }),
+      });
+      return { data: mapRecords(result.data) as Deal[], total: result.total };
+    },
     enabled: isSearching,
     staleTime: 10_000,
   });
@@ -134,7 +144,7 @@ export function CommandPalette() {
                       key={c.id}
                       value={`contact-${c.id}-${displayName}-${c.companyName ?? ""}`}
                       onSelect={() =>
-                        run(() => navigate(`/contacts/${c.id}`))
+                        run(() => navigate(`/objects/contacts/${c.id}`))
                       }
                       className="gap-2"
                     >
@@ -159,7 +169,7 @@ export function CommandPalette() {
                       key={c.id}
                       value={`company-${c.id}-${c.name}`}
                       onSelect={() =>
-                        run(() => navigate(`/companies/${c.id}`))
+                        run(() => navigate(`/objects/companies/${c.id}`))
                       }
                       className="gap-2"
                     >
@@ -189,7 +199,7 @@ export function CommandPalette() {
                       key={d.id}
                       value={`deal-${d.id}-${d.name}`}
                       onSelect={() =>
-                        run(() => navigate(`/deals/${d.id}`))
+                        run(() => navigate(`/objects/deals/${d.id}`))
                       }
                       className="gap-2"
                     >
@@ -219,10 +229,10 @@ export function CommandPalette() {
                         : Agreement01Icon;
                   const path =
                     item.type === "contact"
-                      ? `/contacts/${item.id}`
+                      ? `/objects/contacts/${item.id}`
                       : item.type === "company"
-                        ? `/companies/${item.id}`
-                        : `/deals/${item.id}`;
+                        ? `/objects/companies/${item.id}`
+                        : `/objects/deals/${item.id}`;
                   return (
                     <CommandItem
                       key={`${item.type}-${item.id}`}
@@ -247,14 +257,14 @@ export function CommandPalette() {
                 Dashboard
               </CommandItem>
               <CommandItem
-                onSelect={() => run(() => navigate(ROUTES.CRM_CONTACTS))}
+                onSelect={() => run(() => navigate("/objects/contacts"))}
                 className="gap-2"
               >
                 <HugeiconsIcon icon={UserIcon} className="size-4 shrink-0" />
                 Contacts
               </CommandItem>
               <CommandItem
-                onSelect={() => run(() => navigate(ROUTES.CRM_COMPANIES))}
+                onSelect={() => run(() => navigate("/objects/companies"))}
                 className="gap-2"
               >
                 <HugeiconsIcon
@@ -264,7 +274,7 @@ export function CommandPalette() {
                 Companies
               </CommandItem>
               <CommandItem
-                onSelect={() => run(() => navigate(ROUTES.CRM_DEALS))}
+                onSelect={() => run(() => navigate("/objects/deals"))}
                 className="gap-2"
               >
                 <HugeiconsIcon
@@ -284,36 +294,69 @@ export function CommandPalette() {
                 Tasks
               </CommandItem>
             </CommandGroup>
-            <CommandSeparator />
-            <CommandGroup heading="Create new">
-              <CommandItem
-                onSelect={() =>
-                  run(() => navigate(`${ROUTES.CRM_CONTACTS}?open=new`))
-                }
-                className="gap-2"
-              >
-                <HugeiconsIcon icon={Add01Icon} className="size-4 shrink-0" />
-                New Contact
-              </CommandItem>
-              <CommandItem
-                onSelect={() =>
-                  run(() => navigate(`${ROUTES.CRM_COMPANIES}?open=new`))
-                }
-                className="gap-2"
-              >
-                <HugeiconsIcon icon={Add01Icon} className="size-4 shrink-0" />
-                New Company
-              </CommandItem>
-              <CommandItem
-                onSelect={() =>
-                  run(() => navigate(`${ROUTES.CRM_DEALS}?open=new`))
-                }
-                className="gap-2"
-              >
-                <HugeiconsIcon icon={Add01Icon} className="size-4 shrink-0" />
-                New Deal
-              </CommandItem>
-            </CommandGroup>
+
+            {/* Dynamic "Navigate to" items from Object Registry */}
+            {objects.length > 0 && (
+              <>
+                <CommandSeparator />
+                <CommandGroup heading="Navigate to object">
+                  {objects.map((obj) => {
+                    const IconComponent = getObjectIcon(obj.icon);
+                    return (
+                      <CommandItem
+                        key={`nav-obj-${obj.id}`}
+                        value={`navigate-object-${obj.slug}-${obj.pluralName}`}
+                        onSelect={() =>
+                          run(() => navigate(`/objects/${obj.slug}`))
+                        }
+                        className="gap-2"
+                      >
+                        <HugeiconsIcon
+                          icon={IconComponent}
+                          className="size-4 shrink-0"
+                        />
+                        <span className="flex-1 truncate">
+                          Go to {obj.pluralName}
+                        </span>
+                      </CommandItem>
+                    );
+                  })}
+                </CommandGroup>
+              </>
+            )}
+
+            {/* Dynamic "Create" items from Object Registry */}
+            {objects.length > 0 && (
+              <>
+                <CommandSeparator />
+                <CommandGroup heading="Create record">
+                  {objects.map((obj) => {
+                    const IconComponent = getObjectIcon(obj.icon);
+                    return (
+                      <CommandItem
+                        key={`create-obj-${obj.id}`}
+                        value={`create-object-${obj.slug}-${obj.singularName}`}
+                        onSelect={() =>
+                          run(() =>
+                            navigate(`/objects/${obj.slug}?open=new`)
+                          )
+                        }
+                        className="gap-2"
+                      >
+                        <HugeiconsIcon
+                          icon={Add01Icon}
+                          className="size-4 shrink-0"
+                        />
+                        <span className="flex-1 truncate">
+                          Create {obj.singularName}
+                        </span>
+                      </CommandItem>
+                    );
+                  })}
+                </CommandGroup>
+              </>
+            )}
+
             <CommandSeparator />
             <CommandGroup heading="Other">
               <CommandItem

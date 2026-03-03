@@ -12,7 +12,6 @@ import {
 } from "@dnd-kit/core";
 import { type Deal } from "@/hooks/use-deals";
 import { useUpdateDeal } from "@/hooks/use-deals";
-import { Card } from "@/components/ui/card";
 import { DealStageBadge } from "@/components/status-badge";
 
 const STAGES: { key: string; label: string }[] = [
@@ -42,28 +41,28 @@ function DealCard({
   isOverlay?: boolean;
 }) {
   return (
-    <Card
+    <div
       className={
         isOverlay
-          ? "cursor-grabbing gap-1 rounded-lg py-3 px-3 shadow-lg ring-2 ring-primary/20"
-          : "cursor-grab gap-1 rounded-lg py-3 px-3 transition-colors hover:bg-muted/50 active:cursor-grabbing"
+          ? "cursor-grabbing rounded-md border bg-background p-2.5 shadow-sm"
+          : "cursor-grab rounded-md border border-border/50 bg-background p-2.5 transition-colors hover:border-border active:cursor-grabbing"
       }
       onClick={() => !isOverlay && onDealClick(deal)}
     >
-      <p className="truncate text-sm font-medium leading-snug">{deal.name}</p>
-      <div className="flex min-w-0 items-center gap-2">
+      <p className="truncate text-[13px] font-medium leading-snug">{deal.name}</p>
+      <div className="mt-1 flex items-center gap-2">
         {deal.amount != null && (
-          <span className="shrink-0 text-xs text-muted-foreground">
+          <span className="text-[12px] tabular-nums text-muted-foreground">
             {formatCurrency(deal.amount)}
           </span>
         )}
         {deal.category && (
-          <span className="truncate text-xs text-muted-foreground/60">
+          <span className="truncate text-[11px] text-muted-foreground/50">
             {deal.category}
           </span>
         )}
       </div>
-    </Card>
+    </div>
   );
 }
 
@@ -84,7 +83,7 @@ function DraggableDealCard({
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      className={isDragging ? "opacity-50" : ""}
+      className={isDragging ? "opacity-30" : ""}
     >
       <DealCard deal={deal} onDealClick={onDealClick} />
     </div>
@@ -103,8 +102,8 @@ function DroppableColumn({
   return (
     <div
       ref={setNodeRef}
-      className={`flex min-w-0 flex-col gap-2 rounded-lg transition-colors ${
-        isOver ? "bg-primary/10 ring-1 ring-primary/30" : ""
+      className={`flex min-w-0 flex-col gap-1.5 rounded-md p-1.5 transition-colors ${
+        isOver ? "bg-accent/50" : ""
       }`}
     >
       {children}
@@ -127,9 +126,7 @@ export function DealsKanban({ deals, onDealClick }: DealsKanbanProps) {
   }, [deals]);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 8 },
-    })
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   );
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -145,9 +142,7 @@ export function DealsKanban({ deals, onDealClick }: DealsKanbanProps) {
     if (!STAGES.some((s) => s.key === overId)) return;
 
     setLocalDeals((prev) =>
-      prev.map((d) =>
-        d.id === deal.id ? { ...d, stage: overId } : d
-      )
+      prev.map((d) => (d.id === deal.id ? { ...d, stage: overId } : d))
     );
     updateDeal.mutate({ id: deal.id, data: { stage: overId } });
   };
@@ -158,33 +153,28 @@ export function DealsKanban({ deals, onDealClick }: DealsKanbanProps) {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="grid grid-cols-6 gap-3">
+      <div className="grid grid-cols-6 gap-1">
         {STAGES.map(({ key }) => {
           const stageDeals = localDeals.filter((d) => d.stage === key);
           const total = stageDeals.reduce((sum, d) => sum + (d.amount ?? 0), 0);
 
           return (
             <DroppableColumn key={key} stageKey={key}>
-              <div className="flex items-center justify-between px-0.5">
+              <div className="flex items-center justify-between px-1 py-1">
                 <DealStageBadge stage={key} />
-                <span className="text-xs text-muted-foreground">
-                  {stageDeals.length}{" "}
-                  {stageDeals.length === 1 ? "deal" : "deals"}
+                <span className="text-[11px] tabular-nums text-muted-foreground">
+                  {stageDeals.length}
                   {total > 0 && ` · ${formatCurrency(total)}`}
                 </span>
               </div>
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-1.5">
                 {stageDeals.length === 0 ? (
-                  <div className="rounded-lg border border-dashed py-8 text-center text-xs text-muted-foreground">
+                  <div className="rounded-md border border-dashed py-6 text-center text-[11px] text-muted-foreground/50">
                     No deals
                   </div>
                 ) : (
                   stageDeals.map((deal) => (
-                    <DraggableDealCard
-                      key={deal.id}
-                      deal={deal}
-                      onDealClick={onDealClick}
-                    />
+                    <DraggableDealCard key={deal.id} deal={deal} onDealClick={onDealClick} />
                   ))
                 )}
               </div>

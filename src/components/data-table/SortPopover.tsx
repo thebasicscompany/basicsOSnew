@@ -1,0 +1,165 @@
+import * as React from "react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import type { Attribute } from "@/field-types/types";
+import type { ViewSort } from "@/types/views";
+import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
+
+export interface SortPopoverProps {
+  attributes: Attribute[];
+  sorts: ViewSort[];
+  onAdd: (sort: Omit<ViewSort, "id">) => void;
+  onRemove: (sortId: string) => void;
+  onUpdate?: (sortId: string, updates: Partial<ViewSort>) => void;
+  children: React.ReactNode;
+}
+
+export function SortPopover({
+  attributes,
+  sorts,
+  onAdd,
+  onRemove,
+  onUpdate,
+  children,
+}: SortPopoverProps) {
+  const [open, setOpen] = React.useState(false);
+
+  // Attributes that are not already used in a sort
+  const availableAttributes = React.useMemo(() => {
+    const usedIds = new Set(sorts.map((s) => s.fieldId));
+    return attributes.filter((a) => !a.isSystem && !usedIds.has(a.id));
+  }, [attributes, sorts]);
+
+  const attrMap = React.useMemo(
+    () => new Map(attributes.map((a) => [a.id, a])),
+    [attributes],
+  );
+
+  const handleAddSort = React.useCallback(
+    (fieldId: string) => {
+      onAdd({
+        fieldId,
+        direction: "asc",
+        order: sorts.length,
+      });
+    },
+    [onAdd, sorts.length],
+  );
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      <PopoverContent align="start" className="w-80 p-3">
+        <div className="flex flex-col gap-3">
+          <h4 className="text-xs font-medium text-muted-foreground">Sort by</h4>
+
+          {/* Active sorts */}
+          {sorts.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-2">
+              No sorts applied. Add a sort to order your records.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {sorts.map((sort) => {
+                const attr = attrMap.get(sort.fieldId);
+                return (
+                  <div key={sort.id} className="flex items-center gap-2">
+                    {/* Field selector */}
+                    <Select
+                      value={sort.fieldId}
+                      onValueChange={(val) =>
+                        onUpdate?.(sort.id, { fieldId: val })
+                      }
+                    >
+                      <SelectTrigger className="h-7 flex-1 text-xs">
+                        <SelectValue>{attr?.name ?? sort.fieldId}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {/* Show current field plus available ones */}
+                        {attr && (
+                          <SelectItem value={attr.id}>{attr.name}</SelectItem>
+                        )}
+                        {availableAttributes.map((a) => (
+                          <SelectItem key={a.id} value={a.id}>
+                            {a.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    {/* Direction toggle */}
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      className="h-7 gap-1 text-xs shrink-0"
+                      onClick={() =>
+                        onUpdate?.(sort.id, {
+                          direction: sort.direction === "asc" ? "desc" : "asc",
+                        })
+                      }
+                    >
+                      {sort.direction === "asc" ? (
+                        <>
+                          <ArrowUp className="size-3" />
+                          A-Z
+                        </>
+                      ) : (
+                        <>
+                          <ArrowDown className="size-3" />
+                          Z-A
+                        </>
+                      )}
+                    </Button>
+
+                    {/* Remove button */}
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      className="shrink-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => onRemove(sort.id)}
+                    >
+                      <Trash2 className="size-3" />
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Add sort */}
+          {availableAttributes.length > 0 && (
+            <>
+              <div className="border-t" />
+              <Select onValueChange={handleAddSort}>
+                <SelectTrigger className="h-7 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1.5">
+                    <Plus className="size-3" />
+                    <span>Add sort</span>
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  {availableAttributes.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}

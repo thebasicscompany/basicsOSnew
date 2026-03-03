@@ -82,7 +82,7 @@ refresh_token_reuse_interval = 10
 # Allow/disallow new user signups to your project.
 enable_signup = true
 # Development signing keys
-signing_keys_path = "./signing_keys.json"
+# signing_keys_path = "./signing_keys.json"
 
 [auth.email]
 # Allow/disallow new user signups via email to your project.

@@ -3,9 +3,10 @@ import { ChartAreaInteractive } from "@/components/dashboard/chart-area-interact
 
 export function DashboardPage() {
   return (
-    <div className="@container/main flex flex-col gap-4 py-2 md:gap-6 md:py-4">
+    <div className="flex h-full flex-col overflow-auto p-4">
+      <h1 className="mb-4 text-lg font-semibold">Dashboard</h1>
       <SectionCards />
-      <div className="px-4 lg:px-6">
+      <div className="mt-4">
         <ChartAreaInteractive />
       </div>
     </div>

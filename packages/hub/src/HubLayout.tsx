@@ -27,11 +27,17 @@ function PageErrorFallback({
   );
 }
 
-export function HubLayout({ children }: { children?: ReactNode }) {
+export function HubLayout({
+  children,
+  extraNavContent,
+}: {
+  children?: ReactNode;
+  extraNavContent?: ReactNode;
+}) {
   const location = useLocation();
   return (
     <SidebarProvider>
-      <HubSidebar />
+      <HubSidebar extraNavContent={extraNavContent} />
       <main
         className={cn(
           "flex h-svh flex-col",

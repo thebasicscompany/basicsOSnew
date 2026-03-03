@@ -12,14 +12,13 @@ async function persistApiKey(key: string | null) {
     body: JSON.stringify({ basicsApiKey: key }),
   });
 }
+
 import { EyeIcon, EyeOffIcon, ExternalLinkIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useGateway } from "@/hooks/useGateway";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Dialog,
   DialogContent,
@@ -51,10 +50,7 @@ export function SettingsPage() {
 
   const handleSave = useCallback(async () => {
     const trimmed = inputValue.trim();
-    if (!trimmed) {
-      toast.error("Please enter an API key");
-      return;
-    }
+    if (!trimmed) { toast.error("Please enter an API key"); return; }
     if (!isValidApiKey(trimmed)) {
       toast.error("API key must start with bos_live_sk_ or bos_test_sk_");
       return;
@@ -78,101 +74,87 @@ export function SettingsPage() {
   }, [clearApiKey]);
 
   return (
-    <div className="max-w-lg space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground">Application settings</p>
-      </div>
-      <Separator />
+    <div className="flex h-full flex-col overflow-auto p-4">
+      <h1 className="mb-1 text-lg font-semibold">Settings</h1>
+      <p className="mb-4 text-[12px] text-muted-foreground">Application configuration</p>
 
-      {/* Basics API section */}
-      <section className="space-y-4">
-        <div>
-          <h2 className="text-lg font-medium">Basics API</h2>
-          <p className="text-sm text-muted-foreground">
-            API key for chat, voice, and AI features. Get one from the Basics
-            dashboard.
+      <div className="max-w-lg space-y-4">
+        {/* API Configuration */}
+        <div className="rounded-lg border p-4">
+          <h2 className="text-[13px] font-medium">API Configuration</h2>
+          <p className="mt-0.5 text-[12px] text-muted-foreground">
+            API key for chat, voice, and AI features.
           </p>
-        </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="api-key">API key</Label>
-          <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Input
-                id="api-key"
-                type={showPassword ? "text" : "password"}
-                placeholder={
-                  hasKey ? maskApiKey(apiKey!) : "Paste your bos_live_sk_... key"
-                }
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                className="pr-9"
-                autoComplete="off"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                className="absolute right-1 top-1/2 -translate-y-1/2"
-                onClick={() => setShowPassword((p) => !p)}
-                aria-label={showPassword ? "Hide key" : "Show key"}
-              >
-                {showPassword ? (
-                  <EyeOffIcon className="size-4" />
-                ) : (
-                  <EyeIcon className="size-4" />
-                )}
+          <div className="mt-3 space-y-2">
+            <Label htmlFor="api-key" className="text-[12px]">API key</Label>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Input
+                  id="api-key"
+                  type={showPassword ? "text" : "password"}
+                  placeholder={hasKey ? maskApiKey(apiKey!) : "Paste your bos_live_sk_... key"}
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  className="h-8 pr-9 text-[13px]"
+                  autoComplete="off"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0.5 top-1/2 size-7 -translate-y-1/2"
+                  onClick={() => setShowPassword((p) => !p)}
+                  aria-label={showPassword ? "Hide key" : "Show key"}
+                >
+                  {showPassword ? <EyeOffIcon className="size-3.5" /> : <EyeIcon className="size-3.5" />}
+                </Button>
+              </div>
+              <Button size="sm" className="h-8 text-[13px]" onClick={handleSave} disabled={!inputValue.trim()}>
+                Save
               </Button>
             </div>
-            <Button onClick={handleSave} disabled={!inputValue.trim()}>
-              Save
-            </Button>
-          </div>
-          {hasKey && (
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">
-                Configured: {maskApiKey(apiKey!)}
-              </span>
-              <Dialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm">
-                    Clear
-                  </Button>
-                </DialogTrigger>
-                <DialogContent showCloseButton={true}>
-                  <DialogHeader>
-                    <DialogTitle>Clear API key?</DialogTitle>
-                    <DialogDescription>
-                      This will remove your API key. Chat and voice features
-                      will stop working until you add a new key.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <DialogFooter showCloseButton={true}>
-                    <Button variant="destructive" onClick={handleClear}>
-                      Clear key
+            {hasKey && (
+              <div className="flex items-center gap-2">
+                <span className="text-[12px] text-muted-foreground">
+                  Configured: {maskApiKey(apiKey!)}
+                </span>
+                <Dialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-6 text-[12px] text-destructive hover:text-destructive">
+                      Clear
                     </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
-          )}
-        </div>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-sm">
+                    <DialogHeader>
+                      <DialogTitle>Clear API key?</DialogTitle>
+                      <DialogDescription>
+                        Chat and voice features will stop working until you add a new key.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                      <Button variant="outline" size="sm" onClick={() => setClearDialogOpen(false)}>Cancel</Button>
+                      <Button variant="destructive" size="sm" onClick={handleClear}>Clear key</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            )}
+          </div>
 
-        <Alert>
-          <AlertDescription>
+          <div className="mt-3">
             <a
               href={DASHBOARD_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-primary hover:underline"
+              className="inline-flex items-center gap-1 text-[12px] text-muted-foreground hover:text-foreground transition-colors"
             >
               Get an API key from basics.so
-              <ExternalLinkIcon className="size-3.5" />
+              <ExternalLinkIcon className="size-3" />
             </a>
-          </AlertDescription>
-        </Alert>
-      </section>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
