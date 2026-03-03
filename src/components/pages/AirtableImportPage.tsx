@@ -7,10 +7,12 @@ import { fetchApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { usePageTitle } from "@/contexts/page-header";
 
 type ImportStatus = "idle" | "creating" | "importing" | "done" | "error";
 
 export function AirtableImportPage() {
+  usePageTitle("Airtable Import");
   const [airtableKey, setAirtableKey] = useState("");
   const [airtableBaseId, setAirtableBaseId] = useState("");
   const [status, setStatus] = useState<ImportStatus>("idle");
@@ -61,8 +63,7 @@ export function AirtableImportPage() {
   const isBusy = status === "creating" || status === "importing";
 
   return (
-    <div className="flex h-full flex-col overflow-auto p-4">
-      <h1 className="mb-1 text-lg font-semibold">Airtable Import</h1>
+    <div className="flex h-full flex-col overflow-auto py-4">
       <p className="mb-4 text-[12px] text-muted-foreground">
         Import data from an Airtable base into your CRM
       </p>

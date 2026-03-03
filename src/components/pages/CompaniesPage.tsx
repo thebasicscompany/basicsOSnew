@@ -11,10 +11,12 @@ import {
 import { CompanySheet } from "@/components/sheets/CompanySheet";
 import { SpreadsheetGrid } from "@/components/spreadsheet";
 import { ExpandedRowModal } from "@/components/spreadsheet/ExpandedRowModal";
+import { usePageTitle } from "@/contexts/page-header";
 
 type Row = Record<string, unknown> & { id?: number | string };
 
 export function CompaniesPage() {
+  usePageTitle("Companies");
   const [searchParams, setSearchParams] = useSearchParams();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [expandedRow, setExpandedRow] = useState<Row | null>(null);

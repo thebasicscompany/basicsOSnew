@@ -33,7 +33,6 @@ import {
   Columns3,
   Filter,
   GripVertical,
-  Plus,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -55,7 +54,7 @@ export interface DataTableToolbarProps {
   onAddFilter: (filter: Omit<ViewFilter, "id">) => void;
   onRemoveFilter: (filterId: string) => void;
   onUpdateFilter?: (filterId: string, updates: Partial<ViewFilter>) => void;
-  onNewRecord: () => void;
+  onNewRecord?: () => void;
   isDirty?: boolean;
   onSave?: () => void;
   onDiscard?: () => void;
@@ -212,11 +211,6 @@ export function DataTableToolbar({
           </div>
         )}
 
-        {/* New record button */}
-        <Button size="sm" className="h-7 gap-1.5 text-xs" onClick={onNewRecord}>
-          <Plus className="size-3.5" />
-          New {singularName}
-        </Button>
       </div>
 
       {/* Row 2: Active sort/filter pills */}

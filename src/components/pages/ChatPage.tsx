@@ -2,6 +2,7 @@
 
 import { useCallback } from "react";
 import { toast } from "sonner";
+import { usePageTitle } from "@/contexts/page-header";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import {
   Attachment,
@@ -88,6 +89,7 @@ function PromptInputAttachmentsDisplay() {
 }
 
 export function ChatPage() {
+  usePageTitle("AI Chat");
   const { hasKey } = useGateway();
   const { messages, append, status, stop } = useGatewayChat();
 

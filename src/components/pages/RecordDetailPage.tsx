@@ -147,8 +147,8 @@ export function RecordDetailPage() {
     return typeof val === "string" && val ? val : "Unnamed";
   }, [record, primaryAttr]);
 
-  // Register record name in the layout header
-  usePageTitle(displayName === "\u2026" ? "" : displayName)
+  // Suppress layout strip title; the in-page header (back, icon, name, actions) is sufficient
+  usePageTitle("")
 
   // Track as recent item
   useEffect(() => {

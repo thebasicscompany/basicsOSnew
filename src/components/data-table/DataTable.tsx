@@ -847,23 +847,6 @@ export function DataTable({
                 })
               )}
 
-              {/* ---- Inline add row ---- */}
-              {onNewRecord && !isLoading && (
-                <TableRow className="hover:bg-transparent">
-                  <TableCell
-                    colSpan={columns.length}
-                    className="h-8 text-muted-foreground"
-                  >
-                    <button
-                      className="flex items-center gap-1.5 text-xs hover:text-foreground transition-colors"
-                      onClick={onNewRecord}
-                    >
-                      <Plus className="size-3.5" />
-                      New {singularName}
-                    </button>
-                  </TableCell>
-                </TableRow>
-              )}
             </TableBody>
           </Table>
         </DndContext>

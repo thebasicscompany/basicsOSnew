@@ -7,7 +7,6 @@ import {
   DataTable,
   ViewSelector,
   DataTableToolbar,
-  ViewSaveBar,
 } from "@/components/data-table";
 import { CreateRecordModal } from "@/components/create-record/CreateRecordModal";
 import { CreateAttributeModal } from "@/components/create-attribute/CreateAttributeModal";
@@ -279,15 +278,6 @@ export function ObjectListPage() {
         />
         </div>
       )}
-
-      {/* ---- View save bar ---- */}
-      <div className="shrink-0">
-        <ViewSaveBar
-          isDirty={viewState.isDirty}
-          onSave={viewState.save}
-          onDiscard={viewState.discard}
-        />
-      </div>
 
       {/* ---- Data table: only this area scrolls when columns/rows overflow ---- */}
       <div className="min-h-0 flex-1 overflow-auto">

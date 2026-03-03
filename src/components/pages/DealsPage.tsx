@@ -21,10 +21,12 @@ import {
   type ExpandedRowTab,
 } from "@/components/spreadsheet/ExpandedRowModal";
 import { NotesFeed } from "@/components/notes-feed";
+import { usePageTitle } from "@/contexts/page-header";
 
 type Row = Record<string, unknown> & { id?: number | string };
 
 export function DealsPage() {
+  usePageTitle("Deals");
   const [searchParams, setSearchParams] = useSearchParams();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [view, setView] = useState<"table" | "board">("table");

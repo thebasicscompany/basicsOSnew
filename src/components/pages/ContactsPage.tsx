@@ -20,10 +20,12 @@ import {
   type ExpandedRowTab,
 } from "@/components/spreadsheet/ExpandedRowModal";
 import { NotesFeed } from "@/components/notes-feed";
+import { usePageTitle } from "@/contexts/page-header";
 
 type Row = Record<string, unknown> & { id?: number | string };
 
 export function ContactsPage() {
+  usePageTitle("Contacts");
   const [searchParams, setSearchParams] = useSearchParams();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [expandedRow, setExpandedRow] = useState<Row | null>(null);
