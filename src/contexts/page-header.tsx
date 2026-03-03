@@ -12,6 +12,8 @@ interface PageHeaderCtx {
   setTitle: (t: string) => void
   actionsContainer: HTMLElement | null
   setActionsContainer: (el: HTMLElement | null) => void
+  breadcrumbContainer: HTMLElement | null
+  setBreadcrumbContainer: (el: HTMLElement | null) => void
 }
 
 const PageHeaderContext = createContext<PageHeaderCtx>({
@@ -19,13 +21,25 @@ const PageHeaderContext = createContext<PageHeaderCtx>({
   setTitle: () => {},
   actionsContainer: null,
   setActionsContainer: () => {},
+  breadcrumbContainer: null,
+  setBreadcrumbContainer: () => {},
 })
 
 export function PageHeaderProvider({ children }: { children: ReactNode }) {
   const [title, setTitle] = useState("")
   const [actionsContainer, setActionsContainer] = useState<HTMLElement | null>(null)
+  const [breadcrumbContainer, setBreadcrumbContainer] = useState<HTMLElement | null>(null)
   return (
-    <PageHeaderContext.Provider value={{ title, setTitle, actionsContainer, setActionsContainer }}>
+    <PageHeaderContext.Provider
+      value={{
+        title,
+        setTitle,
+        actionsContainer,
+        setActionsContainer,
+        breadcrumbContainer,
+        setBreadcrumbContainer,
+      }}
+    >
       {children}
     </PageHeaderContext.Provider>
   )
@@ -66,4 +80,21 @@ export function usePageHeaderActions(actions: ReactNode): ReactNode {
  */
 export function useRegisterActionsContainer(): (el: HTMLElement | null) => void {
   return useContext(PageHeaderContext).setActionsContainer
+}
+
+/**
+ * Returns a portal ReactNode that renders `breadcrumb` into the layout header's
+ * breadcrumb slot. Render the returned node in the page component's JSX.
+ */
+export function usePageHeaderBreadcrumb(breadcrumb: ReactNode): ReactNode {
+  const { breadcrumbContainer } = useContext(PageHeaderContext)
+  if (!breadcrumbContainer) return null
+  return createPortal(breadcrumb, breadcrumbContainer)
+}
+
+/**
+ * Used by the layout header to register the breadcrumb mount point.
+ */
+export function useRegisterBreadcrumbContainer(): (el: HTMLElement | null) => void {
+  return useContext(PageHeaderContext).setBreadcrumbContainer
 }

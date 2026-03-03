@@ -5,18 +5,26 @@ import {
   text,
   timestamp,
   bigint,
+  index,
 } from "drizzle-orm/pg-core";
 import { contacts } from "./contacts";
 import { sales } from "./sales";
 
-export const tasks = pgTable("tasks", {
-  id: bigserial("id", { mode: "number" }).primaryKey(),
-  contactId: bigint("contact_id", { mode: "number" })
-    .notNull()
-    .references(() => contacts.id, { onDelete: "cascade" }),
-  salesId: bigint("sales_id", { mode: "number" }).references(() => sales.id),
-  type: varchar("type", { length: 64 }),
-  text: text("text"),
-  dueDate: timestamp("due_date", { withTimezone: true }),
-  doneDate: timestamp("done_date", { withTimezone: true }),
-});
+export const tasks = pgTable(
+  "tasks",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    contactId: bigint("contact_id", { mode: "number" })
+      .notNull()
+      .references(() => contacts.id, { onDelete: "cascade" }),
+    salesId: bigint("sales_id", { mode: "number" }).references(() => sales.id),
+    type: varchar("type", { length: 64 }),
+    text: text("text"),
+    dueDate: timestamp("due_date", { withTimezone: true }),
+    doneDate: timestamp("done_date", { withTimezone: true }),
+  },
+  (t) => [
+    index("tasks_contact_id_idx").on(t.contactId),
+    index("tasks_sales_id_idx").on(t.salesId),
+  ]
+);

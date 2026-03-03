@@ -163,31 +163,98 @@ async function ensureAdminUser(db: ReturnType<typeof createDb>): Promise<number>
 }
 
 const DEMO_COMPANIES = [
-  { name: "Acme Corp", sector: "information-technology", size: 250 },
-  { name: "Globex Industries", sector: "industrials", size: 500 },
-  { name: "Initech", sector: "financials", size: 50 },
-  { name: "Umbrella Corp", sector: "health-care", size: 500 },
-  { name: "Stark Industries", sector: "energy", size: 250 },
-  { name: "Wayne Enterprises", sector: "consumer-discretionary", size: 500 },
-  { name: "Cyberdyne Systems", sector: "information-technology", size: 50 },
-  { name: "Wonka Industries", sector: "consumer-staples", size: 250 },
+  { name: "Acme Corp", sector: "information-technology", size: 250, website: "https://acme.example.com", phoneNumber: "+1-555-0100", address: "123 Innovation Way", city: "San Francisco", stateAbbr: "CA", country: "USA", zipcode: "94102", description: "Leading provider of innovative solutions.", revenue: "$50M", linkedinUrl: "https://linkedin.com/company/acme" },
+  { name: "Globex Industries", sector: "industrials", size: 500, website: "https://globex.com", phoneNumber: "+1-555-0101", address: "456 Industrial Blvd", city: "Chicago", stateAbbr: "IL", country: "USA", zipcode: "60601", description: "Global industrial manufacturing conglomerate.", revenue: "$200M", linkedinUrl: "https://linkedin.com/company/globex" },
+  { name: "Initech", sector: "financials", size: 50, website: "https://initech.com", phoneNumber: "+1-555-0102", address: "789 Office Park", city: "Austin", stateAbbr: "TX", country: "USA", zipcode: "78701", description: "Software and consulting for enterprise.", revenue: "$10M", linkedinUrl: "https://linkedin.com/company/initech" },
+  { name: "Umbrella Corp", sector: "health-care", size: 500, website: "https://umbrellacorp.com", phoneNumber: "+1-555-0103", address: "1 Research Plaza", city: "Raccoon City", stateAbbr: "CA", country: "USA", zipcode: "90210", description: "Pharmaceutical and biotechnology research.", revenue: "$500M", linkedinUrl: "https://linkedin.com/company/umbrella" },
+  { name: "Stark Industries", sector: "energy", size: 250, website: "https://starkindustries.com", phoneNumber: "+1-555-0104", address: "100 Tech Campus", city: "New York", stateAbbr: "NY", country: "USA", zipcode: "10001", description: "Advanced technology and defense.", revenue: "$1B", linkedinUrl: "https://linkedin.com/company/stark" },
+  { name: "Wayne Enterprises", sector: "consumer-discretionary", size: 500, website: "https://wayne-ent.com", phoneNumber: "+1-555-0105", address: "200 Gotham Tower", city: "Gotham", stateAbbr: "NJ", country: "USA", zipcode: "07001", description: "Diversified holding company.", revenue: "$2B", linkedinUrl: "https://linkedin.com/company/wayne" },
+  { name: "Cyberdyne Systems", sector: "information-technology", size: 50, website: "https://cyberdyne.ai", phoneNumber: "+1-555-0106", address: "300 Silicon Valley Dr", city: "San Jose", stateAbbr: "CA", country: "USA", zipcode: "95101", description: "AI and robotics research.", revenue: "$25M", linkedinUrl: "https://linkedin.com/company/cyberdyne" },
+  { name: "Wonka Industries", sector: "consumer-staples", size: 250, website: "https://wonka.com", phoneNumber: "+1-555-0107", address: "Factory Lane", city: "London", stateAbbr: null, country: "UK", zipcode: "SW1A 1AA", description: "Confectionery and chocolate manufacturer.", revenue: "$100M", linkedinUrl: "https://linkedin.com/company/wonka" },
 ];
 
 const DEMO_CONTACTS = [
-  { firstName: "Jane", lastName: "Smith", title: "VP Sales" },
-  { firstName: "John", lastName: "Doe", title: "CTO" },
-  { firstName: "Alice", lastName: "Johnson", title: "Marketing Director" },
-  { firstName: "Bob", lastName: "Williams", title: "Procurement Manager" },
-  { firstName: "Carol", lastName: "Brown", title: "Head of Engineering" },
-  { firstName: "David", lastName: "Davis", title: "CFO" },
-  { firstName: "Eve", lastName: "Miller", title: "Product Manager" },
-  { firstName: "Frank", lastName: "Wilson", title: "Account Executive" },
+  { firstName: "Jane", lastName: "Smith", title: "VP Sales", gender: "female", status: "lead", background: "15 years in enterprise sales.", linkedinUrl: "https://linkedin.com/in/janesmith" },
+  { firstName: "John", lastName: "Doe", title: "CTO", gender: "male", status: "qualified", background: "Former startup founder. Tech leader.", linkedinUrl: "https://linkedin.com/in/johndoe" },
+  { firstName: "Alice", lastName: "Johnson", title: "Marketing Director", gender: "female", status: "lead", background: "Brand strategy and growth marketing.", linkedinUrl: "https://linkedin.com/in/alicejohnson" },
+  { firstName: "Bob", lastName: "Williams", title: "Procurement Manager", gender: "male", status: "qualified", background: "Supply chain and vendor management.", linkedinUrl: "https://linkedin.com/in/bobwilliams" },
+  { firstName: "Carol", lastName: "Brown", title: "Head of Engineering", gender: "female", status: "customer", background: "Built teams at 3 unicorns.", linkedinUrl: "https://linkedin.com/in/carolbrown" },
+  { firstName: "David", lastName: "Davis", title: "CFO", gender: "male", status: "qualified", background: "IPO experience. M&A expertise.", linkedinUrl: "https://linkedin.com/in/daviddavis" },
+  { firstName: "Eve", lastName: "Miller", title: "Product Manager", gender: "female", status: "lead", background: "B2B SaaS product strategy.", linkedinUrl: "https://linkedin.com/in/evemiller" },
+  { firstName: "Frank", lastName: "Wilson", title: "Account Executive", gender: "male", status: "customer", background: "Top performer 3 years running.", linkedinUrl: "https://linkedin.com/in/frankwilson" },
 ];
+
+async function fillEmptyColumns(
+  db: ReturnType<typeof createDb>,
+  salesId: number,
+) {
+  const existingCompanies = await db.select().from(schema.companies).limit(1);
+  if (existingCompanies.length === 0) return;
+
+  console.log("[seed] Filling empty columns in existing data...");
+
+  const companies = await db.select().from(schema.companies);
+  const companyUpdates = [
+    { website: "https://acme.example.com", phoneNumber: "+1-555-0100", address: "123 Innovation Way", city: "San Francisco", stateAbbr: "CA", country: "USA", zipcode: "94102", description: "Leading provider of innovative solutions.", revenue: "$50M", linkedinUrl: "https://linkedin.com/company/acme" },
+    { website: "https://globex.com", phoneNumber: "+1-555-0101", address: "456 Industrial Blvd", city: "Chicago", stateAbbr: "IL", country: "USA", zipcode: "60601", description: "Global industrial manufacturing conglomerate.", revenue: "$200M", linkedinUrl: "https://linkedin.com/company/globex" },
+    { website: "https://initech.com", phoneNumber: "+1-555-0102", address: "789 Office Park", city: "Austin", stateAbbr: "TX", country: "USA", zipcode: "78701", description: "Software and consulting for enterprise.", revenue: "$10M", linkedinUrl: "https://linkedin.com/company/initech" },
+    { website: "https://umbrellacorp.com", phoneNumber: "+1-555-0103", address: "1 Research Plaza", city: "Raccoon City", stateAbbr: "CA", country: "USA", zipcode: "90210", description: "Pharmaceutical and biotechnology research.", revenue: "$500M", linkedinUrl: "https://linkedin.com/company/umbrella" },
+    { website: "https://starkindustries.com", phoneNumber: "+1-555-0104", address: "100 Tech Campus", city: "New York", stateAbbr: "NY", country: "USA", zipcode: "10001", description: "Advanced technology and defense.", revenue: "$1B", linkedinUrl: "https://linkedin.com/company/stark" },
+    { website: "https://wayne-ent.com", phoneNumber: "+1-555-0105", address: "200 Gotham Tower", city: "Gotham", stateAbbr: "NJ", country: "USA", zipcode: "07001", description: "Diversified holding company.", revenue: "$2B", linkedinUrl: "https://linkedin.com/company/wayne" },
+    { website: "https://cyberdyne.ai", phoneNumber: "+1-555-0106", address: "300 Silicon Valley Dr", city: "San Jose", stateAbbr: "CA", country: "USA", zipcode: "95101", description: "AI and robotics research.", revenue: "$25M", linkedinUrl: "https://linkedin.com/company/cyberdyne" },
+    { website: "https://wonka.com", phoneNumber: "+1-555-0107", address: "Factory Lane", city: "London", stateAbbr: null, country: "UK", zipcode: "SW1A 1AA", description: "Confectionery and chocolate manufacturer.", revenue: "$100M", linkedinUrl: "https://linkedin.com/company/wonka" },
+  ];
+  for (let i = 0; i < companies.length && i < companyUpdates.length; i++) {
+    await db
+      .update(schema.companies)
+      .set(companyUpdates[i] as Record<string, unknown>)
+      .where(eq(schema.companies.id, companies[i].id));
+  }
+
+  const contacts = await db.select().from(schema.contacts);
+  const contactUpdates = [
+    { gender: "female", status: "lead", background: "15 years in enterprise sales.", linkedinUrl: "https://linkedin.com/in/janesmith", phoneJsonb: [{ number: "+1-555-1000", type: "Work" }], hasNewsletter: true },
+    { gender: "male", status: "qualified", background: "Former startup founder. Tech leader.", linkedinUrl: "https://linkedin.com/in/johndoe", phoneJsonb: [{ number: "+1-555-1001", type: "Work" }], hasNewsletter: false },
+    { gender: "female", status: "lead", background: "Brand strategy and growth marketing.", linkedinUrl: "https://linkedin.com/in/alicejohnson", phoneJsonb: [{ number: "+1-555-1002", type: "Work" }], hasNewsletter: true },
+    { gender: "male", status: "qualified", background: "Supply chain and vendor management.", linkedinUrl: "https://linkedin.com/in/bobwilliams", phoneJsonb: [{ number: "+1-555-1003", type: "Work" }], hasNewsletter: false },
+    { gender: "female", status: "customer", background: "Built teams at 3 unicorns.", linkedinUrl: "https://linkedin.com/in/carolbrown", phoneJsonb: [{ number: "+1-555-1004", type: "Work" }], hasNewsletter: true },
+    { gender: "male", status: "qualified", background: "IPO experience. M&A expertise.", linkedinUrl: "https://linkedin.com/in/daviddavis", phoneJsonb: [{ number: "+1-555-1005", type: "Work" }], hasNewsletter: false },
+    { gender: "female", status: "lead", background: "B2B SaaS product strategy.", linkedinUrl: "https://linkedin.com/in/evemiller", phoneJsonb: [{ number: "+1-555-1006", type: "Work" }], hasNewsletter: true },
+    { gender: "male", status: "customer", background: "Top performer 3 years running.", linkedinUrl: "https://linkedin.com/in/frankwilson", phoneJsonb: [{ number: "+1-555-1007", type: "Work" }], hasNewsletter: false },
+  ];
+  for (let i = 0; i < contacts.length && i < contactUpdates.length; i++) {
+    await db
+      .update(schema.contacts)
+      .set(contactUpdates[i] as Record<string, unknown>)
+      .where(eq(schema.contacts.id, contacts[i].id));
+  }
+
+  const allDeals = await db.select().from(schema.deals);
+  const now = new Date();
+  const in30 = new Date(now.getTime() + 30 * 86400000);
+  const in60 = new Date(now.getTime() + 60 * 86400000);
+  const in90 = new Date(now.getTime() + 90 * 86400000);
+  const dealUpdates = [
+    { description: "Full redesign of corporate website with new CMS.", expectedClosingDate: in30 },
+    { description: "Comprehensive UX audit and recommendations.", expectedClosingDate: in60 },
+    { description: "Homepage and landing page copy refresh.", expectedClosingDate: in90 },
+    { description: "Annual enterprise platform license.", expectedClosingDate: now },
+  ];
+  for (let i = 0; i < allDeals.length && i < dealUpdates.length; i++) {
+    await db
+      .update(schema.deals)
+      .set(dealUpdates[i])
+      .where(eq(schema.deals.id, allDeals[i].id));
+  }
+
+  console.log("[seed] Done filling empty columns!");
+}
 
 async function seed(db: ReturnType<typeof createDb>, salesId: number) {
   const existingCompanies = await db.select().from(schema.companies).limit(1);
   if (existingCompanies.length > 0) {
-    console.log("[seed] CRM data already exists, skipping");
+    console.log("[seed] CRM data already exists, filling empty columns...");
+    await fillEmptyColumns(db, salesId);
     return;
   }
 
@@ -199,6 +266,16 @@ async function seed(db: ReturnType<typeof createDb>, salesId: number) {
         name: c.name,
         sector: c.sector,
         size: c.size,
+        website: c.website,
+        phoneNumber: c.phoneNumber,
+        address: c.address,
+        city: c.city,
+        stateAbbr: c.stateAbbr ?? undefined,
+        country: c.country,
+        zipcode: c.zipcode,
+        description: c.description,
+        revenue: c.revenue,
+        linkedinUrl: c.linkedinUrl,
         salesId,
       }))
     )
@@ -212,14 +289,24 @@ async function seed(db: ReturnType<typeof createDb>, salesId: number) {
         firstName: c.firstName,
         lastName: c.lastName,
         title: c.title,
+        gender: c.gender,
+        status: c.status,
+        background: c.background,
+        linkedinUrl: c.linkedinUrl,
         companyId: companies[i % companies.length].id,
         salesId,
         emailJsonb: [{ email: `${c.firstName.toLowerCase()}.${c.lastName.toLowerCase()}@example.com`, type: "Work" }],
+        phoneJsonb: [{ number: `+1-555-${String(1000 + i).padStart(4, "0")}`, type: "Work" }],
+        hasNewsletter: i % 2 === 0,
       }))
     )
     .returning();
 
   console.log("[seed] Inserting deals...");
+  const now = new Date();
+  const in30Days = new Date(now.getTime() + 30 * 86400000);
+  const in60Days = new Date(now.getTime() + 60 * 86400000);
+  const in90Days = new Date(now.getTime() + 90 * 86400000);
   const deals = await db
     .insert(schema.deals)
     .values([
@@ -230,6 +317,8 @@ async function seed(db: ReturnType<typeof createDb>, salesId: number) {
         category: "website-design",
         stage: "proposal-sent",
         amount: 50000,
+        description: "Full redesign of corporate website with new CMS.",
+        expectedClosingDate: in30Days,
         salesId,
         index: 0,
       },
@@ -240,6 +329,8 @@ async function seed(db: ReturnType<typeof createDb>, salesId: number) {
         category: "ui-design",
         stage: "opportunity",
         amount: 15000,
+        description: "Comprehensive UX audit and recommendations.",
+        expectedClosingDate: in60Days,
         salesId,
         index: 0,
       },
@@ -250,6 +341,8 @@ async function seed(db: ReturnType<typeof createDb>, salesId: number) {
         category: "copywriting",
         stage: "in-negociation",
         amount: 8000,
+        description: "Homepage and landing page copy refresh.",
+        expectedClosingDate: in90Days,
         salesId,
         index: 0,
       },
@@ -260,6 +353,8 @@ async function seed(db: ReturnType<typeof createDb>, salesId: number) {
         category: "other",
         stage: "won",
         amount: 120000,
+        description: "Annual enterprise platform license.",
+        expectedClosingDate: now,
         salesId,
         index: 0,
       },

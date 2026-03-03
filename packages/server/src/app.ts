@@ -6,7 +6,7 @@ import type { Env } from "./env.js";
 import { createAssistantRoutes } from "./routes/assistant.js";
 import { createAuthRoutes } from "./routes/auth.js";
 import { createAutomationRunsRoutes } from "./routes/automation-runs.js";
-import { createCrmRoutes } from "./routes/crm.js";
+import { createCrmRoutes } from "./routes/crm/index.js";
 import { createCustomFieldRoutes } from "./routes/custom-fields.js";
 import { createConnectionsRoutes } from "./routes/connections.js";
 import { createGatewayChatRoutes } from "./routes/gateway-chat.js";

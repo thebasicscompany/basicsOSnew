@@ -1,0 +1,126 @@
+import { executeEmail } from "./automation-actions/email.js";
+import { executeAI } from "./automation-actions/ai-task.js";
+import { executeWebSearch } from "./automation-actions/web-search.js";
+import { executeCrmAction } from "./automation-actions/crm-action.js";
+import { executeSlack } from "./automation-actions/slack.js";
+import { executeGmailRead } from "./automation-actions/gmail-read.js";
+import { executeGmailSend } from "./automation-actions/gmail-send.js";
+import { executeAIAgent } from "./automation-actions/ai-agent.js";
+export async function executeWorkflow(workflowDef, triggerData, sales, db, env) {
+    const { nodes, edges } = workflowDef;
+    if (!nodes?.length)
+        return { trigger_data: triggerData };
+    // Build adjacency list and in-degree map for topological sort
+    const adjacency = new Map();
+    const inDegree = new Map();
+    for (const node of nodes) {
+        adjacency.set(node.id, []);
+        inDegree.set(node.id, 0);
+    }
+    for (const edge of edges ?? []) {
+        adjacency.get(edge.source)?.push(edge.target);
+        inDegree.set(edge.target, (inDegree.get(edge.target) ?? 0) + 1);
+    }
+    // Kahn's topological sort
+    const queue = [];
+    for (const [nodeId, deg] of inDegree) {
+        if (deg === 0)
+            queue.push(nodeId);
+    }
+    const order = [];
+    while (queue.length > 0) {
+        const nodeId = queue.shift();
+        order.push(nodeId);
+        for (const neighbor of adjacency.get(nodeId) ?? []) {
+            const newDeg = (inDegree.get(neighbor) ?? 0) - 1;
+            inDegree.set(neighbor, newDeg);
+            if (newDeg === 0)
+                queue.push(neighbor);
+        }
+    }
+    const context = {
+        trigger_data: triggerData,
+        sales_id: sales.id,
+    };
+    const apiKey = sales.basicsApiKey ?? "";
+    for (const nodeId of order) {
+        const node = nodes.find((n) => n.id === nodeId);
+        if (!node)
+            continue;
+        const data = resolveTemplates(node.data, context);
+        switch (node.type) {
+            case "trigger_event":
+            case "trigger_schedule":
+                // Trigger nodes just initialize context
+                break;
+            case "action_email":
+                await executeEmail(data, context, apiKey, env);
+                break;
+            case "action_ai": {
+                const result = await executeAI(data, context, apiKey, env);
+                context.ai_result = result;
+                break;
+            }
+            case "action_web_search": {
+                const results = await executeWebSearch(data, context, env, apiKey);
+                context.web_results = results;
+                break;
+            }
+            case "action_crm": {
+                const crmResult = await executeCrmAction(data, context, db, sales.id);
+                context.crm_result = crmResult.crm_result;
+                break;
+            }
+            case "action_slack": {
+                const slackResult = await executeSlack(data, context, apiKey, env);
+                context.slack_result = slackResult;
+                break;
+            }
+            case "action_gmail_read": {
+                const gmailRead = await executeGmailRead(data, context, apiKey, env);
+                context.gmail_messages = gmailRead.gmail_messages;
+                break;
+            }
+            case "action_gmail_send":
+                await executeGmailSend(data, context, apiKey, env);
+                break;
+            case "action_ai_agent": {
+                const agentResult = await executeAIAgent(data, context, db, sales.id, apiKey, env);
+                context.ai_agent_result = agentResult.ai_agent_result;
+                break;
+            }
+            default:
+                console.warn(`[automation-executor] unknown node type: ${node.type}`);
+        }
+    }
+    return context;
+}
+function resolveTemplates(data, context) {
+    const result = {};
+    for (const [key, value] of Object.entries(data)) {
+        if (typeof value === "string") {
+            result[key] = value.replace(/\{\{(\w+(?:\.\w+)*)\}\}/g, (_, varPath) => {
+                const parts = varPath.split(".");
+                let val = context;
+                for (const part of parts) {
+                    if (val && typeof val === "object") {
+                        val = val[part];
+                    }
+                    else {
+                        val = undefined;
+                        break;
+                    }
+                }
+                if (val === undefined)
+                    return `{{${varPath}}}`;
+                if (typeof val === "string")
+                    return val;
+                return JSON.stringify(val);
+            });
+        }
+        else {
+            result[key] = value;
+        }
+    }
+    return result;
+}

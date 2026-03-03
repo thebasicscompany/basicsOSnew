@@ -6,11 +6,9 @@ export const ROUTES = {
   MCP: "/mcp",
   CONNECTIONS: "/connections",
   TASKS: "/tasks",
-  // Automations (base + sub-routes for sidebar)
+  NOTES: "/notes",
+  // Automations
   AUTOMATIONS: "/automations",
-  AUTOMATIONS_CONNECTIONS: "/automations/connections",
-  AUTOMATIONS_RUNS: "/automations/runs",
-  AUTOMATIONS_LOGS: "/automations/logs",
   // User
   PROFILE: "/profile",
   SETTINGS: "/settings",

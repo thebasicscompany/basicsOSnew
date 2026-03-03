@@ -1,4 +1,4 @@
-import { CaretLeftIcon, FloppyDiskIcon, CircleNotchIcon, PlayIcon, PlusIcon, TrashIcon, LightningIcon, LinkIcon } from "@phosphor-icons/react";
+import { CaretLeftIcon, FloppyDiskIcon, CircleNotchIcon, PlayIcon, PlusIcon, TrashIcon, LightningIcon, LinkIcon, XIcon } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router";
 import {
@@ -32,6 +32,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "basics-os/src/components/ui/dialog";
 import { Switch } from "basics-os/src/components/ui/switch";
 import { WorkflowCanvas } from "basics-os/src/components/ai-elements/canvas";
@@ -47,6 +49,21 @@ import { toast } from "sonner";
 
 type WorkflowEdgeType = Edge;
 
+const NODE_TYPE_LABELS: Record<string, string> = {
+  trigger: "Choose event",
+  action: "Choose action",
+  trigger_event: "Event trigger",
+  trigger_schedule: "Schedule",
+  action_email: "Send email",
+  action_ai: "AI task",
+  action_web_search: "Web search",
+  action_crm: "CRM action",
+  action_slack: "Slack message",
+  action_gmail_read: "Read Gmail",
+  action_gmail_send: "Send Gmail",
+  action_ai_agent: "AI agent",
+};
+
 function BuilderInner() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -57,6 +74,7 @@ function BuilderInner() {
   const [name, setName] = useState("");
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [runsPanelOpen, setRunsPanelOpen] = useState(false);
   const [showMinimap, setShowMinimap] = useState(false);
 
@@ -139,9 +157,13 @@ function BuilderInner() {
     setEdges((eds) => eds.filter((e) => e.source !== selectedNodeId && e.target !== selectedNodeId));
     setSelectedNodeId(null);
     setPanelOpen(false);
+    setDeleteConfirmOpen(false);
   }, [selectedNodeId, setNodes, setEdges]);
 
-  const handleCloseModal = useCallback(() => setPanelOpen(false), []);
+  const handleCloseModal = useCallback(() => {
+    setPanelOpen(false);
+    setDeleteConfirmOpen(false);
+  }, []);
 
   const createRule = useMutation({
     mutationFn: (data: { name: string; workflowDefinition: object; enabled: boolean }) =>
@@ -367,20 +389,31 @@ function BuilderInner() {
             </div>
 
             <Dialog open={panelOpen && !!selectedNode} onOpenChange={(open: boolean) => !open && handleCloseModal()}>
-              <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center justify-between">
-                    <span>Node properties</span>
+              <DialogContent className="w-fit max-w-[calc(100%-2rem)] max-h-[85vh] overflow-y-auto p-8" showCloseButton={false}>
+                <DialogHeader className="flex flex-row items-center gap-2 space-y-0">
+                  <DialogTitle className="flex-1 min-w-0 truncate text-base">
+                    {selectedNode ? NODE_TYPE_LABELS[selectedNode.type ?? ""] ?? "Node properties" : "Node properties"}
+                  </DialogTitle>
+                  <div className="flex items-center gap-0.5 -mr-2">
                     <Button
                       variant="ghost"
                       size="icon"
                       className="size-8 text-muted-foreground hover:text-destructive"
                       title="Delete node"
-                      onClick={handleDeleteNode}
+                      onClick={() => setDeleteConfirmOpen(true)}
                     >
                       <TrashIcon className="size-4" />
                     </Button>
-                  </DialogTitle>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8"
+                      onClick={handleCloseModal}
+                      aria-label="Close"
+                    >
+                      <XIcon className="size-4" />
+                    </Button>
+                  </div>
                 </DialogHeader>
                 {selectedNode && (
                   <NodeConfigPanel
@@ -390,6 +423,25 @@ function BuilderInner() {
                     onOpenSettings={() => navigate("/settings#connections")}
                   />
                 )}
+              </DialogContent>
+            </Dialog>
+
+            <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+              <DialogContent className="max-w-sm" showCloseButton={false}>
+                <DialogHeader>
+                  <DialogTitle>Delete node?</DialogTitle>
+                  <DialogDescription>
+                    This will remove the node and its connections. This cannot be undone.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button variant="outline" size="sm" onClick={() => setDeleteConfirmOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button variant="destructive" size="sm" onClick={handleDeleteNode}>
+                    Delete
+                  </Button>
+                </DialogFooter>
               </DialogContent>
             </Dialog>
           </div>

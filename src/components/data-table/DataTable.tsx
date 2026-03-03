@@ -82,12 +82,20 @@ interface CellPosition {
 // Helpers
 // ---------------------------------------------------------------------------
 
+function isValueEmpty(val: unknown): boolean {
+  return val == null || val === "" || val === false;
+}
+
 function getVisibleAttributes(
   attributes: Attribute[],
   viewColumns: ViewColumn[],
-): Array<{ attribute: Attribute; viewColumn: ViewColumn }> {
+  data: Record<string, unknown>[],
+): {
+  visible: Array<{ attribute: Attribute; viewColumn: ViewColumn }>;
+  hiddenEmptyCount: number;
+} {
   const attrMap = new Map(attributes.map((a) => [a.id, a]));
-  return viewColumns
+  const allCols = viewColumns
     .filter((vc) => vc.show)
     .sort((a, b) => a.order - b.order)
     .map((vc) => {
@@ -96,6 +104,27 @@ function getVisibleAttributes(
       return { attribute, viewColumn: vc };
     })
     .filter(Boolean) as Array<{ attribute: Attribute; viewColumn: ViewColumn }>;
+
+  if (data.length === 0) {
+    return { visible: allCols, hiddenEmptyCount: 0 };
+  }
+
+  const visible: typeof allCols = [];
+  let hiddenEmptyCount = 0;
+
+  for (const item of allCols) {
+    const { attribute } = item;
+    const hasNonEmpty = data.some(
+      (row) => !isValueEmpty(row[attribute.columnName]),
+    );
+    if (attribute.isPrimary || hasNonEmpty) {
+      visible.push(item);
+    } else {
+      hiddenEmptyCount++;
+    }
+  }
+
+  return { visible, hiddenEmptyCount };
 }
 
 function parseWidth(width: string | undefined): number {
@@ -263,10 +292,10 @@ export function DataTable({
   const editingCellRef = React.useRef(editingCell);
   editingCellRef.current = editingCell;
 
-  // ---- Derived visible columns ----
-  const visibleCols = React.useMemo(
-    () => getVisibleAttributes(attributes, viewColumns),
-    [attributes, viewColumns],
+  // ---- Derived visible columns (hide columns that are entirely empty) ----
+  const { visible: visibleCols, hiddenEmptyCount } = React.useMemo(
+    () => getVisibleAttributes(attributes, viewColumns, data),
+    [attributes, viewColumns, data],
   );
 
   // Column IDs for dnd-kit sortable context
@@ -333,7 +362,23 @@ export function DataTable({
       });
     }
 
-    // 2. Add column button
+    // 2. "+ N more empty columns" indicator (when we've hidden empty columns)
+    if (hiddenEmptyCount > 0) {
+      cols.push({
+        id: "_emptyColsIndicator",
+        size: 100,
+        minSize: 60,
+        enableResizing: false,
+        header: () => (
+          <span className="text-xs text-muted-foreground">
+            +{hiddenEmptyCount} empty {hiddenEmptyCount === 1 ? "column" : "columns"}
+          </span>
+        ),
+        cell: () => null,
+      });
+    }
+
+    // 3. Add column button
     cols.push({
       id: "_addColumn",
       size: 40,
@@ -353,7 +398,7 @@ export function DataTable({
     });
 
     return cols;
-  }, [visibleCols, columnWidths, onCellUpdate, onAddColumn]);
+  }, [visibleCols, hiddenEmptyCount, columnWidths, onCellUpdate, onAddColumn]);
 
   // ---- TanStack Table instance ----
   const table = useReactTable({

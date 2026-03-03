@@ -1,0 +1,86 @@
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { DetailField } from "@/components/cells";
+import type { Attribute } from "@/types/objects";
+
+export interface RecordDetailDetailsSidebarProps {
+  record: Record<string, unknown>;
+  visibleEditableAttributes: Attribute[];
+  systemAttributes: Attribute[];
+  showAllFields: boolean;
+  hiddenCount: number;
+  onFieldSave: (attr: Attribute) => (value: unknown) => void;
+  onShowAllFields: () => void;
+  onHideEmptyFields: () => void;
+}
+
+export function RecordDetailDetailsSidebar({
+  record,
+  visibleEditableAttributes,
+  systemAttributes,
+  showAllFields,
+  hiddenCount,
+  onFieldSave,
+  onShowAllFields,
+  onHideEmptyFields,
+}: RecordDetailDetailsSidebarProps) {
+  return (
+    <aside className="space-y-1 lg:border-l lg:pl-6">
+      <h3 className="pb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Details
+      </h3>
+
+      {visibleEditableAttributes.map((attr) => (
+        <DetailField
+          key={attr.id}
+          attribute={attr}
+          value={record[attr.columnName]}
+          onSave={onFieldSave(attr)}
+        />
+      ))}
+
+      {!showAllFields && hiddenCount > 0 && (
+        <div className="pt-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs text-muted-foreground"
+            onClick={onShowAllFields}
+          >
+            Show {hiddenCount} empty {hiddenCount === 1 ? "field" : "fields"}
+          </Button>
+        </div>
+      )}
+      {showAllFields && (
+        <div className="pt-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs text-muted-foreground"
+            onClick={onHideEmptyFields}
+          >
+            Hide empty fields
+          </Button>
+        </div>
+      )}
+
+      {systemAttributes.length > 0 && (
+        <>
+          <Separator className="my-2" />
+          <h3 className="pb-1 pt-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            System
+          </h3>
+          {systemAttributes.map((attr) => (
+            <DetailField
+              key={attr.id}
+              attribute={attr}
+              value={record[attr.columnName]}
+              onSave={onFieldSave(attr)}
+              isReadOnly
+            />
+          ))}
+        </>
+      )}
+    </aside>
+  );
+}
