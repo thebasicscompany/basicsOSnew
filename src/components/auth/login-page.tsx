@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth";
+import { ROUTES } from "@basics-os/hub";
 
 interface LoginForm {
   email: string;
@@ -25,12 +26,12 @@ export function LoginPage() {
     const { error: signInError } = await authClient.signIn.email({
       email,
       password,
-      callbackURL: "/contacts",
+      callbackURL: ROUTES.CRM,
     });
     if (signInError) {
       setError(signInError.message ?? "Login failed");
     } else {
-      navigate("/contacts");
+      navigate(ROUTES.CRM);
     }
   };
 

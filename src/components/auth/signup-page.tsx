@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth";
+import { ROUTES } from "@basics-os/hub";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "";
 
@@ -43,9 +44,9 @@ export function SignupPage() {
       password: data.password,
     });
     if (loginError) {
-      navigate("/login");
+      navigate("/");
     } else {
-      navigate("/contacts");
+      navigate(ROUTES.CRM);
     }
   };
 

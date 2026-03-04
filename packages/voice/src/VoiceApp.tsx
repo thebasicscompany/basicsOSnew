@@ -1,6 +1,8 @@
 import { useMemo, useCallback, useEffect, useState } from "react";
 import { usePageTitle, usePageHeaderActions } from "basics-os/src/contexts/page-header";
 import { Button } from "basics-os/src/components/ui/button";
+import { Kbd } from "basics-os/src/components/ui/kbd";
+import { getPrimaryModifierLabel } from "basics-os/src/lib/keyboard-shortcuts";
 
 const isElectron = () =>
   typeof window !== "undefined" && !!window.electronAPI;
@@ -8,6 +10,7 @@ const isElectron = () =>
 export function VoiceApp() {
   usePageTitle("Voice");
   const [overlayVisible, setOverlayVisible] = useState(false);
+  const primaryModifier = getPrimaryModifierLabel();
 
   useEffect(() => {
     if (!isElectron()) return;
@@ -78,14 +81,8 @@ export function VoiceApp() {
             </p>
             <p className="mt-3 text-[12px] text-muted-foreground">
               Use{" "}
-              <kbd className="rounded border px-1.5 py-0.5 font-mono text-xs">
-                Ctrl+Space
-              </kbd>{" "}
-              (or{" "}
-              <kbd className="rounded border px-1.5 py-0.5 font-mono text-xs">
-                Cmd+Space
-              </kbd>{" "}
-              on Mac) to activate the AI assistant.
+              <Kbd>{`${primaryModifier}+Space`}</Kbd>{" "}
+              to activate the AI assistant.
             </p>
           </div>
 
@@ -106,28 +103,20 @@ export function VoiceApp() {
             <h2 className="text-[13px] font-medium">Shortcuts</h2>
             <ul className="mt-2 space-y-1.5 text-[12px] text-muted-foreground">
               <li>
-                <kbd className="rounded border px-1.5 py-0.5 font-mono text-xs">
-                  Ctrl+Space
-                </kbd>{" "}
+                <Kbd>{`${primaryModifier}+Space`}</Kbd>{" "}
                 — AI Assistant (tap to listen, auto-stops after silence)
               </li>
               <li>
                 Double-tap{" "}
-                <kbd className="rounded border px-1.5 py-0.5 font-mono text-xs">
-                  Ctrl+Space
-                </kbd>{" "}
+                <Kbd>{`${primaryModifier}+Space`}</Kbd>{" "}
                 — Continuous listening
               </li>
               <li>
-                <kbd className="rounded border px-1.5 py-0.5 font-mono text-xs">
-                  Ctrl+Shift+Space
-                </kbd>{" "}
+                <Kbd>{`${primaryModifier}+Shift+Space`}</Kbd>{" "}
                 — Dictation (hold to record, release to transcribe and paste)
               </li>
               <li>
-                <kbd className="rounded border px-1.5 py-0.5 font-mono text-xs">
-                  Ctrl+Alt+Space
-                </kbd>{" "}
+                <Kbd>{`${primaryModifier}+Alt+Space`}</Kbd>{" "}
                 — Meeting toggle (stub)
               </li>
             </ul>

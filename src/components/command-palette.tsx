@@ -33,6 +33,7 @@ import { useRecentItems } from "@/hooks/use-recent-items";
 import { DealStageBadge } from "@/components/status-badge";
 import { useObjects } from "@/hooks/use-object-registry";
 import { getObjectIcon } from "@/lib/object-icon-map";
+import { getCommandPaletteShortcutLabel } from "@/lib/keyboard-shortcuts";
 
 const COMMAND_PALETTE_KEY = "k";
 
@@ -40,6 +41,7 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
+  const shortcutLabel = getCommandPaletteShortcutLabel();
   const [recentItems] = useRecentItems();
   const objects = useObjects();
 
@@ -378,7 +380,7 @@ export function CommandPalette() {
             <CommandSeparator />
             <CommandGroup>
               <CommandItem className="text-muted-foreground" disabled>
-                <CommandShortcut>⌘K</CommandShortcut>
+                <CommandShortcut>{shortcutLabel}</CommandShortcut>
                 Open palette
               </CommandItem>
             </CommandGroup>

@@ -120,7 +120,7 @@ export function DataTableToolbar({
           </Button>
         </SortPopover>
 
-        {/* FunnelIcon button */}
+        {/* Filter button */}
         <FilterPopover
           attributes={attributes}
           filters={filters}
@@ -130,7 +130,7 @@ export function DataTableToolbar({
         >
           <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs">
             <FunnelIcon className="size-3.5" />
-            FunnelIcon
+            Filter
             {hasActiveFilters && (
               <Badge
                 variant="secondary"
@@ -206,7 +206,7 @@ export function DataTableToolbar({
             <Separator orientation="vertical" className="h-4" />
           )}
 
-          {/* FunnelIcon pills */}
+          {/* Filter pills */}
           {filters.map((filter, idx) => {
             const attr = attrMap.get(filter.fieldId);
             return (

@@ -5,6 +5,11 @@ import { NavGroup } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
 import { ObjectRegistryNavSection } from "@/components/ObjectRegistryNavSection"
 import { SIDEBAR_NAV_APPS, SIDEBAR_NAV_AUTOMATIONS } from "@/config/sidebar-nav"
+import { Kbd } from "@/components/ui/kbd"
+import {
+  dispatchCommandPaletteShortcut,
+  getCommandPaletteShortcutLabel,
+} from "@/lib/keyboard-shortcuts"
 import {
   Sidebar,
   SidebarContent,
@@ -20,13 +25,8 @@ const WORKSPACES = [
   { name: "Basics Hub", logo: LayoutIcon, plan: "Desktop" },
 ]
 
-function dispatchSearch() {
-  document.dispatchEvent(
-    new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }),
-  )
-}
-
 export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
+  const shortcutLabel = getCommandPaletteShortcutLabel()
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
@@ -34,15 +34,15 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
-              tooltip="Search (⌘K)"
+              tooltip={`Search (${shortcutLabel})`}
               className="text-muted-foreground"
-              onClick={dispatchSearch}
+              onClick={dispatchCommandPaletteShortcut}
             >
               <MagnifyingGlassIcon className="size-4" />
               <span className="flex-1">Search</span>
-              <kbd className="ml-auto text-[10px] tracking-widest text-muted-foreground/60 group-data-[state=collapsed]:hidden">
-                ⌘K
-              </kbd>
+              <Kbd className="ml-auto text-[10px] tracking-widest group-data-[state=collapsed]:hidden">
+                {shortcutLabel}
+              </Kbd>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>

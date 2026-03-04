@@ -90,28 +90,30 @@ function TaskRow({
         <button
           onClick={handleToggle}
           disabled={markDone.isPending}
+          aria-label={`${isDone ? "Mark task as not done" : "Mark task as done"}: ${task.text ?? "Untitled task"}`}
           className="shrink-0 text-muted-foreground hover:text-primary transition-colors"
         >
           {isDone ? <CheckSquareIcon className="size-3.5 text-primary" /> : <SquareIcon className="size-3.5" />}
         </button>
-        <span className={`min-w-0 flex-1 truncate text-[13px] ${isDone ? "line-through text-muted-foreground" : ""}`}>
+        <span className={`min-w-0 flex-1 truncate text-sm ${isDone ? "line-through text-muted-foreground" : ""}`}>
           {task.text ?? "—"}
         </span>
         {task.type && task.type !== "None" && (
-          <Badge variant="outline" className="h-5 shrink-0 text-[11px] font-normal">
+          <Badge variant="outline" className="h-5 shrink-0 text-xs font-normal">
             {task.type}
           </Badge>
         )}
         {contactName && (
           <button
             onClick={onContactClick}
-            className="shrink-0 text-[12px] text-muted-foreground hover:text-foreground hover:underline transition-colors"
+            className="shrink-0 text-xs text-muted-foreground hover:text-foreground hover:underline transition-colors"
+            aria-label={`Open contact: ${contactName}`}
           >
             {contactName}
           </button>
         )}
         {task.dueDate && (
-          <span className="shrink-0 text-[12px] tabular-nums text-muted-foreground">
+          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
             {format(parseISO(task.dueDate), "MMM d")}
           </span>
         )}
@@ -202,19 +204,19 @@ function AddTaskDialog({
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <Label className="text-[12px]">Contact</Label>
+            <Label className="text-xs">Contact</Label>
             <Input
               placeholder="Search contacts…"
               value={contactSearch}
               onChange={(e) => { setContactSearch(e.target.value); setContactId(""); }}
-              className="h-8 text-[13px]"
+              className="h-8 text-sm"
             />
             {contactSearch && !contactId && filteredContacts.length > 0 && (
               <div className="max-h-40 overflow-y-auto rounded-md border bg-popover shadow-md">
                 {filteredContacts.map((c) => (
                   <button
                     key={c.id}
-                    className="w-full px-3 py-1.5 text-left text-[13px] hover:bg-accent"
+                    className="w-full px-3 py-1.5 text-left text-sm hover:bg-accent"
                     onClick={() => {
                       setContactId(String(c.id));
                       setContactSearch(`${c.firstName ?? ""} ${c.lastName ?? ""}`.trim());
@@ -230,20 +232,20 @@ function AddTaskDialog({
             )}
           </div>
           <div className="space-y-1.5">
-            <Label className="text-[12px]">Task</Label>
+            <Label className="text-xs">Task</Label>
             <Input
               placeholder="Task description"
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); }}
-              className="h-8 text-[13px]"
+              className="h-8 text-sm"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-[12px]">Type</Label>
+              <Label className="text-xs">Type</Label>
               <Select value={type} onValueChange={setType}>
-                <SelectTrigger className="h-8 text-[13px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="None">None</SelectItem>
                   <SelectItem value="Call">Call</SelectItem>
@@ -254,8 +256,8 @@ function AddTaskDialog({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-[12px]">Due date</Label>
-              <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="h-8 text-[13px]" />
+              <Label className="text-xs">Due date</Label>
+              <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="h-8 text-sm" />
             </div>
           </div>
         </div>
@@ -333,11 +335,11 @@ export function TasksPage() {
     <div className="flex h-full flex-col overflow-auto py-4">
       <div className="mb-3 flex items-center justify-between">
         {!tasksPending ? (
-          <span className="text-[12px] text-muted-foreground">{activeTasks.length} upcoming</span>
+          <span className="text-xs text-muted-foreground">{activeTasks.length} upcoming</span>
         ) : (
           <span />
         )}
-        <Button size="sm" onClick={() => setAddOpen(true)} className="h-7 gap-1 text-[13px]">
+        <Button size="sm" onClick={() => setAddOpen(true)} className="h-7 gap-1 text-sm">
           <PlusIcon className="size-3.5" />
           Add task
         </Button>
@@ -349,24 +351,24 @@ export function TasksPage() {
           placeholder="Search tasks…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="h-8 pl-8 text-[13px]"
+          className="h-8 pl-8 text-sm"
         />
       </div>
 
       <div className="flex-1 space-y-3">
         {tasksPending && (
-          <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <CircleNotchIcon className="size-3.5 animate-spin" />
             Loading…
           </div>
         )}
 
         {!tasksPending && activeTasks.length === 0 && (
-          <p className="py-8 text-center text-[13px] text-muted-foreground">No upcoming tasks.</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">No upcoming tasks.</p>
         )}
 
         {!tasksPending && activeTasks.length > 0 && filteredTasks.length === 0 && (
-          <p className="py-8 text-center text-[13px] text-muted-foreground">No tasks match "{search}".</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">No tasks match "{search}".</p>
         )}
 
         {BUCKETS.map(({ key, label }) => {
@@ -374,7 +376,7 @@ export function TasksPage() {
           if (!bucket?.length) return null;
           return (
             <div key={key}>
-              <p className="mb-1 px-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">
+              <p className="mb-1 px-3 text-xs font-medium uppercase tracking-wider text-muted-foreground/70">
                 {label} <span className="ml-1 text-muted-foreground/40">{bucket.length}</span>
               </p>
               <div className="divide-y divide-border/50 rounded-md border">
