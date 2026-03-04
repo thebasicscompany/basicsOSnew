@@ -1,6 +1,7 @@
 export * from "./auth.js";
 export * from "./organizations.js";
 export * from "./crm_users.js";
+export * from "./ai_memory.js";
 export * from "./companies.js";
 export * from "./contacts.js";
 export * from "./deals.js";

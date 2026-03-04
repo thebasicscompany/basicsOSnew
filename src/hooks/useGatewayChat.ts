@@ -1,9 +1,8 @@
 import { useChat } from "@ai-sdk/react";
-import { useCallback } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useGateway } from "@/hooks/useGateway";
-import { ALL_CRM_TOOLS } from "@/lib/gateway/tools";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "";
 
@@ -27,11 +26,13 @@ const TOOL_TO_QUERY_KEYS: Record<string, string[]> = {
 
 /**
  * useChat hook for the Hub chat page, using the Gateway proxy.
- * Uses Better Auth session, API key from GatewayProvider, CRM tools with client-side execution.
+ * Uses Better Auth session + API key, while tool execution runs server-side.
  */
 export function useGatewayChat() {
-  const { apiKey, hasKey } = useGateway();
+  const { apiKey } = useGateway();
   const queryClient = useQueryClient();
+  const [threadId, setThreadId] = useState<string | undefined>(undefined);
+  const pendingToolsRef = useRef<Set<string>>(new Set());
 
   const fetchWithErrorHandling = useCallback(
     async (url: string | URL | Request, init?: RequestInit) => {
@@ -79,41 +80,17 @@ export function useGatewayChat() {
     }
   }, []);
 
-  const handleToolCall = useCallback(
-    async ({
-      toolCall,
-    }: {
-      toolCall: { toolCallId: string; toolName: string; args: unknown };
-    }) => {
-      const tool = ALL_CRM_TOOLS.find((t) => t.name === toolCall.toolName);
-      if (!tool) {
-        return { error: `Unknown tool: ${toolCall.toolName}` };
-      }
-      try {
-        let args: Record<string, unknown> = {};
-        if (typeof toolCall.args === "object" && toolCall.args !== null) {
-          args = toolCall.args as Record<string, unknown>;
-        } else if (typeof toolCall.args === "string") {
-          try {
-            args = JSON.parse(toolCall.args) as Record<string, unknown>;
-          } catch {
-            return { error: "Invalid tool arguments" };
-          }
-        }
-        return await tool.execute(args);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return { error: msg };
-      }
-    },
-    []
-  );
-
   const handleFinish = useCallback(
-    (message: { toolInvocations?: Array<{ toolName?: string }> }) => {
-      const names = new Set<string>();
-      for (const inv of message.toolInvocations ?? []) {
-        if (inv.toolName) names.add(inv.toolName);
+    () => {
+      const names = pendingToolsRef.current;
+      if (names.size === 0) {
+        // Fallback: server may mutate several entities via tools; keep UI fresh.
+        queryClient.invalidateQueries({ queryKey: ["contacts_summary"] });
+        queryClient.invalidateQueries({ queryKey: ["deals"] });
+        queryClient.invalidateQueries({ queryKey: ["companies_summary"] });
+        queryClient.invalidateQueries({ queryKey: ["tasks"] });
+        queryClient.invalidateQueries({ queryKey: ["contact_notes"] });
+        return;
       }
       for (const name of names) {
         const keys = TOOL_TO_QUERY_KEYS[name];
@@ -123,15 +100,31 @@ export function useGatewayChat() {
           }
         }
       }
+      pendingToolsRef.current = new Set();
     },
     [queryClient]
   );
 
   return useChat({
     api: `${API_URL}/api/gateway-chat`,
+    body: { threadId, channel: "chat" },
     fetch: fetchWithErrorHandling,
     maxSteps: 5,
-    onToolCall: handleToolCall,
+    onResponse: (response) => {
+      const nextThreadId = response.headers.get("X-Thread-Id");
+      if (nextThreadId) setThreadId(nextThreadId);
+      const toolsUsed = response.headers.get("X-Tools-Used");
+      if (toolsUsed) {
+        pendingToolsRef.current = new Set(
+          toolsUsed
+            .split(",")
+            .map((name) => name.trim())
+            .filter(Boolean)
+        );
+      } else {
+        pendingToolsRef.current = new Set();
+      }
+    },
     onFinish: handleFinish,
     onError: handleError,
   });
