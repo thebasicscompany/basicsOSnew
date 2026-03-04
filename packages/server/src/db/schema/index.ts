@@ -1,6 +1,6 @@
 export * from "./auth.js";
 export * from "./organizations.js";
-export * from "./sales.js";
+export * from "./crm_users.js";
 export * from "./companies.js";
 export * from "./contacts.js";
 export * from "./deals.js";

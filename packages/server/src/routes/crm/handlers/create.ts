@@ -9,7 +9,7 @@ import {
   upsertEntityEmbedding,
 } from "../../../lib/embeddings.js";
 import { fireEvent, reloadRule } from "../../../lib/automation-engine.js";
-import { CRM_RESOURCES, TABLE_MAP, hasSalesId, type Resource } from "../constants.js";
+import { CRM_RESOURCES, TABLE_MAP, hasCrmUserId, type Resource } from "../constants.js";
 import { snakeToCamel } from "../utils.js";
 
 export function createCreateHandler(db: Db, env: Env) {
@@ -20,36 +20,36 @@ export function createCreateHandler(db: Db, env: Env) {
     }
 
     const session = c.get("session") as { user?: { id: string } };
-    const salesRow = await db
+    const crmUserRows = await db
       .select()
-      .from(schema.sales)
-      .where(eq(schema.sales.userId, session.user!.id))
+      .from(schema.crmUsers)
+      .where(eq(schema.crmUsers.userId, session.user!.id))
       .limit(1);
-    const salesId = salesRow[0]?.id;
-    if (!salesId) return c.json({ error: "User not found in CRM" }, 404);
+    const crmUserId = crmUserRows[0]?.id;
+    if (!crmUserId) return c.json({ error: "User not found in CRM" }, 404);
 
     const rawBody = (await c.req.json()) as Record<string, unknown>;
     const table = TABLE_MAP[resource as Exclude<Resource, "companies_summary" | "contacts_summary">];
     if (!table) return c.json({ error: "Unknown resource" }, 404);
 
     const body = snakeToCamel(rawBody) as Record<string, unknown>;
-    if (hasSalesId(resource)) {
-      body.salesId = salesId;
+    if (hasCrmUserId(resource)) {
+      body.crmUserId = crmUserId;
     }
 
     const [inserted] = await db.insert(table).values(body).returning();
     if (!inserted) return c.json({ error: "Insert failed" }, 500);
 
     const entityType = getEntityType(resource);
-    const apiKey = salesRow[0]?.basicsApiKey;
+    const apiKey = crmUserRows[0]?.basicsApiKey;
     if (entityType && apiKey && inserted && typeof (inserted as { id?: unknown }).id === "number") {
       const chunkText = buildEntityText(entityType, inserted as Record<string, unknown>);
-      upsertEntityEmbedding(db, env.BASICOS_API_URL, apiKey, salesId, entityType, (inserted as { id: number }).id, chunkText).catch(() => {});
+      upsertEntityEmbedding(db, env.BASICOS_API_URL, apiKey, crmUserId, entityType, (inserted as { id: number }).id, chunkText).catch(() => {});
     }
 
     const eventResource = ["deals", "contacts", "tasks"].includes(resource) ? resource : null;
     if (eventResource) {
-      fireEvent(`${eventResource.replace(/s$/, "")}.created`, inserted as Record<string, unknown>, salesId).catch(() => {});
+      fireEvent(`${eventResource.replace(/s$/, "")}.created`, inserted as Record<string, unknown>, crmUserId).catch(() => {});
     }
 
     if (resource === "automation_rules" && typeof (inserted as { id?: number }).id === "number") {

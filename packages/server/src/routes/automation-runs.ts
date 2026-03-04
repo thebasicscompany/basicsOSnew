@@ -21,21 +21,21 @@ export function createAutomationRunsRoutes(db: Db, auth: BetterAuthInstance, _en
     if (typeof ruleId !== "number") return c.json({ error: "ruleId required" }, 400);
 
     const session = c.get("session") as { user?: { id: string } };
-    const [salesRow] = await db
+    const [crmUserRow] = await db
       .select()
-      .from(schema.sales)
-      .where(eq(schema.sales.userId, session.user!.id))
+      .from(schema.crmUsers)
+      .where(eq(schema.crmUsers.userId, session.user!.id))
       .limit(1);
-    if (!salesRow) return c.json({ error: "User not found in CRM" }, 404);
+    if (!crmUserRow) return c.json({ error: "User not found in CRM" }, 404);
 
     const [rule] = await db
       .select()
       .from(schema.automationRules)
-      .where(and(eq(schema.automationRules.id, ruleId), eq(schema.automationRules.salesId, salesRow.id)))
+      .where(and(eq(schema.automationRules.id, ruleId), eq(schema.automationRules.crmUserId, crmUserRow.id)))
       .limit(1);
     if (!rule) return c.json({ error: "Rule not found" }, 404);
 
-    const ok = await triggerRunNow(ruleId, salesRow.id);
+    const ok = await triggerRunNow(ruleId, crmUserRow.id);
     if (!ok) return c.json({ error: "Failed to trigger run" }, 500);
     return c.json({ triggered: true });
   });
@@ -49,18 +49,18 @@ export function createAutomationRunsRoutes(db: Db, auth: BetterAuthInstance, _en
     if (isNaN(ruleId)) return c.json({ error: "Invalid ruleId" }, 400);
 
     const session = c.get("session") as { user?: { id: string } };
-    const [salesRow] = await db
+    const [crmUserRow] = await db
       .select()
-      .from(schema.sales)
-      .where(eq(schema.sales.userId, session.user!.id))
+      .from(schema.crmUsers)
+      .where(eq(schema.crmUsers.userId, session.user!.id))
       .limit(1);
-    if (!salesRow) return c.json({ error: "User not found in CRM" }, 404);
+    if (!crmUserRow) return c.json({ error: "User not found in CRM" }, 404);
 
     // Verify rule belongs to this user
     const [rule] = await db
       .select()
       .from(schema.automationRules)
-      .where(and(eq(schema.automationRules.id, ruleId), eq(schema.automationRules.salesId, salesRow.id)))
+      .where(and(eq(schema.automationRules.id, ruleId), eq(schema.automationRules.crmUserId, crmUserRow.id)))
       .limit(1);
     if (!rule) return c.json({ error: "Rule not found" }, 404);
 

@@ -6,7 +6,7 @@ export async function executeCrmAction(
   config: Record<string, unknown>,
   _context: Record<string, unknown>,
   db: Db,
-  salesId: number,
+  crmUserId: number,
 ): Promise<Record<string, unknown>> {
   const { action, params = {} } = config as {
     action: string;
@@ -25,7 +25,7 @@ export async function executeCrmAction(
       if (!contactId) throw new Error("create_task requires a contactId");
 
       const [task] = await db.insert(schema.tasks).values({
-        salesId,
+        crmUserId,
         text: text ?? "",
         type: type ?? "Todo",
         dueDate: dueDate ? new Date(dueDate) : null,
@@ -43,7 +43,7 @@ export async function executeCrmAction(
       };
 
       const [contact] = await db.insert(schema.contacts).values({
-        salesId,
+        crmUserId,
         firstName: firstName ?? null,
         lastName: lastName ?? null,
         email: email ?? null,
@@ -64,7 +64,7 @@ export async function executeCrmAction(
       if (!contactId) throw new Error("create_note requires a contactId");
 
       const [note] = await db.insert(schema.contactNotes).values({
-        salesId,
+        crmUserId,
         contactId,
         text: text ?? "",
         status: status ?? "none",
@@ -86,7 +86,7 @@ export async function executeCrmAction(
       }
 
       const [note] = await db.insert(schema.dealNotes).values({
-        salesId,
+        crmUserId,
         dealId,
         text: text ?? "",
         type: type ?? null,
@@ -127,7 +127,7 @@ export async function executeCrmAction(
       const [deal] = await db
         .update(schema.deals)
         .set(updates)
-        .where(and(eq(schema.deals.id, dealId), eq(schema.deals.salesId, salesId)))
+        .where(and(eq(schema.deals.id, dealId), eq(schema.deals.crmUserId, crmUserId)))
         .returning();
 
       if (!deal) throw new Error(`Deal ${dealId} not found or access denied`);

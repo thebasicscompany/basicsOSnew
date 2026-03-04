@@ -1,6 +1,6 @@
 -- Object Configuration Tables for Generic CRM System
 
-CREATE TABLE "object_config" (
+CREATE TABLE IF NOT EXISTS "object_config" (
     "id" bigserial PRIMARY KEY,
     "slug" varchar(64) NOT NULL UNIQUE,
     "singular_name" varchar(128) NOT NULL,
@@ -14,7 +14,7 @@ CREATE TABLE "object_config" (
     "settings" jsonb NOT NULL DEFAULT '{}'
 );
 
-CREATE TABLE "object_attribute_overrides" (
+CREATE TABLE IF NOT EXISTS "object_attribute_overrides" (
     "id" bigserial PRIMARY KEY,
     "object_config_id" bigint NOT NULL REFERENCES object_config(id) ON DELETE CASCADE,
     "column_name" varchar(128) NOT NULL,
@@ -27,7 +27,7 @@ CREATE TABLE "object_attribute_overrides" (
     UNIQUE("object_config_id", "column_name")
 );
 
-CREATE TABLE "record_favorites" (
+CREATE TABLE IF NOT EXISTS "record_favorites" (
     "id" bigserial PRIMARY KEY,
     "sales_id" bigint NOT NULL REFERENCES sales(id) ON DELETE CASCADE,
     "object_slug" varchar(64) NOT NULL,
@@ -36,11 +36,28 @@ CREATE TABLE "record_favorites" (
     UNIQUE("sales_id", "object_slug", "record_id")
 );
 
--- Seed object_config
-INSERT INTO object_config (slug, singular_name, plural_name, icon, icon_color, noco_table_name, type, is_active, position) VALUES
-  ('companies', 'Company', 'Companies', 'building-2', 'blue', 'companies', 'standard', true, 0),
-  ('contacts', 'Person', 'People', 'users', 'orange', 'contacts', 'standard', true, 1),
-  ('deals', 'Deal', 'Deals', 'handshake', 'orange', 'deals', 'standard', true, 2);
+-- Seed object_config (compatible with both pre/post 0007 column names)
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'object_config'
+      AND column_name = 'noco_table_name'
+  ) THEN
+    INSERT INTO object_config (slug, singular_name, plural_name, icon, icon_color, noco_table_name, type, is_active, position) VALUES
+      ('companies', 'Company', 'Companies', 'building-2', 'blue', 'companies', 'standard', true, 0),
+      ('contacts', 'Person', 'People', 'users', 'orange', 'contacts', 'standard', true, 1),
+      ('deals', 'Deal', 'Deals', 'handshake', 'orange', 'deals', 'standard', true, 2)
+    ON CONFLICT (slug) DO NOTHING;
+  ELSE
+    INSERT INTO object_config (slug, singular_name, plural_name, icon, icon_color, table_name, type, is_active, position) VALUES
+      ('companies', 'Company', 'Companies', 'building-2', 'blue', 'companies', 'standard', true, 0),
+      ('contacts', 'Person', 'People', 'users', 'orange', 'contacts', 'standard', true, 1),
+      ('deals', 'Deal', 'Deals', 'handshake', 'orange', 'deals', 'standard', true, 2)
+    ON CONFLICT (slug) DO NOTHING;
+  END IF;
+END $$;
 
 -- Seed attribute overrides
 INSERT INTO object_attribute_overrides (object_config_id, column_name, display_name, ui_type, is_primary, config) VALUES
@@ -59,4 +76,5 @@ INSERT INTO object_attribute_overrides (object_config_id, column_name, display_n
   ((SELECT id FROM object_config WHERE slug = 'deals'), 'name', 'Name', NULL, true, '{}'),
   ((SELECT id FROM object_config WHERE slug = 'deals'), 'stage', 'Stage', 'status', false, '{"options":[{"id":"opportunity","label":"Opportunity","color":"blue","order":0},{"id":"proposal-made","label":"Proposal Made","color":"cyan","order":1},{"id":"in-negotiation","label":"In Negotiation","color":"orange","order":2},{"id":"won","label":"Won","color":"green","order":3,"isTerminal":true},{"id":"lost","label":"Lost","color":"red","order":4,"isTerminal":true},{"id":"delayed","label":"Delayed","color":"gray","order":5}]}'),
   ((SELECT id FROM object_config WHERE slug = 'deals'), 'amount', 'Amount', 'currency', false, '{"currencyCode":"USD","currencySymbol":"$","decimalPlaces":2,"stepAmount":1000}'),
-  ((SELECT id FROM object_config WHERE slug = 'deals'), 'expected_close_date', 'Expected Close', 'date', false, '{}');
+  ((SELECT id FROM object_config WHERE slug = 'deals'), 'expected_close_date', 'Expected Close', 'date', false, '{}')
+ON CONFLICT ("object_config_id", "column_name") DO NOTHING;

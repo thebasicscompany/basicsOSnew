@@ -49,17 +49,17 @@ export function createAssistantRoutes(db: Db, auth: BetterAuthInstance, env: Env
 
     const { message, messages: history = [] } = parsed.data;
 
-    const salesRow = await db
+    const crmUserRows = await db
       .select()
-      .from(schema.sales)
-      .where(eq(schema.sales.userId, session.user.id))
+      .from(schema.crmUsers)
+      .where(eq(schema.crmUsers.userId, session.user.id))
       .limit(1);
 
-    const sale = salesRow[0];
-    if (!sale) {
+    const crmUser = crmUserRows[0];
+    if (!crmUser) {
       return c.json({ error: "User not found in CRM" }, 404);
     }
-    if (!sale.basicsApiKey) {
+    if (!crmUser.basicsApiKey) {
       return c.json(
         {
           error: "Basics API key not configured. Add your key in Settings.",
@@ -68,18 +68,18 @@ export function createAssistantRoutes(db: Db, auth: BetterAuthInstance, env: Env
       );
     }
 
-    const salesInfo = { salesId: sale.id, apiKey: sale.basicsApiKey };
+    const crmUserInfo = { crmUserId: crmUser.id, apiKey: crmUser.basicsApiKey };
 
     const queryEmbedding = await embedQuery(
       env.BASICOS_API_URL,
-      salesInfo.apiKey,
+      crmUserInfo.apiKey,
       message
     );
     if (!queryEmbedding) {
       return c.json({ error: "Failed to embed query" }, 502);
     }
 
-    const chunks = await similaritySearch(db, salesInfo.salesId, queryEmbedding, 5);
+    const chunks = await similaritySearch(db, crmUserInfo.crmUserId, queryEmbedding, 5);
     const contextText =
       chunks.length > 0
         ? chunks.map((ch) => ch.chunk_text).join("\n\n---\n\n")
@@ -111,7 +111,7 @@ ${contextText}`;
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${salesInfo.apiKey}`,
+          Authorization: `Bearer ${crmUserInfo.apiKey}`,
         },
         body: JSON.stringify({
           model: "basics-chat-smart",
@@ -163,7 +163,7 @@ ${contextText}`;
           }
           const result = await executeAssistantToolDrizzle(
             db,
-            salesInfo.salesId,
+            crmUserInfo.crmUserId,
             tc.function.name,
             args
           );
@@ -209,14 +209,14 @@ function createStreamChunk(content: string): ReadableStream {
 
 async function similaritySearch(
   db: Db,
-  salesId: number,
+  crmUserId: number,
   queryEmbedding: number[],
   limit: number
 ): Promise<{ entity_type: string; entity_id: number; chunk_text: string }[]> {
   const embeddingStr = `[${queryEmbedding.join(",")}]`;
   const result = await db.execute(
     sql.raw(
-      `select entity_type, entity_id, chunk_text from match_context_embeddings(${salesId}, '${embeddingStr}'::vector, ${limit})`
+      `select entity_type, entity_id, chunk_text from match_context_embeddings(${crmUserId}, '${embeddingStr}'::vector, ${limit})`
     )
   );
   const rows = Array.isArray(result) ? result : (result as { rows?: unknown[] }).rows ?? [];

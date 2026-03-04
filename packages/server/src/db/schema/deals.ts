@@ -10,7 +10,7 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 import { companies } from "./companies";
-import { sales } from "./sales";
+import { crmUsers } from "./crm_users";
 
 export const deals = pgTable(
   "deals",
@@ -27,12 +27,12 @@ export const deals = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     expectedClosingDate: timestamp("expected_closing_date", { withTimezone: true }),
-    salesId: bigint("sales_id", { mode: "number" }).references(() => sales.id),
+    crmUserId: bigint("sales_id", { mode: "number" }).references(() => crmUsers.id),
     index: smallint("index"),
     customFields: jsonb("custom_fields").$type<Record<string, unknown>>().default({}).notNull(),
   },
   (t) => [
-    index("deals_sales_id_idx").on(t.salesId),
+    index("deals_sales_id_idx").on(t.crmUserId),
     index("deals_company_id_idx").on(t.companyId),
     index("deals_stage_idx").on(t.stage),
     index("deals_category_idx").on(t.category),

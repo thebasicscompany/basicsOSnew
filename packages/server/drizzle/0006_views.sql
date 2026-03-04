@@ -1,6 +1,6 @@
 -- View persistence tables (replaces NocoDB view metadata)
 
-CREATE TABLE "views" (
+CREATE TABLE IF NOT EXISTS "views" (
   "id" text PRIMARY KEY DEFAULT gen_random_uuid()::text,
   "object_slug" varchar(64) NOT NULL,
   "sales_id" bigint NOT NULL REFERENCES "sales"("id") ON DELETE CASCADE,
@@ -12,9 +12,11 @@ CREATE TABLE "views" (
   "created_at" timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX "views_slug_sales" ON "views" ("object_slug", "sales_id");
+CREATE INDEX IF NOT EXISTS "views_slug_sales" ON "views" ("object_slug", "sales_id");
 
-CREATE TABLE "view_columns" (
+--> statement-breakpoint
+
+CREATE TABLE IF NOT EXISTS "view_columns" (
   "id" text PRIMARY KEY DEFAULT gen_random_uuid()::text,
   "view_id" text NOT NULL REFERENCES "views"("id") ON DELETE CASCADE,
   "field_id" varchar(128) NOT NULL,
@@ -25,7 +27,9 @@ CREATE TABLE "view_columns" (
   UNIQUE("view_id", "field_id")
 );
 
-CREATE TABLE "view_sorts" (
+--> statement-breakpoint
+
+CREATE TABLE IF NOT EXISTS "view_sorts" (
   "id" text PRIMARY KEY DEFAULT gen_random_uuid()::text,
   "view_id" text NOT NULL REFERENCES "views"("id") ON DELETE CASCADE,
   "field_id" varchar(128) NOT NULL,
@@ -33,7 +37,9 @@ CREATE TABLE "view_sorts" (
   "display_order" smallint NOT NULL DEFAULT 0
 );
 
-CREATE TABLE "view_filters" (
+--> statement-breakpoint
+
+CREATE TABLE IF NOT EXISTS "view_filters" (
   "id" text PRIMARY KEY DEFAULT gen_random_uuid()::text,
   "view_id" text NOT NULL REFERENCES "views"("id") ON DELETE CASCADE,
   "field_id" varchar(128) NOT NULL,

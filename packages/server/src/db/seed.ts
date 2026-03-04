@@ -20,11 +20,11 @@ const DEMO_USER = {
 const API_URL = process.env.SEED_API_URL ?? "http://localhost:3001";
 
 async function ensureAdminUser(db: ReturnType<typeof createDb>): Promise<number> {
-  const salesRows = await db.select().from(schema.sales).limit(1);
+  const crmUserRows = await db.select().from(schema.crmUsers).limit(1);
 
-  if (salesRows.length > 0) {
-    console.log("[seed] Using existing org/sales");
-    return salesRows[0].id;
+  if (crmUserRows.length > 0) {
+    console.log("[seed] Using existing org/crm user");
+    return crmUserRows[0].id;
   }
 
   // Try signup API first (requires server running)
@@ -40,13 +40,13 @@ async function ensureAdminUser(db: ReturnType<typeof createDb>): Promise<number>
   });
 
   if (res.ok) {
-    const [sale] = await db
+    const [crmUser] = await db
       .select()
-      .from(schema.sales)
-      .orderBy(schema.sales.id)
+      .from(schema.crmUsers)
+      .orderBy(schema.crmUsers.id)
       .limit(1);
-    if (!sale) throw new Error("Sales row not found after signup");
-    return sale.id;
+    if (!crmUser) throw new Error("CRM user not found after signup");
+    return crmUser.id;
   }
 
   // Fallback: direct DB insert (no server needed)
@@ -59,14 +59,14 @@ async function ensureAdminUser(db: ReturnType<typeof createDb>): Promise<number>
 
   let userId: string;
   if (existingUsers.length > 0) {
-    console.log("[seed] Admin user already exists, ensuring org/sales...");
+    console.log("[seed] Admin user already exists, ensuring org/crm user...");
     userId = existingUsers[0].id;
-    const existingSales = await db
+    const existingCrmUsers = await db
       .select()
-      .from(schema.sales)
-      .where(eq(schema.sales.userId, userId))
+      .from(schema.crmUsers)
+      .where(eq(schema.crmUsers.userId, userId))
       .limit(1);
-    if (existingSales.length > 0) return existingSales[0].id;
+    if (existingCrmUsers.length > 0) return existingCrmUsers[0].id;
 
     const existingAccounts = await db
       .select()
@@ -102,8 +102,8 @@ async function ensureAdminUser(db: ReturnType<typeof createDb>): Promise<number>
       orgId = org.id;
     }
 
-    const [sale] = await db
-      .insert(schema.sales)
+    const [crmUser] = await db
+      .insert(schema.crmUsers)
       .values({
         firstName: DEMO_USER.firstName,
         lastName: DEMO_USER.lastName,
@@ -113,8 +113,8 @@ async function ensureAdminUser(db: ReturnType<typeof createDb>): Promise<number>
         administrator: true,
       })
       .returning();
-    if (!sale) throw new Error("Failed to create sales");
-    return sale.id;
+    if (!crmUser) throw new Error("Failed to create CRM user");
+    return crmUser.id;
   }
 
   console.log("[seed] Creating user directly...");
@@ -146,8 +146,8 @@ async function ensureAdminUser(db: ReturnType<typeof createDb>): Promise<number>
     .returning();
   if (!org) throw new Error("Failed to create organization");
 
-  const [sale] = await db
-    .insert(schema.sales)
+  const [crmUser] = await db
+    .insert(schema.crmUsers)
     .values({
       firstName: DEMO_USER.firstName,
       lastName: DEMO_USER.lastName,
@@ -157,9 +157,9 @@ async function ensureAdminUser(db: ReturnType<typeof createDb>): Promise<number>
       administrator: true,
     })
     .returning();
-  if (!sale) throw new Error("Failed to create sales");
+  if (!crmUser) throw new Error("Failed to create CRM user");
 
-  return sale.id;
+  return crmUser.id;
 }
 
 const DEMO_COMPANIES = [
@@ -186,7 +186,7 @@ const DEMO_CONTACTS = [
 
 async function fillEmptyColumns(
   db: ReturnType<typeof createDb>,
-  salesId: number,
+  crmUserId: number,
 ) {
   const existingCompanies = await db.select().from(schema.companies).limit(1);
   if (existingCompanies.length === 0) return;
@@ -250,11 +250,11 @@ async function fillEmptyColumns(
   console.log("[seed] Done filling empty columns!");
 }
 
-async function seed(db: ReturnType<typeof createDb>, salesId: number) {
+async function seed(db: ReturnType<typeof createDb>, crmUserId: number) {
   const existingCompanies = await db.select().from(schema.companies).limit(1);
   if (existingCompanies.length > 0) {
     console.log("[seed] CRM data already exists, filling empty columns...");
-    await fillEmptyColumns(db, salesId);
+    await fillEmptyColumns(db, crmUserId);
     return;
   }
 
@@ -276,7 +276,7 @@ async function seed(db: ReturnType<typeof createDb>, salesId: number) {
         description: c.description,
         revenue: c.revenue,
         linkedinUrl: c.linkedinUrl,
-        salesId,
+        crmUserId,
       }))
     )
     .returning();
@@ -294,7 +294,7 @@ async function seed(db: ReturnType<typeof createDb>, salesId: number) {
         background: c.background,
         linkedinUrl: c.linkedinUrl,
         companyId: companies[i % companies.length].id,
-        salesId,
+        crmUserId,
         emailJsonb: [{ email: `${c.firstName.toLowerCase()}.${c.lastName.toLowerCase()}@example.com`, type: "Work" }],
         phoneJsonb: [{ number: `+1-555-${String(1000 + i).padStart(4, "0")}`, type: "Work" }],
         hasNewsletter: i % 2 === 0,
@@ -319,7 +319,7 @@ async function seed(db: ReturnType<typeof createDb>, salesId: number) {
         amount: 50000,
         description: "Full redesign of corporate website with new CMS.",
         expectedClosingDate: in30Days,
-        salesId,
+        crmUserId,
         index: 0,
       },
       {
@@ -331,7 +331,7 @@ async function seed(db: ReturnType<typeof createDb>, salesId: number) {
         amount: 15000,
         description: "Comprehensive UX audit and recommendations.",
         expectedClosingDate: in60Days,
-        salesId,
+        crmUserId,
         index: 0,
       },
       {
@@ -343,7 +343,7 @@ async function seed(db: ReturnType<typeof createDb>, salesId: number) {
         amount: 8000,
         description: "Homepage and landing page copy refresh.",
         expectedClosingDate: in90Days,
-        salesId,
+        crmUserId,
         index: 0,
       },
       {
@@ -355,7 +355,7 @@ async function seed(db: ReturnType<typeof createDb>, salesId: number) {
         amount: 120000,
         description: "Annual enterprise platform license.",
         expectedClosingDate: now,
-        salesId,
+        crmUserId,
         index: 0,
       },
     ])
@@ -363,17 +363,17 @@ async function seed(db: ReturnType<typeof createDb>, salesId: number) {
 
   console.log("[seed] Inserting tasks...");
   await db.insert(schema.tasks).values([
-    { contactId: contacts[0].id, salesId, type: "call", text: "Follow up on proposal", dueDate: new Date(Date.now() + 86400000) },
-    { contactId: contacts[2].id, salesId, type: "meeting", text: "Discovery call", dueDate: new Date(Date.now() + 172800000) },
+    { contactId: contacts[0].id, crmUserId, type: "call", text: "Follow up on proposal", dueDate: new Date(Date.now() + 86400000) },
+    { contactId: contacts[2].id, crmUserId, type: "meeting", text: "Discovery call", dueDate: new Date(Date.now() + 172800000) },
   ]);
 
   console.log("[seed] Inserting notes...");
   await db.insert(schema.contactNotes).values([
-    { contactId: contacts[0].id, salesId, text: "Met at conference. Interested in Q2." },
-    { contactId: contacts[4].id, salesId, text: "Closed the deal. Great partnership." },
+    { contactId: contacts[0].id, crmUserId, text: "Met at conference. Interested in Q2." },
+    { contactId: contacts[4].id, crmUserId, text: "Closed the deal. Great partnership." },
   ]);
   await db.insert(schema.dealNotes).values([
-    { dealId: deals[0].id, salesId, text: "Sent proposal. Awaiting feedback." },
+    { dealId: deals[0].id, crmUserId, text: "Sent proposal. Awaiting feedback." },
   ]);
 
   console.log("[seed] Inserting tags...");
@@ -420,8 +420,8 @@ async function seed(db: ReturnType<typeof createDb>, salesId: number) {
 async function main() {
   const url = process.env.DATABASE_URL ?? "postgresql://postgres:postgres@localhost:5435/crm";
   const db = createDb(url);
-  const salesId = await ensureAdminUser(db);
-  await seed(db, salesId);
+  const crmUserId = await ensureAdminUser(db);
+  await seed(db, crmUserId);
 }
 
 main().catch((err) => {

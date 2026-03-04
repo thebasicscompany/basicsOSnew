@@ -35,25 +35,25 @@ export function createAuthRoutes(
       return c.json({ error: "Unauthorized" }, 401);
     }
 
-    const salesRow = await db
+    const crmUserRows = await db
       .select()
-      .from(schema.sales)
-      .where(eq(schema.sales.userId, session.user.id))
+      .from(schema.crmUsers)
+      .where(eq(schema.crmUsers.userId, session.user.id))
       .limit(1);
 
-    const sale = salesRow[0];
-    if (!sale) {
+    const crmUser = crmUserRows[0];
+    if (!crmUser) {
       return c.json({ error: "User not found in CRM" }, 404);
     }
 
     return c.json({
-      id: sale.id,
-      fullName: `${sale.firstName} ${sale.lastName}`,
-      firstName: sale.firstName,
-      lastName: sale.lastName,
-      email: sale.email,
-      avatar: sale.avatar,
-      administrator: sale.administrator,
+      id: crmUser.id,
+      fullName: `${crmUser.firstName} ${crmUser.lastName}`,
+      firstName: crmUser.firstName,
+      lastName: crmUser.lastName,
+      email: crmUser.email,
+      avatar: crmUser.avatar,
+      administrator: crmUser.administrator,
     });
   });
 
@@ -73,9 +73,9 @@ export function createAuthRoutes(
       return c.json({ error: "No valid fields to update" }, 400);
 
     await db
-      .update(schema.sales)
+      .update(schema.crmUsers)
       .set(updates)
-      .where(eq(schema.sales.userId, userId));
+      .where(eq(schema.crmUsers.userId, userId));
 
     return c.json({ ok: true });
   });
@@ -88,9 +88,9 @@ export function createAuthRoutes(
     const body = await c.req.json<{ basicsApiKey?: string | null }>();
 
     await db
-      .update(schema.sales)
+      .update(schema.crmUsers)
       .set({ basicsApiKey: body.basicsApiKey ?? null })
-      .where(eq(schema.sales.userId, userId));
+      .where(eq(schema.crmUsers.userId, userId));
 
     return c.json({ ok: true });
   });
@@ -154,7 +154,7 @@ export function createAuthRoutes(
       return c.json({ error: "Failed to create organization" }, 500);
     }
 
-    await db.insert(schema.sales).values({
+    await db.insert(schema.crmUsers).values({
       firstName: first_name,
       lastName: last_name,
       email,

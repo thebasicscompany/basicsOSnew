@@ -8,19 +8,19 @@ import * as schema from "../db/schema/index.js";
  */
 export async function buildCrmSummary(
   db: Db,
-  salesId: number
+  crmUserId: number
 ): Promise<string> {
   const [dealStats, overdueStats, recentContacts] = await Promise.all([
     db
       .select({ count: count(), total: sum(schema.deals.amount) })
       .from(schema.deals)
-      .where(and(eq(schema.deals.salesId, salesId), isNull(schema.deals.archivedAt))),
+      .where(and(eq(schema.deals.crmUserId, crmUserId), isNull(schema.deals.archivedAt))),
     db
       .select({ count: count() })
       .from(schema.tasks)
       .where(
         and(
-          eq(schema.tasks.salesId, salesId),
+          eq(schema.tasks.crmUserId, crmUserId),
           isNull(schema.tasks.doneDate),
           lt(schema.tasks.dueDate, new Date())
         )
@@ -28,7 +28,7 @@ export async function buildCrmSummary(
     db
       .select({ firstName: schema.contacts.firstName, lastName: schema.contacts.lastName })
       .from(schema.contacts)
-      .where(eq(schema.contacts.salesId, salesId))
+      .where(eq(schema.contacts.crmUserId, crmUserId))
       .orderBy(desc(schema.contacts.id))
       .limit(5),
   ]);
@@ -58,7 +58,7 @@ export async function retrieveRelevantContext(
   db: Db,
   gatewayUrl: string,
   apiKey: string,
-  salesId: number,
+  crmUserId: number,
   query: string,
   limit = 5
 ): Promise<string | null> {
@@ -85,7 +85,7 @@ export async function retrieveRelevantContext(
     const embeddingStr = `[${embedding.join(",")}]`;
     const rows = await db.execute(
       sql.raw(
-        `SELECT entity_type, chunk_text FROM match_context_embeddings(${salesId}, '${embeddingStr}'::vector, ${limit})`
+        `SELECT entity_type, chunk_text FROM match_context_embeddings(${crmUserId}, '${embeddingStr}'::vector, ${limit})`
       )
     );
 

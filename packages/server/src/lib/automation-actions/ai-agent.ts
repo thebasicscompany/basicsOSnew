@@ -9,7 +9,7 @@ export async function executeAIAgent(
   config: Record<string, unknown>,
   _context: Record<string, unknown>,
   db: Db,
-  salesId: number,
+  crmUserId: number,
   apiKey: string,
   env: { BASICOS_API_URL: string },
 ): Promise<Record<string, unknown>> {
@@ -77,7 +77,7 @@ export async function executeAIAgent(
         execute: async ({ text, contactId, type }) => {
           const [task] = await db
             .insert(schema.tasks)
-            .values({ salesId, text, contactId, type })
+            .values({ crmUserId, text, contactId, type })
             .returning();
           return task;
         },

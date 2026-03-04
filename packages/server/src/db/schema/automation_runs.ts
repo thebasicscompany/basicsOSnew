@@ -8,16 +8,16 @@ import {
   timestamp,
 } from "drizzle-orm/pg-core";
 import { automationRules } from "./automation_rules.js";
-import { sales } from "./sales.js";
+import { crmUsers } from "./crm_users.js";
 
 export const automationRuns = pgTable("automation_runs", {
   id: bigserial("id", { mode: "number" }).primaryKey(),
   ruleId: bigint("rule_id", { mode: "number" })
     .notNull()
     .references(() => automationRules.id, { onDelete: "cascade" }),
-  salesId: bigint("sales_id", { mode: "number" })
+  crmUserId: bigint("sales_id", { mode: "number" })
     .notNull()
-    .references(() => sales.id, { onDelete: "cascade" }),
+    .references(() => crmUsers.id, { onDelete: "cascade" }),
   status: varchar("status", { length: 32 }).notNull(), // 'running' | 'success' | 'error'
   result: jsonb("result"),
   error: text("error"),

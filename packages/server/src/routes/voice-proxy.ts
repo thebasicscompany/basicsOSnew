@@ -8,8 +8,7 @@ import { authMiddleware } from "../middleware/auth.js";
 import type { Db } from "../db/client.js";
 import type { Env } from "../env.js";
 import type { createAuth } from "../auth.js";
-import * as schema from "../db/schema/index.js";
-import { eq } from "drizzle-orm";
+import { resolveCrmUserWithApiKey } from "../lib/crm-user-auth.js";
 
 type BetterAuthInstance = ReturnType<typeof createAuth>;
 
@@ -29,26 +28,9 @@ export function createVoiceProxyRoutes(
   const app = new Hono();
 
   app.post("/transcriptions", authMiddleware(auth), async (c) => {
-    const session = c.get("session") as { user?: { id: string } };
-    const salesRow = await db
-      .select()
-      .from(schema.sales)
-      .where(eq(schema.sales.userId, session.user!.id))
-      .limit(1);
-
-    const sale = salesRow[0];
-    if (!sale) {
-      return c.json({ error: "User not found in CRM" }, 404);
-    }
-
-    const apiKey =
-      c.req.header("X-Basics-API-Key")?.trim() || sale.basicsApiKey;
-    if (!apiKey) {
-      return c.json(
-        { error: "Basics API key not configured. Add your key in Settings." },
-        400
-      );
-    }
+    const crmUserAuth = await resolveCrmUserWithApiKey(c, db);
+    if (!crmUserAuth.ok) return crmUserAuth.response;
+    const { apiKey } = crmUserAuth.data;
 
     let body: { audio?: string; mime_type?: string };
     try {
@@ -87,26 +69,9 @@ export function createVoiceProxyRoutes(
   });
 
   app.post("/speech", authMiddleware(auth), async (c) => {
-    const session = c.get("session") as { user?: { id: string } };
-    const salesRow = await db
-      .select()
-      .from(schema.sales)
-      .where(eq(schema.sales.userId, session.user!.id))
-      .limit(1);
-
-    const sale = salesRow[0];
-    if (!sale) {
-      return c.json({ error: "User not found in CRM" }, 404);
-    }
-
-    const apiKey =
-      c.req.header("X-Basics-API-Key")?.trim() || sale.basicsApiKey;
-    if (!apiKey) {
-      return c.json(
-        { error: "Basics API key not configured. Add your key in Settings." },
-        400
-      );
-    }
+    const crmUserAuth = await resolveCrmUserWithApiKey(c, db);
+    if (!crmUserAuth.ok) return crmUserAuth.response;
+    const { apiKey } = crmUserAuth.data;
 
     let body: { text?: string };
     try {

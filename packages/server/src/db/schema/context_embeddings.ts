@@ -8,15 +8,15 @@ import {
   vector,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import { sales } from "./sales";
+import { crmUsers } from "./crm_users";
 
 export const contextEmbeddings = pgTable(
   "context_embeddings",
   {
     id: bigserial("id", { mode: "number" }).primaryKey(),
-    salesId: bigint("sales_id", { mode: "number" })
+    crmUserId: bigint("sales_id", { mode: "number" })
       .notNull()
-      .references(() => sales.id, { onDelete: "cascade" }),
+      .references(() => crmUsers.id, { onDelete: "cascade" }),
     entityType: varchar("entity_type", { length: 64 }).notNull(),
     entityId: bigint("entity_id", { mode: "number" }).notNull(),
     chunkText: text("chunk_text").notNull(),
@@ -25,8 +25,8 @@ export const contextEmbeddings = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
-    uniqueIndex("context_embeddings_sales_entity_idx").on(
-      t.salesId,
+    uniqueIndex("context_embeddings_crm_user_entity_idx").on(
+      t.crmUserId,
       t.entityType,
       t.entityId
     ),

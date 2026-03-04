@@ -9,7 +9,7 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 import { deals } from "./deals";
-import { sales } from "./sales";
+import { crmUsers } from "./crm_users";
 
 export const dealNotes = pgTable(
   "deal_notes",
@@ -21,11 +21,11 @@ export const dealNotes = pgTable(
     type: varchar("type", { length: 64 }),
     text: text("text"),
     date: timestamp("date", { withTimezone: true }).defaultNow(),
-    salesId: bigint("sales_id", { mode: "number" }).references(() => sales.id),
+    crmUserId: bigint("sales_id", { mode: "number" }).references(() => crmUsers.id),
     attachments: jsonb("attachments").$type<Array<{ url: string; name?: string; type?: string }>>(),
   },
   (t) => [
     index("deal_notes_deal_id_idx").on(t.dealId),
-    index("deal_notes_sales_id_idx").on(t.salesId),
+    index("deal_notes_sales_id_idx").on(t.crmUserId),
   ]
 );

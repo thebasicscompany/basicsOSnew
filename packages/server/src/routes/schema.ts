@@ -14,7 +14,7 @@ const ALLOWED_TABLES = new Set([
   "tasks",
   "contact_notes",
   "deal_notes",
-  "sales",
+  "crm_users",
   "tags",
   "contacts_summary",
   "companies_summary",

@@ -7,13 +7,13 @@ import {
   timestamp,
   bigint,
 } from "drizzle-orm/pg-core";
-import { sales } from "./sales.js";
+import { crmUsers } from "./crm_users.js";
 
 export const automationRules = pgTable("automation_rules", {
   id: bigserial("id", { mode: "number" }).primaryKey(),
-  salesId: bigint("sales_id", { mode: "number" })
+  crmUserId: bigint("sales_id", { mode: "number" })
     .notNull()
-    .references(() => sales.id, { onDelete: "cascade" }),
+    .references(() => crmUsers.id, { onDelete: "cascade" }),
   name: varchar("name", { length: 255 }).notNull(),
   enabled: boolean("enabled").notNull().default(true),
   workflowDefinition: jsonb("workflow_definition").notNull().default({}),

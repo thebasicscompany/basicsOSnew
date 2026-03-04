@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { API_STREAM_TIMEOUT_MS } from "../../shared-overlay/constants";
+import { streamAssistant } from "../api";
 import { createOverlayLogger } from "./overlay-logger";
 import { detectCommand } from "./voice-commands";
 import type { PillAction, PillState } from "./notch-pill-state";
@@ -56,68 +57,14 @@ const streamAssistantAPI = async (
   onToken: (token: string) => void,
   onComplete: (title: string, lines: string[]) => void
 ): Promise<void> => {
-  try {
-    const apiUrl = await window.electronAPI?.getApiUrl?.();
-    const sessionToken = await window.electronAPI?.getSessionToken?.();
-
-    if (!apiUrl || !sessionToken) {
-      log.warn("No API URL or session token — falling back to simulated");
-      throw new Error("No API");
-    }
-
-    const res = await fetch(`${apiUrl}/stream/assistant`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${sessionToken}`,
-      },
-      body: JSON.stringify({ message, history: [] }),
-      signal: AbortSignal.timeout(API_STREAM_TIMEOUT_MS),
-    });
-
-    if (!res.ok || !res.body) {
-      throw new Error(`Stream ${res.status}`);
-    }
-
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let fullText = "";
-
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      const chunk = decoder.decode(value, { stream: true });
-      for (const line of chunk.split("\n")) {
-        if (!line.startsWith("data: ")) continue;
-        const data = line.slice(6).trim();
-        if (data === "[DONE]") {
-          onComplete(
-            "Assistant",
-            fullText.split("\n").filter(Boolean)
-          );
-          return;
-        }
-        try {
-          const parsed = JSON.parse(data) as { token?: string };
-          if (parsed.token) {
-            fullText += parsed.token;
-            onToken(parsed.token);
-          }
-        } catch {
-          // skip
-        }
-      }
-    }
-    onComplete("Assistant", fullText.split("\n").filter(Boolean));
-  } catch {
-    const resp = getSimulatedResponse(message);
-    const words = resp.lines.join(" ").split(" ");
-    for (let i = 0; i < words.length; i++) {
-      await new Promise((r) => setTimeout(r, 40 + Math.random() * 30));
-      onToken((i > 0 ? " " : "") + words[i]!);
-    }
-    onComplete(resp.title, resp.lines);
+  let fullText = "";
+  for await (const token of streamAssistant(message, [], {
+    timeoutMs: API_STREAM_TIMEOUT_MS,
+  })) {
+    fullText += token;
+    onToken(token);
   }
+  onComplete("Assistant", fullText.split("\n").filter(Boolean));
 };
 
 export const useAIResponse = (
@@ -171,6 +118,24 @@ export const useAIResponse = (
         if (!streamAbortRef.current)
           dispatch({ type: "AI_COMPLETE", title, lines });
       }
-    );
+    ).catch((err) => {
+      if (streamAbortRef.current) return;
+
+      if (import.meta.env.DEV) {
+        log.warn("Assistant stream failed, using simulated response:", err);
+        const resp = getSimulatedResponse(transcript);
+        dispatch({
+          type: "AI_COMPLETE",
+          title: resp.title,
+          lines: resp.lines,
+        });
+        return;
+      }
+
+      dispatch({
+        type: "AI_ERROR",
+        message: "Assistant is unavailable. Check API/backend auth.",
+      });
+    });
   }, [pillState, transcript, dispatch, streamAbortRef]);
 };

@@ -10,7 +10,7 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 import { companies } from "./companies";
-import { sales } from "./sales";
+import { crmUsers } from "./crm_users";
 
 export const contacts = pgTable(
   "contacts",
@@ -33,12 +33,12 @@ export const contacts = pgTable(
     companyId: bigint("company_id", { mode: "number" }).references(() => companies.id, {
       onDelete: "cascade",
     }),
-    salesId: bigint("sales_id", { mode: "number" }).references(() => sales.id),
+    crmUserId: bigint("sales_id", { mode: "number" }).references(() => crmUsers.id),
     linkedinUrl: varchar("linkedin_url", { length: 512 }),
     customFields: jsonb("custom_fields").$type<Record<string, unknown>>().default({}).notNull(),
   },
   (t) => [
-    index("contacts_sales_id_idx").on(t.salesId),
+    index("contacts_sales_id_idx").on(t.crmUserId),
     index("contacts_company_id_idx").on(t.companyId),
     index("contacts_status_idx").on(t.status),
   ]

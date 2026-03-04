@@ -1,21 +1,15 @@
-# Basics CRM
+# BasicsOS
 
-A full-featured CRM built with React, shadcn-admin-kit, and Postgres.
-
-<https://github.com/user-attachments/assets/0d7554b5-41c6-bcc9-a76214fc5c99>
-
-BasicsOS is free and open-source. You can test it online at <https://marmelab.com/atomic-crm-demo>.
+A CRM hub built with React, Vite, and a Node/Hono REST API. Contact/deal/company management, task tracking, notes, AI chat, automations, voice (placeholder), and MCP viewer. Data is backed by PostgreSQL via Drizzle; auth uses Better Auth.
 
 ## Quick Start
-
-Get up and running in under 5 minutes.
 
 **Prerequisites:** Node 22+, pnpm, Docker
 
 ```sh
 # 1. Clone and install
-git clone https://github.com/[username]/atomic-crm.git
-cd atomic-crm
+git clone https://github.com/thebasicscompany/basicsOSnew.git
+cd basicsOSnew
 pnpm install
 
 # 2. Start Postgres
@@ -32,7 +26,7 @@ cd ../..
 pnpm run dev:rest
 ```
 
-Open **http://localhost:5173**. Log in with the seed user. (In Electron dev, use `pnpm dev:all`; the app uses the Vite proxy so auth cookies work.)
+Open **http://localhost:5173**. Log in with the seed user. (For Electron dev, use `pnpm dev:all`; the app uses the Vite proxy so auth cookies work.)
 
 | Email | Password |
 |-------|----------|
@@ -45,13 +39,14 @@ Open **http://localhost:5173**. Log in with the seed user. (In Electron dev, use
 - 📇 **Organize Contacts**: Keep all your contacts in one easily accessible place.
 - ⏰ **Create Tasks & Set Reminders**: Never miss a follow-up or deadline.
 - 📝 **Take Notes**: Capture important details and insights effortlessly.
-- ✉️ **Capture Emails**: CC Basics CRM to automatically save communications as notes.
 - 📊 **Manage Deals**: Visualize and track your sales pipeline in a Kanban board.
-- 🔄 **Import & Export Data**: Easily transfer contacts in and out of the system.
+- 🤖 **AI Chat & Assistant**: Built-in AI chat and streaming assistant via the server.
+- 🔄 **Automations**: Workflow builder with triggers and actions (email, AI, CRM, Slack, Gmail).
 - 🔐 **Authentication**: Email/password signup and login via Better Auth.
-- 📜 **Track Activity History**: View all interactions in aggregated activity logs.
-- 🔗 **Integrate via API**: Connect seamlessly with other systems using our REST API.
-- 🛠️ **Customize Everything**: Add custom fields, change the theme, and replace any component to fit your needs.
+- 📜 **Track Activity History**: View interactions in aggregated activity logs.
+- 🔗 **Integrate via API**: REST API for CRM resources.
+- 🖥️ **Electron App**: Desktop build with overlay support.
+- 🛠️ **Customize Everything**: Add custom fields, object config, views, and themes.
 
 ## Setup Details
 
@@ -72,43 +67,40 @@ Open **http://localhost:5173**. Log in with the seed user. (In Electron dev, use
 |---------|-------------|
 | `pnpm run dev:rest` | Start frontend + API (recommended) |
 | `pnpm run dev:server` | Start API only |
-| `pnpm run dev` | Start frontend only (Supabase mode) |
-| `make docker-up` | Start Postgres container |
-| `make db-migrate` | Run database migrations |
-| `make db-seed` | Seed demo data |
-| `make start-rest` | Alias for `pnpm run dev:rest` |
+| `pnpm run dev` | Start frontend only |
+| `pnpm run dev:all` | Start API + Electron app |
+| `pnpm run dev:electron` | Start Electron app only (with API proxy) |
+| `pnpm run build` | Build frontend |
+| `pnpm run build:electron` | Build Electron app |
 
-### Import Sample Data
-
-After logging in, go to **Contacts → Import CSV** and select `test-data/contacts.csv` to import 500 sample contacts and companies.
-
-## Optional: Supabase Mode
-
-For the original Supabase-backed setup:
+### Database (Drizzle)
 
 ```sh
-npx supabase start
-make start
+cd packages/server
+pnpm db:generate   # Generate migrations
+pnpm db:migrate    # Run migrations
+pnpm db:push       # Push schema (dev)
+pnpm db:seed       # Seed demo data
+pnpm db:studio     # Drizzle Studio
 ```
 
-See the [doc/](doc/) directory for Supabase configuration, SSO, and more.
-
-## Optional: AI Assistant
-
-The AI assistant requires a separate API:
-
-```sh
-cd packages/api && cp .env.example .env
-# Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY
-pnpm run dev
-```
-
-## Testing
+## Testing & Code Quality
 
 ```sh
 pnpm test
+pnpm run typecheck
+pnpm run lint
+pnpm run lint:apply
+pnpm run prettier:apply
 ```
+
+## Technology Stack
+
+- **Frontend**: React 19, TypeScript, Vite, React Router v7, TanStack Query
+- **UI**: Shadcn UI, Radix UI, Tailwind CSS v4
+- **Backend**: Node + Hono, Drizzle ORM, PostgreSQL, Better Auth
+- **Packages**: `@basics-os/server`, `@basics-os/hub`, `@basics-os/automations`, `@basics-os/voice`, `@basics-os/mcp-viewer`, `@basics-os/shared`
 
 ## License
 
-MIT License, courtesy of [Marmelab](https://marmelab.com). See [LICENSE.md](./LICENSE.md).
+MIT License. See [LICENSE.md](./LICENSE.md).

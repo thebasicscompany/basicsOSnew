@@ -10,7 +10,7 @@ import {
   unique,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
-import { sales } from "./sales.js";
+import { crmUsers } from "./crm_users.js";
 
 export const objectConfig = pgTable("object_config", {
   id: bigserial("id", { mode: "number" }).primaryKey(),
@@ -48,16 +48,16 @@ export const recordFavorites = pgTable(
   "record_favorites",
   {
     id: bigserial("id", { mode: "number" }).primaryKey(),
-    salesId: bigint("sales_id", { mode: "number" })
+    crmUserId: bigint("sales_id", { mode: "number" })
       .notNull()
-      .references(() => sales.id, { onDelete: "cascade" }),
+      .references(() => crmUsers.id, { onDelete: "cascade" }),
     objectSlug: varchar("object_slug", { length: 64 }).notNull(),
     recordId: bigint("record_id", { mode: "number" }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
   },
-  (t) => [unique().on(t.salesId, t.objectSlug, t.recordId)],
+  (t) => [unique().on(t.crmUserId, t.objectSlug, t.recordId)],
 );
 
 export const objectConfigRelations = relations(objectConfig, ({ many }) => ({
@@ -77,9 +77,9 @@ export const objectAttributeOverridesRelations = relations(
 export const recordFavoritesRelations = relations(
   recordFavorites,
   ({ one }) => ({
-    sales: one(sales, {
-      fields: [recordFavorites.salesId],
-      references: [sales.id],
+    crmUser: one(crmUsers, {
+      fields: [recordFavorites.crmUserId],
+      references: [crmUsers.id],
     }),
   }),
 );

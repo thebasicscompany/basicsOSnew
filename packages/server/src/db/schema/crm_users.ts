@@ -9,7 +9,7 @@ import {
 import { organizations } from "./organizations";
 import { user } from "./auth";
 
-export const sales = pgTable("sales", {
+export const crmUsers = pgTable("crm_users", {
   id: bigserial("id", { mode: "number" }).primaryKey(),
   firstName: varchar("first_name", { length: 255 }).notNull(),
   lastName: varchar("last_name", { length: 255 }).notNull(),

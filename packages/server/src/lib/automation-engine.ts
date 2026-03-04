@@ -39,14 +39,14 @@ export async function startAutomationEngine(database: Db, environment: Env) {
   await _boss.createQueue("run-automation");
 
   // Worker for event-triggered (immediate) jobs - pg-boss v12 passes array of jobs
-  type RunJobData = { ruleId: number; salesId: number; triggerData: Record<string, unknown> };
+  type RunJobData = { ruleId: number; crmUserId: number; triggerData: Record<string, unknown> };
   await _boss.work<RunJobData>(
     "run-automation",
     { localConcurrency: 3 },
     async (jobs: Job<RunJobData>[]) => {
       for (const job of jobs) {
-        const { ruleId, salesId, triggerData } = job.data;
-        await runAutomation(ruleId, salesId, triggerData);
+        const { ruleId, crmUserId, triggerData } = job.data;
+        await runAutomation(ruleId, crmUserId, triggerData);
       }
     },
   );
@@ -71,22 +71,22 @@ async function loadScheduleRules() {
     if (triggerNode) {
       const cron = (triggerNode.data as { cron?: string }).cron;
       if (cron) {
-        await registerScheduleRule(rule.id as number, rule.salesId as number, cron);
+        await registerScheduleRule(rule.id as number, rule.crmUserId as number, cron);
       }
     }
   }
 }
 
-async function registerScheduleRule(ruleId: number, salesId: number, cron: string) {
+async function registerScheduleRule(ruleId: number, crmUserId: number, cron: string) {
   if (!_boss) return;
   const queueName = `rule-schedule-${ruleId}`;
 
   try {
-    await _boss.schedule(queueName, cron, { ruleId, salesId });
+    await _boss.schedule(queueName, cron, { ruleId, crmUserId });
     await _boss.work(queueName, async (jobs: Array<{ data: unknown }>) => {
       for (const job of jobs) {
-        const data = job.data as { ruleId: number; salesId: number };
-        await runAutomation(data.ruleId, data.salesId, {});
+        const data = job.data as { ruleId: number; crmUserId: number };
+        await runAutomation(data.ruleId, data.crmUserId, {});
       }
     });
   } catch (err) {
@@ -118,7 +118,7 @@ export async function reloadRule(ruleId: number) {
     if (triggerNode) {
       const cron = (triggerNode.data as { cron?: string }).cron;
       if (cron) {
-        await registerScheduleRule(ruleId, rule.salesId as number, cron);
+        await registerScheduleRule(ruleId, rule.crmUserId as number, cron);
       }
     }
   }
@@ -127,7 +127,7 @@ export async function reloadRule(ruleId: number) {
 export async function fireEvent(
   event: string,
   payload: Record<string, unknown>,
-  salesId: number,
+  crmUserId: number,
 ) {
   if (!_boss || !_db) return;
 
@@ -136,7 +136,7 @@ export async function fireEvent(
     const rules: any[] = await (_db as any)
       .select()
       .from(schema.automationRules)
-      .where(and(eq(schema.automationRules.salesId, salesId), eq(schema.automationRules.enabled, true)));
+      .where(and(eq(schema.automationRules.crmUserId, crmUserId), eq(schema.automationRules.enabled, true)));
 
     for (const rule of rules) {
       const def = rule.workflowDefinition as WorkflowDefinition;
@@ -146,7 +146,7 @@ export async function fireEvent(
         if (triggerEvent === event) {
           await _boss.send("run-automation", {
             ruleId: rule.id as number,
-            salesId,
+            crmUserId,
             triggerData: payload,
           });
         }
@@ -158,12 +158,12 @@ export async function fireEvent(
 }
 
 /** Trigger a manual run for a specific rule. Sends job to run-automation queue. */
-export async function triggerRunNow(ruleId: number, salesId: number): Promise<boolean> {
+export async function triggerRunNow(ruleId: number, crmUserId: number): Promise<boolean> {
   if (!_boss) return false;
   try {
     await _boss.send("run-automation", {
       ruleId,
-      salesId,
+      crmUserId,
       triggerData: { manual: true },
     });
     return true;
@@ -175,7 +175,7 @@ export async function triggerRunNow(ruleId: number, salesId: number): Promise<bo
 
 async function runAutomation(
   ruleId: number,
-  salesId: number,
+  crmUserId: number,
   triggerData: Record<string, unknown>,
 ) {
   if (!_db || !_env) return;
@@ -185,7 +185,7 @@ async function runAutomation(
 
   const [run] = await db
     .insert(schema.automationRuns)
-    .values({ ruleId, salesId, status: "running" })
+    .values({ ruleId, crmUserId, status: "running" })
     .returning();
 
   try {
@@ -198,19 +198,19 @@ async function runAutomation(
 
     if (!rule) throw new Error(`Rule ${ruleId} not found`);
 
-    const salesRows: any[] = await db
+    const crmUserRows: any[] = await db
       .select()
-      .from(schema.sales)
-      .where(eq(schema.sales.id, salesId))
+      .from(schema.crmUsers)
+      .where(eq(schema.crmUsers.id, crmUserId))
       .limit(1);
-    const salesRow = salesRows[0];
+    const crmUserRow = crmUserRows[0];
 
-    if (!salesRow) throw new Error(`Sales user ${salesId} not found`);
+    if (!crmUserRow) throw new Error(`CRM user ${crmUserId} not found`);
 
     const result = await executeWorkflow(
       rule.workflowDefinition as WorkflowDefinition,
       triggerData,
-      { id: salesRow.id as number, basicsApiKey: salesRow.basicsApiKey as string | null },
+      { id: crmUserRow.id as number, basicsApiKey: crmUserRow.basicsApiKey as string | null },
       _db!,
       _env!,
     );

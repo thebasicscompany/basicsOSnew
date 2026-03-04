@@ -31,9 +31,17 @@ const playChime = (frequency: number, duration: number): void => {
 const playStartChime = () => playChime(880, 0.15);
 const playStopChime = () => playChime(440, 0.2);
 
-/** RMS threshold below which we consider silence. Tune if needed. */
-const VAD_SILENCE_THRESHOLD = 0.008;
-const VAD_POLL_MS = 100;
+/** Adaptive RMS-based VAD tuning constants. */
+const VAD_POLL_MS = 60;
+const VAD_CALIBRATION_MS = 350;
+const VAD_MIN_SPEECH_MS = 180;
+const VAD_NOISE_MARGIN = 0.004;
+const VAD_MIN_THRESHOLD = 0.006;
+const VAD_MAX_THRESHOLD = 0.04;
+const VAD_INITIAL_NO_SPEECH_GRACE_MS = 2500;
+
+const clamp = (value: number, min: number, max: number): number =>
+  Math.min(max, Math.max(min, value));
 
 const runVoiceActivityDetection = (
   stream: MediaStream,
@@ -45,34 +53,94 @@ const runVoiceActivityDetection = (
   const analyser = ctx.createAnalyser();
   source.connect(analyser);
   analyser.fftSize = 256;
-  analyser.smoothingTimeConstant = 0.5;
+  analyser.smoothingTimeConstant = 0.6;
   const data = new Uint8Array(analyser.fftSize);
 
-  let lastVoiceAt = Date.now();
+  const startedAt = Date.now();
+  const calibrationSamples: number[] = [];
+  const noSpeechGraceMs = Math.max(
+    silenceTimeoutMs,
+    VAD_INITIAL_NO_SPEECH_GRACE_MS
+  );
+
+  let threshold = VAD_MIN_THRESHOLD;
+  let smoothedRms = 0;
+  let speechCandidateAt: number | null = null;
+  let lastConfirmedSpeechAt: number | null = null;
+  let ended = false;
   let cancelled = false;
 
-  const poll = (): void => {
-    if (cancelled) return;
+  const getRms = (): number => {
     analyser.getByteTimeDomainData(data);
     let sum = 0;
     for (let i = 0; i < data.length; i++) {
       const v = (data[i]! - 128) / 128;
       sum += v * v;
     }
-    const rms = Math.sqrt(sum / data.length);
-    if (rms > VAD_SILENCE_THRESHOLD) {
-      lastVoiceAt = Date.now();
-    } else if (Date.now() - lastVoiceAt >= silenceTimeoutMs) {
-      onSilence();
+    return Math.sqrt(sum / data.length);
+  };
+
+  const finalizeCalibration = (): void => {
+    if (calibrationSamples.length === 0) return;
+    const avgNoise =
+      calibrationSamples.reduce((acc, v) => acc + v, 0) /
+      calibrationSamples.length;
+    threshold = clamp(
+      avgNoise * 2.1 + VAD_NOISE_MARGIN,
+      VAD_MIN_THRESHOLD,
+      VAD_MAX_THRESHOLD
+    );
+  };
+
+  const triggerSilence = (): void => {
+    if (ended || cancelled) return;
+    ended = true;
+    onSilence();
+  };
+
+  const poll = (): void => {
+    if (cancelled || ended) return;
+
+    const now = Date.now();
+    const rms = getRms();
+    smoothedRms = smoothedRms > 0 ? smoothedRms * 0.7 + rms * 0.3 : rms;
+
+    if (now - startedAt <= VAD_CALIBRATION_MS) {
+      calibrationSamples.push(smoothedRms);
+    } else if (calibrationSamples.length > 0) {
+      finalizeCalibration();
+      calibrationSamples.length = 0;
+    }
+
+    const isVoice = smoothedRms >= threshold;
+
+    if (isVoice) {
+      if (speechCandidateAt === null) {
+        speechCandidateAt = now;
+      } else if (now - speechCandidateAt >= VAD_MIN_SPEECH_MS) {
+        lastConfirmedSpeechAt = now;
+      }
+    } else {
+      speechCandidateAt = null;
+    }
+
+    if (lastConfirmedSpeechAt !== null) {
+      if (now - lastConfirmedSpeechAt >= silenceTimeoutMs) {
+        triggerSilence();
+        return;
+      }
+    } else if (now - startedAt >= noSpeechGraceMs) {
+      triggerSilence();
       return;
     }
+
     setTimeout(poll, VAD_POLL_MS);
   };
   poll();
 
   return () => {
     cancelled = true;
-    ctx.close();
+    void ctx.close();
   };
 };
 
@@ -100,6 +168,8 @@ export const useSpeechRecognition = (
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const vadCleanupRef = useRef<(() => void) | null>(null);
+  const stopPromiseRef = useRef<Promise<string> | null>(null);
+  const listenSessionRef = useRef(0);
 
   useEffect(() => {
     return () => {
@@ -115,6 +185,18 @@ export const useSpeechRecognition = (
   }, []);
 
   const startListening = useCallback(() => {
+    const sessionId = Date.now();
+    listenSessionRef.current = sessionId;
+
+    const existingRecorder = mediaRecorderRef.current;
+    if (
+      existingRecorder &&
+      (existingRecorder.state === "recording" ||
+        existingRecorder.state === "paused")
+    ) {
+      return;
+    }
+
     playStartChime();
     setIsListening(true);
     setTranscript("");
@@ -132,6 +214,11 @@ export const useSpeechRecognition = (
         },
       })
       .then((stream) => {
+        if (listenSessionRef.current !== sessionId) {
+          for (const track of stream.getTracks()) track.stop();
+          return;
+        }
+
         streamRef.current = stream;
         const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
           ? "audio/webm;codecs=opus"
@@ -147,6 +234,7 @@ export const useSpeechRecognition = (
           setIsListening(false);
           vadCleanupRef.current?.();
           vadCleanupRef.current = null;
+          mediaRecorderRef.current = null;
           if (streamRef.current) {
             for (const track of streamRef.current.getTracks()) track.stop();
             streamRef.current = null;
@@ -165,6 +253,7 @@ export const useSpeechRecognition = (
         }
       })
       .catch((err: unknown) => {
+        if (listenSessionRef.current !== sessionId) return;
         const msg =
           err instanceof Error ? err.message : "Microphone access denied";
         log.error("getUserMedia failed:", msg);
@@ -181,46 +270,61 @@ export const useSpeechRecognition = (
   }, []);
 
   const stopListening = useCallback(async (): Promise<string> => {
-    vadCleanupRef.current?.();
-    vadCleanupRef.current = null;
+    if (stopPromiseRef.current) {
+      return stopPromiseRef.current;
+    }
 
-    const recorder = mediaRecorderRef.current;
-    if (!recorder || recorder.state === "inactive") {
-      setIsListening(false);
+    listenSessionRef.current = 0;
+
+    const stopPromise = (async (): Promise<string> => {
+      vadCleanupRef.current?.();
+      vadCleanupRef.current = null;
+
+      const recorder = mediaRecorderRef.current;
+      if (!recorder || recorder.state === "inactive") {
+        mediaRecorderRef.current = null;
+        setIsListening(false);
+        playStopChime();
+        stopMediaTracks();
+        return "";
+      }
+
+      const blob = await new Promise<Blob>((resolve) => {
+        recorder.onstop = () => {
+          const mimeType = recorder.mimeType || "audio/webm";
+          resolve(new Blob(chunksRef.current, { type: mimeType }));
+        };
+        recorder.stop();
+      });
+      mediaRecorderRef.current = null;
+
       playStopChime();
+      setIsListening(false);
       stopMediaTracks();
-      return "";
-    }
+      setInterimText("Transcribing...");
 
-    const blob = await new Promise<Blob>((resolve) => {
-      recorder.onstop = () => {
-        const mimeType = recorder.mimeType || "audio/webm";
-        resolve(new Blob(chunksRef.current, { type: mimeType }));
-      };
-      recorder.stop();
-    });
+      if (blob.size < MIN_TRANSCRIPTION_BLOB_SIZE) {
+        setTranscript("");
+        setInterimText("");
+        return "";
+      }
 
-    playStopChime();
-    setIsListening(false);
-    stopMediaTracks();
-    setInterimText("Transcribing...");
-
-    if (blob.size < MIN_TRANSCRIPTION_BLOB_SIZE) {
-      setTranscript("");
+      let text = "";
+      try {
+        const result = await transcribeAudioBlob(blob);
+        text = result ?? "";
+      } catch (err) {
+        log.error("Transcription error:", err);
+      }
+      setTranscript(text);
       setInterimText("");
-      return "";
-    }
+      return text;
+    })();
 
-    let text = "";
-    try {
-      const result = await transcribeAudioBlob(blob);
-      text = result ?? "";
-    } catch (err) {
-      log.error("Transcription error:", err);
-    }
-    setTranscript(text);
-    setInterimText("");
-    return text;
+    stopPromiseRef.current = stopPromise;
+    return stopPromise.finally(() => {
+      stopPromiseRef.current = null;
+    });
   }, [stopMediaTracks]);
 
   return { isListening, transcript, interimText, startListening, stopListening };

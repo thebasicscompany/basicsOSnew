@@ -11,12 +11,12 @@ import { executeGmailRead } from "./automation-actions/gmail-read.js";
 import { executeGmailSend } from "./automation-actions/gmail-send.js";
 import { executeAIAgent } from "./automation-actions/ai-agent.js";
 
-type SalesRow = { id: number; basicsApiKey?: string | null };
+type CrmUserRow = { id: number; basicsApiKey?: string | null };
 
 export async function executeWorkflow(
   workflowDef: WorkflowDefinition,
   triggerData: Record<string, unknown>,
-  sales: SalesRow,
+  crmUser: CrmUserRow,
   db: Db,
   env: Env,
 ): Promise<Record<string, unknown>> {
@@ -31,10 +31,11 @@ export async function executeWorkflow(
 
   const context: Record<string, unknown> = {
     trigger_data: triggerData,
-    sales_id: sales.id,
+    crm_user_id: crmUser.id,
+    sales_id: crmUser.id, // deprecated alias for {{sales_id}} in existing workflows
   };
 
-  const apiKey = sales.basicsApiKey ?? "";
+  const apiKey = crmUser.basicsApiKey ?? "";
 
   for (const nodeId of order) {
     const node = nodes.find((n) => n.id === nodeId);
@@ -65,7 +66,7 @@ export async function executeWorkflow(
       }
 
       case "action_crm": {
-        const crmResult = await executeCrmAction(data, context, db, sales.id);
+        const crmResult = await executeCrmAction(data, context, db, crmUser.id);
         context.crm_result = crmResult.crm_result;
         break;
       }
@@ -87,7 +88,7 @@ export async function executeWorkflow(
         break;
 
       case "action_ai_agent": {
-        const agentResult = await executeAIAgent(data, context, db, sales.id, apiKey, env);
+        const agentResult = await executeAIAgent(data, context, db, crmUser.id, apiKey, env);
         context.ai_agent_result = agentResult.ai_agent_result;
         break;
       }

@@ -12,23 +12,23 @@ export function createMergeContactsHandler(db: Db) {
     }
 
     const session = c.get("session") as { user?: { id: string } };
-    const salesRow = await db
+    const crmUserRows = await db
       .select()
-      .from(schema.sales)
-      .where(eq(schema.sales.userId, session.user!.id))
+      .from(schema.crmUsers)
+      .where(eq(schema.crmUsers.userId, session.user!.id))
       .limit(1);
-    const salesId = salesRow[0]?.id;
-    if (!salesId) return c.json({ error: "User not found in CRM" }, 404);
+    const crmUserId = crmUserRows[0]?.id;
+    if (!crmUserId) return c.json({ error: "User not found in CRM" }, 404);
 
     const [loser] = await db
       .select()
       .from(schema.contacts)
-      .where(and(eq(schema.contacts.id, loserId), eq(schema.contacts.salesId, salesId)))
+      .where(and(eq(schema.contacts.id, loserId), eq(schema.contacts.crmUserId, crmUserId)))
       .limit(1);
     const [winner] = await db
       .select()
       .from(schema.contacts)
-      .where(and(eq(schema.contacts.id, winnerId), eq(schema.contacts.salesId, salesId)))
+      .where(and(eq(schema.contacts.id, winnerId), eq(schema.contacts.crmUserId, crmUserId)))
       .limit(1);
 
     if (!loser || !winner) return c.json({ error: "Contact not found" }, 404);
@@ -36,7 +36,7 @@ export function createMergeContactsHandler(db: Db) {
     await db.update(schema.tasks).set({ contactId: winnerId }).where(eq(schema.tasks.contactId, loserId));
     await db.update(schema.contactNotes).set({ contactId: winnerId }).where(eq(schema.contactNotes.contactId, loserId));
 
-    const allDeals = await db.select().from(schema.deals).where(eq(schema.deals.salesId, salesId));
+    const allDeals = await db.select().from(schema.deals).where(eq(schema.deals.crmUserId, crmUserId));
     for (const deal of allDeals) {
       const ids = (deal.contactIds as number[]) ?? [];
       if (ids.includes(loserId)) {

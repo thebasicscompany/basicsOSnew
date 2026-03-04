@@ -14,7 +14,7 @@ import {
 import {
   CRM_RESOURCES,
   TABLE_MAP,
-  hasSalesId,
+  hasCrmUserId,
   type Resource,
 } from "../constants.js";
 import {
@@ -31,14 +31,14 @@ export function createListHandler(db: Db) {
     }
 
     const session = c.get("session") as { user?: { id: string } };
-    const salesRow = await db
+    const crmUserRows = await db
       .select()
-      .from(schema.sales)
-      .where(eq(schema.sales.userId, session.user!.id))
+      .from(schema.crmUsers)
+      .where(eq(schema.crmUsers.userId, session.user!.id))
       .limit(1);
-    const salesId = salesRow[0]?.id;
-    const orgId = salesRow[0]?.organizationId;
-    if (!salesId) return c.json({ error: "User not found in CRM" }, 404);
+    const crmUserId = crmUserRows[0]?.id;
+    const orgId = crmUserRows[0]?.organizationId;
+    if (!crmUserId) return c.json({ error: "User not found in CRM" }, 404);
 
     const range = c.req.query("range");
     const sortParam = c.req.query("sort");
@@ -90,7 +90,7 @@ export function createListHandler(db: Db) {
     }
 
     if (resource === "companies_summary") {
-      const companyConds: SQL[] = [eq(schema.companies.salesId, salesId)];
+      const companyConds: SQL[] = [eq(schema.companies.crmUserId, crmUserId)];
       if (q) {
         companyConds.push(
           or(
@@ -128,7 +128,7 @@ export function createListHandler(db: Db) {
     }
 
     if (resource === "contacts_summary") {
-      const contactConds: SQL[] = [eq(schema.contacts.salesId, salesId)];
+      const contactConds: SQL[] = [eq(schema.contacts.crmUserId, crmUserId)];
       if (q) {
         contactConds.push(
           or(
@@ -175,10 +175,10 @@ export function createListHandler(db: Db) {
     if (!table) return c.json({ error: "Unknown resource" }, 404);
 
     const conditions: SQL[] = [];
-    if (resource === "sales") {
-      if (orgId) conditions.push(eq(schema.sales.organizationId, orgId));
-    } else if (hasSalesId(resource)) {
-      conditions.push(eq((table as typeof schema.companies).salesId, salesId));
+    if (resource === "crm_users") {
+      if (orgId) conditions.push(eq(schema.crmUsers.organizationId, orgId));
+    } else if (hasCrmUserId(resource)) {
+      conditions.push(eq((table as typeof schema.companies).crmUserId, crmUserId));
     }
 
     if (resource === "deals") {

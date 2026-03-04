@@ -87,7 +87,7 @@ export const ASSISTANT_TOOLS = [
 
 export async function executeAssistantToolDrizzle(
   db: Db,
-  salesId: number,
+  crmUserId: number,
   toolName: string,
   args: Record<string, unknown>
 ): Promise<string> {
@@ -104,7 +104,7 @@ export async function executeAssistantToolDrizzle(
         .insert(schema.tasks)
         .values({
           contactId,
-          salesId,
+          crmUserId,
           type,
           text,
           dueDate: new Date(dueDate),
@@ -127,7 +127,7 @@ export async function executeAssistantToolDrizzle(
           .insert(schema.contactNotes)
           .values({
             contactId,
-            salesId,
+            crmUserId,
             text,
           })
           .returning({ id: schema.contactNotes.id });
@@ -143,7 +143,7 @@ export async function executeAssistantToolDrizzle(
           .insert(schema.dealNotes)
           .values({
             dealId,
-            salesId,
+            crmUserId,
             text,
           })
           .returning();
@@ -169,7 +169,7 @@ export async function executeAssistantToolDrizzle(
       const [updated] = await db
         .update(schema.deals)
         .set(updateData)
-        .where(and(eq(schema.deals.id, dealId), eq(schema.deals.salesId, salesId)))
+        .where(and(eq(schema.deals.id, dealId), eq(schema.deals.crmUserId, crmUserId)))
         .returning();
 
       if (!updated) {

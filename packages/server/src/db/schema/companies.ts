@@ -10,7 +10,7 @@ import {
   bigint,
   index,
 } from "drizzle-orm/pg-core";
-import { sales } from "./sales";
+import { crmUsers } from "./crm_users";
 
 export const companies = pgTable(
   "companies",
@@ -32,12 +32,12 @@ export const companies = pgTable(
     revenue: varchar("revenue", { length: 64 }),
     taxIdentifier: varchar("tax_identifier", { length: 64 }),
     logo: jsonb("logo"), // { src: string }
-    salesId: bigint("sales_id", { mode: "number" }).references(() => sales.id),
+    crmUserId: bigint("sales_id", { mode: "number" }).references(() => crmUsers.id),
     contextLinks: json("context_links"),
     customFields: jsonb("custom_fields").$type<Record<string, unknown>>().default({}).notNull(),
   },
   (t) => [
-    index("companies_sales_id_idx").on(t.salesId),
+    index("companies_sales_id_idx").on(t.crmUserId),
     index("companies_sector_idx").on(t.sector),
   ]
 );

@@ -64,6 +64,13 @@
       "when": 1730764800000,
       "tag": "0009_fix_in_negociation_typo",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1772310000000,
+      "tag": "0010_rename_sales_to_crm_users",
+      "breakpoints": true
     }
   ]
 }

@@ -20,15 +20,15 @@ const NUMBER_TO_VIEW_TYPE: Record<number, string> = {
   5: "form",
 };
 
-async function getSalesId(
+async function getCrmUserId(
   db: Db,
   session: { user?: { id: string } }
 ): Promise<number | null> {
   if (!session?.user?.id) return null;
   const [row] = await db
-    .select({ id: schema.sales.id })
-    .from(schema.sales)
-    .where(eq(schema.sales.userId, session.user.id))
+    .select({ id: schema.crmUsers.id })
+    .from(schema.crmUsers)
+    .where(eq(schema.crmUsers.userId, session.user.id))
     .limit(1);
   return row?.id ?? null;
 }
@@ -36,12 +36,12 @@ async function getSalesId(
 async function getViewAndCheckOwnership(
   db: Db,
   viewId: string,
-  salesId: number
+  crmUserId: number
 ): Promise<typeof schema.views.$inferSelect | null> {
   const [row] = await db
     .select()
     .from(schema.views)
-    .where(and(eq(schema.views.id, viewId), eq(schema.views.salesId, salesId)))
+    .where(and(eq(schema.views.id, viewId), eq(schema.views.crmUserId, crmUserId)))
     .limit(1);
   return row ?? null;
 }
@@ -210,8 +210,8 @@ export function createViewRoutes(db: Db, auth: BetterAuthInstance) {
   app.get("/:objectSlug", async (c) => {
     const objectSlug = c.req.param("objectSlug");
     const session = c.get("session") as { user?: { id: string } };
-    const salesId = await getSalesId(db, session);
-    if (salesId == null) return c.json({ error: "User not found in CRM" }, 404);
+    const crmUserId = await getCrmUserId(db, session);
+    if (crmUserId == null) return c.json({ error: "User not found in CRM" }, 404);
 
     let list = await db
       .select()
@@ -219,7 +219,7 @@ export function createViewRoutes(db: Db, auth: BetterAuthInstance) {
       .where(
         and(
           eq(schema.views.objectSlug, objectSlug),
-          eq(schema.views.salesId, salesId)
+          eq(schema.views.crmUserId, crmUserId)
         )
       )
       .orderBy(asc(schema.views.displayOrder), asc(schema.views.createdAt));
@@ -229,7 +229,7 @@ export function createViewRoutes(db: Db, auth: BetterAuthInstance) {
         .insert(schema.views)
         .values({
           objectSlug,
-          salesId,
+          crmUserId,
           title: "Grid View",
           type: "grid",
           displayOrder: 0,
@@ -259,8 +259,8 @@ export function createViewRoutes(db: Db, auth: BetterAuthInstance) {
   app.post("/:objectSlug", async (c) => {
     const objectSlug = c.req.param("objectSlug");
     const session = c.get("session") as { user?: { id: string } };
-    const salesId = await getSalesId(db, session);
-    if (salesId == null) return c.json({ error: "User not found in CRM" }, 404);
+    const crmUserId = await getCrmUserId(db, session);
+    if (crmUserId == null) return c.json({ error: "User not found in CRM" }, 404);
 
     const body = await c.req.json<{ title: string; type?: number }>();
     const typeNum = body.type ?? 3;
@@ -270,7 +270,7 @@ export function createViewRoutes(db: Db, auth: BetterAuthInstance) {
       .insert(schema.views)
       .values({
         objectSlug,
-        salesId,
+        crmUserId,
         title: body.title ?? "Untitled",
         type: typeStr,
         displayOrder: 0,
@@ -287,7 +287,7 @@ export function createViewRoutes(db: Db, auth: BetterAuthInstance) {
       .where(
         and(
           eq(schema.views.objectSlug, objectSlug),
-          eq(schema.views.salesId, salesId)
+          eq(schema.views.crmUserId, crmUserId)
         )
       );
     const defaultView = existingViews.find((v) => v.isDefault) ?? existingViews[0];
@@ -303,10 +303,10 @@ export function createViewRoutes(db: Db, auth: BetterAuthInstance) {
   app.post("/view/:viewId/columns", async (c) => {
     const viewId = c.req.param("viewId");
     const session = c.get("session") as { user?: { id: string } };
-    const salesId = await getSalesId(db, session);
-    if (salesId == null) return c.json({ error: "User not found in CRM" }, 404);
+    const crmUserId = await getCrmUserId(db, session);
+    if (crmUserId == null) return c.json({ error: "User not found in CRM" }, 404);
 
-    const view = await getViewAndCheckOwnership(db, viewId, salesId);
+    const view = await getViewAndCheckOwnership(db, viewId, crmUserId);
     if (!view) return c.json({ error: "View not found" }, 404);
 
     const body = await c.req.json<{ fk_column_id: string; title?: string; show?: boolean; order?: number }>();
@@ -360,10 +360,10 @@ export function createViewRoutes(db: Db, auth: BetterAuthInstance) {
   app.get("/view/:viewId/columns", async (c) => {
     const viewId = c.req.param("viewId");
     const session = c.get("session") as { user?: { id: string } };
-    const salesId = await getSalesId(db, session);
-    if (salesId == null) return c.json({ error: "User not found in CRM" }, 404);
+    const crmUserId = await getCrmUserId(db, session);
+    if (crmUserId == null) return c.json({ error: "User not found in CRM" }, 404);
 
-    const view = await getViewAndCheckOwnership(db, viewId, salesId);
+    const view = await getViewAndCheckOwnership(db, viewId, crmUserId);
     if (!view) return c.json({ error: "View not found" }, 404);
 
     const list = await db
@@ -379,10 +379,10 @@ export function createViewRoutes(db: Db, auth: BetterAuthInstance) {
     const viewId = c.req.param("viewId");
     const columnId = c.req.param("columnId");
     const session = c.get("session") as { user?: { id: string } };
-    const salesId = await getSalesId(db, session);
-    if (salesId == null) return c.json({ error: "User not found in CRM" }, 404);
+    const crmUserId = await getCrmUserId(db, session);
+    if (crmUserId == null) return c.json({ error: "User not found in CRM" }, 404);
 
-    const view = await getViewAndCheckOwnership(db, viewId, salesId);
+    const view = await getViewAndCheckOwnership(db, viewId, crmUserId);
     if (!view) return c.json({ error: "View not found" }, 404);
 
     const body = await c.req.json<{ show?: boolean; order?: number; width?: string }>();
@@ -409,10 +409,10 @@ export function createViewRoutes(db: Db, auth: BetterAuthInstance) {
   app.get("/view/:viewId/sorts", async (c) => {
     const viewId = c.req.param("viewId");
     const session = c.get("session") as { user?: { id: string } };
-    const salesId = await getSalesId(db, session);
-    if (salesId == null) return c.json({ error: "User not found in CRM" }, 404);
+    const crmUserId = await getCrmUserId(db, session);
+    if (crmUserId == null) return c.json({ error: "User not found in CRM" }, 404);
 
-    const view = await getViewAndCheckOwnership(db, viewId, salesId);
+    const view = await getViewAndCheckOwnership(db, viewId, crmUserId);
     if (!view) return c.json({ error: "View not found" }, 404);
 
     const list = await db
@@ -427,10 +427,10 @@ export function createViewRoutes(db: Db, auth: BetterAuthInstance) {
   app.post("/view/:viewId/sorts", async (c) => {
     const viewId = c.req.param("viewId");
     const session = c.get("session") as { user?: { id: string } };
-    const salesId = await getSalesId(db, session);
-    if (salesId == null) return c.json({ error: "User not found in CRM" }, 404);
+    const crmUserId = await getCrmUserId(db, session);
+    if (crmUserId == null) return c.json({ error: "User not found in CRM" }, 404);
 
-    const view = await getViewAndCheckOwnership(db, viewId, salesId);
+    const view = await getViewAndCheckOwnership(db, viewId, crmUserId);
     if (!view) return c.json({ error: "View not found" }, 404);
 
     const body = await c.req.json<{ fk_column_id: string; direction: "asc" | "desc" }>();
@@ -458,10 +458,10 @@ export function createViewRoutes(db: Db, auth: BetterAuthInstance) {
     const viewId = c.req.param("viewId");
     const sortId = c.req.param("sortId");
     const session = c.get("session") as { user?: { id: string } };
-    const salesId = await getSalesId(db, session);
-    if (salesId == null) return c.json({ error: "User not found in CRM" }, 404);
+    const crmUserId = await getCrmUserId(db, session);
+    if (crmUserId == null) return c.json({ error: "User not found in CRM" }, 404);
 
-    const view = await getViewAndCheckOwnership(db, viewId, salesId);
+    const view = await getViewAndCheckOwnership(db, viewId, crmUserId);
     if (!view) return c.json({ error: "View not found" }, 404);
 
     await db
@@ -478,10 +478,10 @@ export function createViewRoutes(db: Db, auth: BetterAuthInstance) {
   app.get("/view/:viewId/filters", async (c) => {
     const viewId = c.req.param("viewId");
     const session = c.get("session") as { user?: { id: string } };
-    const salesId = await getSalesId(db, session);
-    if (salesId == null) return c.json({ error: "User not found in CRM" }, 404);
+    const crmUserId = await getCrmUserId(db, session);
+    if (crmUserId == null) return c.json({ error: "User not found in CRM" }, 404);
 
-    const view = await getViewAndCheckOwnership(db, viewId, salesId);
+    const view = await getViewAndCheckOwnership(db, viewId, crmUserId);
     if (!view) return c.json({ error: "View not found" }, 404);
 
     const list = await db
@@ -495,10 +495,10 @@ export function createViewRoutes(db: Db, auth: BetterAuthInstance) {
   app.post("/view/:viewId/filters", async (c) => {
     const viewId = c.req.param("viewId");
     const session = c.get("session") as { user?: { id: string } };
-    const salesId = await getSalesId(db, session);
-    if (salesId == null) return c.json({ error: "User not found in CRM" }, 404);
+    const crmUserId = await getCrmUserId(db, session);
+    if (crmUserId == null) return c.json({ error: "User not found in CRM" }, 404);
 
-    const view = await getViewAndCheckOwnership(db, viewId, salesId);
+    const view = await getViewAndCheckOwnership(db, viewId, crmUserId);
     if (!view) return c.json({ error: "View not found" }, 404);
 
     const body = await c.req.json<{
@@ -527,10 +527,10 @@ export function createViewRoutes(db: Db, auth: BetterAuthInstance) {
     const viewId = c.req.param("viewId");
     const filterId = c.req.param("filterId");
     const session = c.get("session") as { user?: { id: string } };
-    const salesId = await getSalesId(db, session);
-    if (salesId == null) return c.json({ error: "User not found in CRM" }, 404);
+    const crmUserId = await getCrmUserId(db, session);
+    if (crmUserId == null) return c.json({ error: "User not found in CRM" }, 404);
 
-    const view = await getViewAndCheckOwnership(db, viewId, salesId);
+    const view = await getViewAndCheckOwnership(db, viewId, crmUserId);
     if (!view) return c.json({ error: "View not found" }, 404);
 
     await db
@@ -548,10 +548,10 @@ export function createViewRoutes(db: Db, auth: BetterAuthInstance) {
   app.patch("/view/:viewId", async (c) => {
     const viewId = c.req.param("viewId");
     const session = c.get("session") as { user?: { id: string } };
-    const salesId = await getSalesId(db, session);
-    if (salesId == null) return c.json({ error: "User not found in CRM" }, 404);
+    const crmUserId = await getCrmUserId(db, session);
+    if (crmUserId == null) return c.json({ error: "User not found in CRM" }, 404);
 
-    const view = await getViewAndCheckOwnership(db, viewId, salesId);
+    const view = await getViewAndCheckOwnership(db, viewId, crmUserId);
     if (!view) return c.json({ error: "View not found" }, 404);
 
     const body = await c.req.json<{ title?: string }>();
@@ -573,10 +573,10 @@ export function createViewRoutes(db: Db, auth: BetterAuthInstance) {
   app.delete("/view/:viewId", async (c) => {
     const viewId = c.req.param("viewId");
     const session = c.get("session") as { user?: { id: string } };
-    const salesId = await getSalesId(db, session);
-    if (salesId == null) return c.json({ error: "User not found in CRM" }, 404);
+    const crmUserId = await getCrmUserId(db, session);
+    if (crmUserId == null) return c.json({ error: "User not found in CRM" }, 404);
 
-    const view = await getViewAndCheckOwnership(db, viewId, salesId);
+    const view = await getViewAndCheckOwnership(db, viewId, crmUserId);
     if (!view) return c.json({ error: "View not found" }, 404);
 
     await db.delete(schema.views).where(eq(schema.views.id, viewId));

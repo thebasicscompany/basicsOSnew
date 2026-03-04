@@ -12,7 +12,7 @@ import { fireEvent, reloadRule } from "../../../lib/automation-engine.js";
 import {
   CRM_RESOURCES,
   TABLE_MAP,
-  hasSalesId,
+  hasCrmUserId,
   type Resource,
 } from "../constants.js";
 import { snakeToCamel } from "../utils.js";
@@ -31,14 +31,14 @@ export function createUpdateHandler(db: Db, env: Env) {
     }
 
     const session = c.get("session") as { user?: { id: string } };
-    const salesRow = await db
+    const crmUserRows = await db
       .select()
-      .from(schema.sales)
-      .where(eq(schema.sales.userId, session.user!.id))
+      .from(schema.crmUsers)
+      .where(eq(schema.crmUsers.userId, session.user!.id))
       .limit(1);
-    const salesId = salesRow[0]?.id;
-    const orgId = salesRow[0]?.organizationId;
-    if (!salesId) return c.json({ error: "User not found in CRM" }, 404);
+    const crmUserId = crmUserRows[0]?.id;
+    const orgId = crmUserRows[0]?.organizationId;
+    if (!crmUserId) return c.json({ error: "User not found in CRM" }, 404);
 
     const rawBody = (await c.req.json()) as Record<string, unknown>;
     delete rawBody.id;
@@ -53,25 +53,25 @@ export function createUpdateHandler(db: Db, env: Env) {
 
     const idCol = (table as unknown as { id: typeof schema.contacts.id }).id;
     const conditions = [eq(idCol, id)];
-    if (resource === "sales") {
-      if (orgId) conditions.push(eq(schema.sales.organizationId, orgId));
-    } else if (hasSalesId(resource)) {
-      conditions.push(eq((table as typeof schema.companies).salesId, salesId));
+    if (resource === "crm_users") {
+      if (orgId) conditions.push(eq(schema.crmUsers.organizationId, orgId));
+    } else if (hasCrmUserId(resource)) {
+      conditions.push(eq((table as typeof schema.companies).crmUserId, crmUserId));
     }
 
     const [updated] = await db.update(table).set(body).where(and(...conditions)).returning();
     if (!updated) return c.json({ error: "Not found" }, 404);
 
     const entityTypeU = getEntityType(resource);
-    const apiKeyU = salesRow[0]?.basicsApiKey;
+    const apiKeyU = crmUserRows[0]?.basicsApiKey;
     if (entityTypeU && apiKeyU && typeof id === "number") {
       const chunkText = buildEntityText(entityTypeU, updated as Record<string, unknown>);
-      upsertEntityEmbedding(db, env.BASICOS_API_URL, apiKeyU, salesId, entityTypeU, id, chunkText).catch(() => {});
+      upsertEntityEmbedding(db, env.BASICOS_API_URL, apiKeyU, crmUserId, entityTypeU, id, chunkText).catch(() => {});
     }
 
     const eventResourceU = ["deals", "contacts", "tasks"].includes(resource) ? resource : null;
     if (eventResourceU) {
-      fireEvent(`${eventResourceU.replace(/s$/, "")}.updated`, updated as Record<string, unknown>, salesId).catch(() => {});
+      fireEvent(`${eventResourceU.replace(/s$/, "")}.updated`, updated as Record<string, unknown>, crmUserId).catch(() => {});
     }
 
     if (resource === "automation_rules" && typeof id === "number") {

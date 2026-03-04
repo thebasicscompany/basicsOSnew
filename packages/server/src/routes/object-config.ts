@@ -74,14 +74,14 @@ export function createObjectConfigRoutes(
         return c.json({ error: "objectSlug and recordId are required" }, 400);
       }
 
-      // Look up the sales row for this user
-      const [salesRow] = await db
+      // Look up the CRM user for this user
+      const [crmUserRow] = await db
         .select()
-        .from(schema.sales)
-        .where(eq(schema.sales.userId, userId))
+        .from(schema.crmUsers)
+        .where(eq(schema.crmUsers.userId, userId))
         .limit(1);
 
-      if (!salesRow) {
+      if (!crmUserRow) {
         return c.json({ error: "User not found in CRM" }, 404);
       }
 
@@ -91,7 +91,7 @@ export function createObjectConfigRoutes(
         .from(schema.recordFavorites)
         .where(
           and(
-            eq(schema.recordFavorites.salesId, salesRow.id),
+            eq(schema.recordFavorites.crmUserId, crmUserRow.id),
             eq(schema.recordFavorites.objectSlug, body.objectSlug),
             eq(schema.recordFavorites.recordId, body.recordId),
           ),
@@ -108,7 +108,7 @@ export function createObjectConfigRoutes(
       } else {
         // Add favorite
         await db.insert(schema.recordFavorites).values({
-          salesId: salesRow.id,
+          crmUserId: crmUserRow.id,
           objectSlug: body.objectSlug,
           recordId: body.recordId,
         });
@@ -128,20 +128,20 @@ export function createObjectConfigRoutes(
       const userId = session?.user?.id;
       if (!userId) return c.json({ error: "Unauthorized" }, 401);
 
-      // Look up the sales row for this user
-      const [salesRow] = await db
+      // Look up the CRM user for this user
+      const [crmUserRow] = await db
         .select()
-        .from(schema.sales)
-        .where(eq(schema.sales.userId, userId))
+        .from(schema.crmUsers)
+        .where(eq(schema.crmUsers.userId, userId))
         .limit(1);
 
-      if (!salesRow) {
+      if (!crmUserRow) {
         return c.json({ error: "User not found in CRM" }, 404);
       }
 
       const objectSlug = c.req.query("objectSlug");
 
-      const conditions = [eq(schema.recordFavorites.salesId, salesRow.id)];
+      const conditions = [eq(schema.recordFavorites.crmUserId, crmUserRow.id)];
       if (objectSlug) {
         conditions.push(eq(schema.recordFavorites.objectSlug, objectSlug));
       }

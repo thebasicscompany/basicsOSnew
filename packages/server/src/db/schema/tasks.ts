@@ -8,7 +8,7 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 import { contacts } from "./contacts";
-import { sales } from "./sales";
+import { crmUsers } from "./crm_users";
 
 export const tasks = pgTable(
   "tasks",
@@ -17,7 +17,7 @@ export const tasks = pgTable(
     contactId: bigint("contact_id", { mode: "number" })
       .notNull()
       .references(() => contacts.id, { onDelete: "cascade" }),
-    salesId: bigint("sales_id", { mode: "number" }).references(() => sales.id),
+    crmUserId: bigint("sales_id", { mode: "number" }).references(() => crmUsers.id),
     type: varchar("type", { length: 64 }),
     text: text("text"),
     dueDate: timestamp("due_date", { withTimezone: true }),
@@ -25,6 +25,6 @@ export const tasks = pgTable(
   },
   (t) => [
     index("tasks_contact_id_idx").on(t.contactId),
-    index("tasks_sales_id_idx").on(t.salesId),
+    index("tasks_sales_id_idx").on(t.crmUserId),
   ]
 );

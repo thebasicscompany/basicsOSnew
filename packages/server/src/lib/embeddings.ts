@@ -98,7 +98,7 @@ export async function upsertEntityEmbedding(
   db: Db,
   gatewayUrl: string,
   apiKey: string,
-  salesId: number,
+  crmUserId: number,
   entityType: string,
   entityId: number,
   chunkText: string
@@ -117,7 +117,7 @@ export async function upsertEntityEmbedding(
   await db.execute(
     sql.raw(`
       INSERT INTO context_embeddings (sales_id, entity_type, entity_id, chunk_text, embedding, updated_at)
-      VALUES (${salesId}, '${safeType}', ${entityId}, '${safeText}', '${embeddingStr}'::vector, now())
+      VALUES (${crmUserId}, '${safeType}', ${entityId}, '${safeText}', '${embeddingStr}'::vector, now())
       ON CONFLICT (sales_id, entity_type, entity_id)
       DO UPDATE SET chunk_text = EXCLUDED.chunk_text, embedding = EXCLUDED.embedding, updated_at = now()
     `)
@@ -129,7 +129,7 @@ export async function upsertEntityEmbedding(
  */
 export async function deleteEntityEmbedding(
   db: Db,
-  salesId: number,
+  crmUserId: number,
   entityType: string,
   entityId: number
 ): Promise<void> {
@@ -137,7 +137,7 @@ export async function deleteEntityEmbedding(
     .delete(schema.contextEmbeddings)
     .where(
       and(
-        eq(schema.contextEmbeddings.salesId, salesId),
+        eq(schema.contextEmbeddings.crmUserId, crmUserId),
         eq(schema.contextEmbeddings.entityType, entityType),
         eq(schema.contextEmbeddings.entityId, entityId)
       )
