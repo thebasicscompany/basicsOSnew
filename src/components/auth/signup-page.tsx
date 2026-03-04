@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,24 +15,47 @@ interface SignupForm {
   last_name: string;
   email: string;
   password: string;
+  invite_token?: string;
 }
 
 export function SignupPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const inviteFromUrl = searchParams.get("invite") ?? "";
   const [error, setError] = useState<string | null>(null);
+  const { data: isInitialized } = useQuery({
+    queryKey: ["init"],
+    queryFn: async () => {
+      const res = await fetch(`${API_URL}/api/init`, { credentials: "include" });
+      const json = (await res.json()) as { initialized: boolean };
+      return json.initialized;
+    },
+    staleTime: 10 * 1000,
+  });
   const {
     register,
     handleSubmit,
     formState: { isSubmitting, isValid },
-  } = useForm<SignupForm>({ mode: "onChange" });
+  } = useForm<SignupForm>({
+    mode: "onChange",
+    defaultValues: { invite_token: inviteFromUrl },
+  });
 
   const onSubmit = async (data: SignupForm) => {
     setError(null);
+    if (isInitialized && !data.invite_token?.trim()) {
+      setError("Invite token is required");
+      return;
+    }
+
     const res = await fetch(`${API_URL}/api/signup`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        ...data,
+        invite_token: data.invite_token?.trim() || undefined,
+      }),
     });
     if (!res.ok) {
       const json = await res.json().catch(() => ({}));
@@ -60,9 +84,13 @@ export function SignupPage() {
             className="h-8 w-auto object-contain"
           />
           <div className="space-y-1 text-center">
-            <h1 className="text-2xl font-bold">Welcome to Basics CRM</h1>
+            <h1 className="text-2xl font-bold">
+              {isInitialized ? "Join your organization" : "Welcome to Basics CRM"}
+            </h1>
             <p className="text-muted-foreground text-sm">
-              Create the first user account to complete setup.
+              {isInitialized
+                ? "Use your invite token to create an account."
+                : "Create the first user account to complete setup."}
             </p>
           </div>
         </div>
@@ -104,9 +132,25 @@ export function SignupPage() {
               autoComplete="new-password"
             />
           </div>
+          {isInitialized && (
+            <div className="space-y-2">
+              <Label htmlFor="invite_token">Invite token</Label>
+              <Input
+                id="invite_token"
+                {...register("invite_token", { required: true })}
+                autoComplete="off"
+              />
+            </div>
+          )}
           <Button type="submit" className="w-full" disabled={!isValid || isSubmitting}>
-            {isSubmitting ? "Creating account…" : "Create account"}
+            {isSubmitting ? "Creating account..." : "Create account"}
           </Button>
+          <p className="text-center text-xs text-muted-foreground">
+            Already have an account?{" "}
+            <Link className="underline" to="/">
+              Sign in
+            </Link>
+          </p>
         </form>
       </div>
     </div>

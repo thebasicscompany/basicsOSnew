@@ -18,6 +18,7 @@ async function persistApiKey(key: string | null) {
 
 import { toast } from "sonner";
 import { useGateway } from "@/hooks/useGateway";
+import { useMe } from "@/hooks/use-me";
 import { ConnectionsContent } from "@/components/connections";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,9 +66,15 @@ export function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { theme, setTheme } = useTheme();
   const { apiKey, hasKey, setApiKey, clearApiKey } = useGateway();
+  const { data: me } = useMe();
   const [inputValue, setInputValue] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteExpiresInHours, setInviteExpiresInHours] = useState("168");
+  const [inviteToken, setInviteToken] = useState<string | null>(null);
+  const [inviteExpiresAt, setInviteExpiresAt] = useState<string | null>(null);
+  const [creatingInvite, setCreatingInvite] = useState(false);
 
   // Handle OAuth redirect from /connections?connected=slack (or google)
   useEffect(() => {
@@ -110,6 +117,47 @@ export function SettingsPage() {
     await persistApiKey(null);
     toast.success("API key cleared");
   }, [clearApiKey]);
+
+  const handleCreateInvite = useCallback(async () => {
+    setCreatingInvite(true);
+    try {
+      const res = await fetch(`${API_URL}/api/invites`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: inviteEmail.trim() || null,
+          expiresInHours: Number(inviteExpiresInHours),
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        token?: string;
+        expiresAt?: string;
+      };
+      if (!res.ok || !json.token) {
+        throw new Error(json.error ?? "Failed to create invite");
+      }
+      setInviteToken(json.token);
+      setInviteExpiresAt(json.expiresAt ?? null);
+      toast.success("Invite token created");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create invite");
+    } finally {
+      setCreatingInvite(false);
+    }
+  }, [inviteEmail, inviteExpiresInHours]);
+
+  const signupLink = inviteToken ? `${window.location.origin}/sign-up?invite=${inviteToken}` : "";
+
+  const copyText = useCallback(async (value: string, successMessage: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success(successMessage);
+    } catch {
+      toast.error("Failed to copy");
+    }
+  }, []);
 
   return (
     <div className="flex h-full flex-col overflow-auto py-4">
@@ -221,6 +269,91 @@ export function SettingsPage() {
             </a>
           </div>
         </div>
+
+        {me?.administrator && (
+          <div className="rounded-lg border p-4">
+            <h2 className="text-[13px] font-medium">Team Invites</h2>
+            <p className="mt-0.5 text-[12px] text-muted-foreground">
+              Generate an invite code for a teammate to sign up under your organization.
+            </p>
+            <div className="mt-3 space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="invite-email" className="text-[12px]">Email (optional lock)</Label>
+                <Input
+                  id="invite-email"
+                  type="email"
+                  placeholder="teammate@company.com"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  className="h-8 text-[13px]"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[12px]">Expires in</Label>
+                <Select
+                  value={inviteExpiresInHours}
+                  onValueChange={setInviteExpiresInHours}
+                >
+                  <SelectTrigger className="h-8 w-44">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="24">24 hours</SelectItem>
+                    <SelectItem value="72">3 days</SelectItem>
+                    <SelectItem value="168">7 days</SelectItem>
+                    <SelectItem value="720">30 days</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                size="sm"
+                className="h-8 text-[13px]"
+                onClick={handleCreateInvite}
+                disabled={creatingInvite}
+              >
+                {creatingInvite ? "Creating..." : "Create invite"}
+              </Button>
+
+              {inviteToken && (
+                <div className="space-y-2 rounded-md border p-3">
+                  <div className="space-y-1">
+                    <Label className="text-[12px]">Invite code</Label>
+                    <div className="flex gap-2">
+                      <Input readOnly value={inviteToken} className="h-8 text-[12px]" />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-[12px]"
+                        onClick={() => copyText(inviteToken, "Invite code copied")}
+                      >
+                        Copy
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[12px]">Signup link</Label>
+                    <div className="flex gap-2">
+                      <Input readOnly value={signupLink} className="h-8 text-[12px]" />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-[12px]"
+                        onClick={() => copyText(signupLink, "Signup link copied")}
+                      >
+                        Copy
+                      </Button>
+                    </div>
+                  </div>
+                  {inviteExpiresAt && (
+                    <p className="text-[11px] text-muted-foreground">
+                      Expires at: {new Date(inviteExpiresAt).toLocaleString()}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Connections (for automations: Gmail, Slack) */}
         <div id="connections" className="rounded-lg border p-4 scroll-mt-4">
