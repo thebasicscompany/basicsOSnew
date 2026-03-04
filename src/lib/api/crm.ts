@@ -43,11 +43,6 @@ export function parseWhereToFilters(where: string): FilterDef[] {
   return filters;
 }
 
-/** No-op: backend derives sales_id from session. Kept for API compatibility. */
-export function setSalesId(_salesId: number) {
-  /* no-op */
-}
-
 export async function getList<T>(
   resource: string,
   params: ListParams = {},

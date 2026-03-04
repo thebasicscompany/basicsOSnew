@@ -26,7 +26,7 @@ import { toast } from "sonner";
 import { useState } from "react";
 export interface AutomationRule {
   id: number;
-  salesId: number;
+  crmUserId: number;
   name: string;
   enabled: boolean;
   workflowDefinition: { nodes: Array<{ type: string; data: Record<string, unknown> }>; edges: unknown[] };

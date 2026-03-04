@@ -7,7 +7,7 @@ import { fetchApi } from "@/lib/api";
 
 export interface RecordFavorite {
   id: number;
-  salesId: number;
+  crmUserId: number;
   objectSlug: string;
   recordId: number;
   createdAt: string;

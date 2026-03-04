@@ -5,10 +5,12 @@ import {
   text,
   timestamp,
   bigint,
+  uuid,
   index,
 } from "drizzle-orm/pg-core";
 import { contacts } from "./contacts";
 import { crmUsers } from "./crm_users";
+import { organizations } from "./organizations";
 
 export const tasks = pgTable(
   "tasks",
@@ -17,7 +19,10 @@ export const tasks = pgTable(
     contactId: bigint("contact_id", { mode: "number" })
       .notNull()
       .references(() => contacts.id, { onDelete: "cascade" }),
-    crmUserId: bigint("sales_id", { mode: "number" }).references(() => crmUsers.id),
+    crmUserId: bigint("crm_user_id", { mode: "number" }).references(() => crmUsers.id),
+    organizationId: uuid("organization_id").references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
     type: varchar("type", { length: 64 }),
     text: text("text"),
     dueDate: timestamp("due_date", { withTimezone: true }),
@@ -25,6 +30,7 @@ export const tasks = pgTable(
   },
   (t) => [
     index("tasks_contact_id_idx").on(t.contactId),
-    index("tasks_sales_id_idx").on(t.crmUserId),
+    index("tasks_crm_user_id_idx").on(t.crmUserId),
+    index("tasks_org_idx").on(t.organizationId),
   ]
 );

@@ -18,7 +18,7 @@ export interface CompanySummary {
   linkedinUrl: string | null;
   description: string | null;
   createdAt: string | null;
-  salesId: number | null;
+  crmUserId: number | null;
   nbDeals: number;
   nbContacts: number;
   customFields?: Record<string, unknown>;

@@ -5,6 +5,7 @@ export * from "./ai_memory.js";
 export * from "./companies.js";
 export * from "./contacts.js";
 export * from "./deals.js";
+export * from "./deal_contacts.js";
 export * from "./contact_notes.js";
 export * from "./deal_notes.js";
 export * from "./tasks.js";

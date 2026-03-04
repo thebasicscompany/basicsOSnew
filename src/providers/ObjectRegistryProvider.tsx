@@ -39,7 +39,7 @@ function parseDtxpOptions(
 
 /**
  * Format column names to human-readable form.
- * "CREATED_AT" → "Created At", "company_id" → "Company Id", "sales_id" → "Sales Id"
+ * "CREATED_AT" → "Created At", "company_id" → "Company Id", "crm_user_id" → "Crm User Id"
  */
 function formatColumnName(col: NocoDBColumn): string {
   // col.title is usually human-friendly from NocoDB; prefer it if different

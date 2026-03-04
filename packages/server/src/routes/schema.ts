@@ -24,7 +24,7 @@ const SYSTEM_COLUMNS = new Set([
   "id",
   "created_at",
   "updated_at",
-  "sales_id",
+  "crm_user_id",
   "organization_id",
 ]);
 

@@ -5,7 +5,9 @@ import {
   smallint,
   jsonb,
   timestamp,
+  uuid,
 } from "drizzle-orm/pg-core";
+import { organizations } from "./organizations";
 
 export const customFieldDefs = pgTable("custom_field_defs", {
   id: bigserial("id", { mode: "number" }).primaryKey(),
@@ -16,4 +18,7 @@ export const customFieldDefs = pgTable("custom_field_defs", {
   options: jsonb("options").$type<string[]>(),
   position: smallint("position").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  organizationId: uuid("organization_id").references(() => organizations.id, {
+    onDelete: "cascade",
+  }),
 });

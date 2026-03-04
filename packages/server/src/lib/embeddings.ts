@@ -116,9 +116,9 @@ export async function upsertEntityEmbedding(
 
   await db.execute(
     sql.raw(`
-      INSERT INTO context_embeddings (sales_id, entity_type, entity_id, chunk_text, embedding, updated_at)
+      INSERT INTO context_embeddings (crm_user_id, entity_type, entity_id, chunk_text, embedding, updated_at)
       VALUES (${crmUserId}, '${safeType}', ${entityId}, '${safeText}', '${embeddingStr}'::vector, now())
-      ON CONFLICT (sales_id, entity_type, entity_id)
+      ON CONFLICT (crm_user_id, entity_type, entity_id)
       DO UPDATE SET chunk_text = EXCLUDED.chunk_text, embedding = EXCLUDED.embedding, updated_at = now()
     `)
   );

@@ -22,7 +22,7 @@ export interface ContactSummary {
   hasNewsletter: boolean | null;
   linkedinUrl: string | null;
   tags: number[] | null;
-  salesId: number | null;
+  crmUserId: number | null;
   customFields?: Record<string, unknown>;
 }
 

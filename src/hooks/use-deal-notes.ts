@@ -7,7 +7,7 @@ export interface DealNote {
   text: string;
   date: string;
   type: string | null;
-  salesId: number | null;
+  crmUserId: number | null;
 }
 
 export function useDealNotes(dealId: number | null) {

@@ -92,6 +92,20 @@
       "when": 1772710000000,
       "tag": "0013_drop_app_instance",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1772800000000,
+      "tag": "0014_tenancy_and_crm_user_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1772805000000,
+      "tag": "0015_finalize_crm_user_id",
+      "breakpoints": true
     }
   ]
 }

@@ -32,7 +32,6 @@ export async function executeWorkflow(
   const context: Record<string, unknown> = {
     trigger_data: triggerData,
     crm_user_id: crmUser.id,
-    sales_id: crmUser.id, // deprecated alias for {{sales_id}} in existing workflows
   };
 
   const apiKey = crmUser.basicsApiKey ?? "";

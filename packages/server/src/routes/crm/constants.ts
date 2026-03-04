@@ -36,6 +36,7 @@ export const TABLE_MAP: Record<
 
 export function hasCrmUserId(resource: Resource): boolean {
   return [
+    "contacts",
     "companies",
     "deals",
     "contact_notes",

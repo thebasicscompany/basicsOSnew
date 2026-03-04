@@ -6,7 +6,7 @@ export interface ContactNote {
   contactId: number;
   text: string;
   date: string;
-  salesId: number | null;
+  crmUserId: number | null;
   status: string | null;
 }
 

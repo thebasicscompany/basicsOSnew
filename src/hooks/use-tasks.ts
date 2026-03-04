@@ -5,7 +5,7 @@ import { mapRecords, unmapRecord } from "@/lib/crm/field-mapper";
 export interface Task {
   id: number;
   contactId: number;
-  salesId: number | null;
+  crmUserId: number | null;
   type: string | null;
   text: string | null;
   dueDate: string | null;

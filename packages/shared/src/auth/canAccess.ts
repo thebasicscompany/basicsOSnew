@@ -17,7 +17,7 @@ export const canAccess = <
     return true;
   }
 
-  if (params.resource === "sales") {
+  if (params.resource === "crm_users") {
     return false;
   }
 

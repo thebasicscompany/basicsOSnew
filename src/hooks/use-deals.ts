@@ -15,7 +15,7 @@ export interface Deal {
   updatedAt: string;
   archivedAt: string | null;
   expectedClosingDate: string | null;
-  salesId: number | null;
+  crmUserId: number | null;
   index: number | null;
   customFields?: Record<string, unknown>;
 }

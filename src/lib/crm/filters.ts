@@ -19,19 +19,19 @@ const SEARCH_FIELDS: Record<string, string[]> = {
   contact_notes: ["text"],
   deal_notes: ["text"],
   tags: ["name"],
-  sales: ["first_name", "last_name", "email"],
+  crm_users: ["first_name", "last_name", "email"],
 };
 
 export function buildWhereClause(
   filter: Record<string, unknown>,
   resource: string,
-  salesId?: number,
+  crmUserId?: number,
 ): string {
   const clauses: string[] = [];
 
-  // Always inject salesId scoping for multi-tenancy
-  if (salesId != null) {
-    clauses.push(`(sales_id,eq,${salesId})`);
+  // Always inject crmUserId scoping for multi-tenancy.
+  if (crmUserId != null) {
+    clauses.push(`(crm_user_id,eq,${crmUserId})`);
   }
 
   for (const [key, value] of Object.entries(filter)) {

@@ -17,7 +17,7 @@ export const aiThreads = pgTable(
   "ai_threads",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    crmUserId: bigint("sales_id", { mode: "number" })
+    crmUserId: bigint("crm_user_id", { mode: "number" })
       .notNull()
       .references(() => crmUsers.id, { onDelete: "cascade" }),
     organizationId: uuid("organization_id")
@@ -29,7 +29,7 @@ export const aiThreads = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [
-    index("ai_threads_sales_idx").on(t.crmUserId),
+    index("ai_threads_crm_user_id_idx").on(t.crmUserId),
     index("ai_threads_org_idx").on(t.organizationId),
     index("ai_threads_channel_idx").on(t.channel),
   ]
@@ -60,7 +60,7 @@ export const aiMemoryItems = pgTable(
     organizationId: uuid("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
-    crmUserId: bigint("sales_id", { mode: "number" }).references(() => crmUsers.id, {
+    crmUserId: bigint("crm_user_id", { mode: "number" }).references(() => crmUsers.id, {
       onDelete: "set null",
     }),
     scope: varchar("scope", { length: 16 }).notNull().default("org"), // org | user | thread
@@ -80,7 +80,7 @@ export const aiMemoryItems = pgTable(
       t.kind,
       t.key
     ),
-    index("ai_memory_sales_idx").on(t.crmUserId),
+    index("ai_memory_crm_user_id_idx").on(t.crmUserId),
     index("ai_memory_thread_idx").on(t.threadId),
   ]
 );

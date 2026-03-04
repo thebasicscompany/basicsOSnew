@@ -6,11 +6,13 @@ import {
   smallint,
   timestamp,
   bigint,
+  uuid,
   unique,
   index,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { crmUsers } from "./crm_users.js";
+import { organizations } from "./organizations.js";
 
 export const views = pgTable(
   "views",
@@ -19,9 +21,12 @@ export const views = pgTable(
       .primaryKey()
       .default(sql`gen_random_uuid()::text`),
     objectSlug: varchar("object_slug", { length: 64 }).notNull(),
-    crmUserId: bigint("sales_id", { mode: "number" })
+    crmUserId: bigint("crm_user_id", { mode: "number" })
       .notNull()
       .references(() => crmUsers.id, { onDelete: "cascade" }),
+    organizationId: uuid("organization_id").references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
     title: varchar("title", { length: 255 }).notNull(),
     type: varchar("type", { length: 32 }).notNull().default("grid"),
     displayOrder: smallint("display_order").notNull().default(0),
@@ -31,7 +36,7 @@ export const views = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [index("views_slug_sales").on(t.objectSlug, t.crmUserId)],
+  (t) => [index("views_slug_crm_user").on(t.objectSlug, t.crmUserId), index("views_object_slug_org_idx").on(t.objectSlug, t.organizationId)],
 );
 
 export const viewColumns = pgTable(

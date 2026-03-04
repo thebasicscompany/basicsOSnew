@@ -8,9 +8,11 @@ import {
   jsonb,
   timestamp,
   bigint,
+  uuid,
   index,
 } from "drizzle-orm/pg-core";
 import { crmUsers } from "./crm_users";
+import { organizations } from "./organizations";
 
 export const companies = pgTable(
   "companies",
@@ -32,12 +34,16 @@ export const companies = pgTable(
     revenue: varchar("revenue", { length: 64 }),
     taxIdentifier: varchar("tax_identifier", { length: 64 }),
     logo: jsonb("logo"), // { src: string }
-    crmUserId: bigint("sales_id", { mode: "number" }).references(() => crmUsers.id),
+    crmUserId: bigint("crm_user_id", { mode: "number" }).references(() => crmUsers.id),
+    organizationId: uuid("organization_id").references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
     contextLinks: json("context_links"),
     customFields: jsonb("custom_fields").$type<Record<string, unknown>>().default({}).notNull(),
   },
   (t) => [
-    index("companies_sales_id_idx").on(t.crmUserId),
+    index("companies_crm_user_id_idx").on(t.crmUserId),
+    index("companies_org_idx").on(t.organizationId),
     index("companies_sector_idx").on(t.sector),
   ]
 );

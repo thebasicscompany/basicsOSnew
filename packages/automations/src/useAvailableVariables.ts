@@ -88,8 +88,8 @@ export function useAvailableVariables(
     }
 
     variables.push({
-      name: "sales_id",
-      label: "{{sales_id}}",
+      name: "crm_user_id",
+      label: "{{crm_user_id}}",
       sourceNodeId: "",
       sourceNodeType: "global",
       sourceLabel: "Global",

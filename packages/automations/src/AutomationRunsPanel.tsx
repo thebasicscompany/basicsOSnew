@@ -13,7 +13,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "basics-os/src/componen
 export interface AutomationRun {
   id: number;
   ruleId: number;
-  salesId: number;
+  crmUserId: number;
   status: "running" | "success" | "error";
   result: unknown;
   error: string | null;
