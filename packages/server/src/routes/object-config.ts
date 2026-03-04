@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import type { Context } from "hono";
 import { authMiddleware } from "../middleware/auth.js";
 import type { Db } from "../db/client.js";
 import type { Env } from "../env.js";
@@ -15,7 +16,26 @@ export function createObjectConfigRoutes(
 ) {
   const app = new Hono();
 
-  app.use("*", authMiddleware(auth));
+  app.use("*", authMiddleware(auth, db));
+
+  const getCrmUser = async (userId: string) => {
+    const [crmUser] = await db
+      .select()
+      .from(schema.crmUsers)
+      .where(eq(schema.crmUsers.userId, userId))
+      .limit(1);
+    return crmUser;
+  };
+
+  const requireAdmin = async (c: Context) => {
+    const session = c.get("session") as { user?: { id?: string } };
+    const userId = session?.user?.id;
+    if (!userId) return c.json({ error: "Unauthorized" }, 401);
+    const crmUser = await getCrmUser(userId);
+    if (!crmUser) return c.json({ error: "User not found in CRM" }, 404);
+    if (!crmUser.administrator) return c.json({ error: "Admin access required" }, 403);
+    return null;
+  };
 
   // GET / — List all objects with their attribute overrides
   app.get("/", async (c) => {
@@ -51,8 +71,8 @@ export function createObjectConfigRoutes(
 
       return c.json(result);
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      return c.json({ error: message }, 500);
+      console.error("[object-config] list failed:", err);
+      return c.json({ error: "Failed to load object config" }, 500);
     }
   });
 
@@ -116,8 +136,8 @@ export function createObjectConfigRoutes(
         return c.json({ favorited: true });
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      return c.json({ error: message }, 500);
+      console.error("[object-config] toggle favorite failed:", err);
+      return c.json({ error: "Failed to update favorite" }, 500);
     }
   });
 
@@ -154,8 +174,8 @@ export function createObjectConfigRoutes(
 
       return c.json(favorites);
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      return c.json({ error: message }, 500);
+      console.error("[object-config] list favorites failed:", err);
+      return c.json({ error: "Failed to load favorites" }, 500);
     }
   });
 
@@ -164,6 +184,8 @@ export function createObjectConfigRoutes(
   // PUT /:slug — Update object config (partial)
   app.put("/:slug", async (c) => {
     const slug = c.req.param("slug");
+    const adminError = await requireAdmin(c);
+    if (adminError) return adminError;
 
     try {
       const body = await c.req.json<{
@@ -214,14 +236,16 @@ export function createObjectConfigRoutes(
 
       return c.json(updated);
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      return c.json({ error: message }, 500);
+      console.error("[object-config] update failed:", err);
+      return c.json({ error: "Failed to update object config" }, 500);
     }
   });
 
   // POST /:slug/overrides — Create/update attribute override (upsert by column_name)
   app.post("/:slug/overrides", async (c) => {
     const slug = c.req.param("slug");
+    const adminError = await requireAdmin(c);
+    if (adminError) return adminError;
 
     try {
       const body = await c.req.json<{
@@ -299,8 +323,8 @@ export function createObjectConfigRoutes(
         return c.json(created, 201);
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      return c.json({ error: message }, 500);
+      console.error("[object-config] override upsert failed:", err);
+      return c.json({ error: "Failed to save attribute override" }, 500);
     }
   });
 

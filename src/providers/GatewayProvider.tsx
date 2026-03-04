@@ -5,7 +5,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import { authClient } from "@/lib/auth";
@@ -19,8 +18,6 @@ import {
 const API_URL = import.meta.env.VITE_API_URL ?? "";
 const GATEWAY_URL =
   import.meta.env.VITE_GATEWAY_URL ?? "https://api.basicsos.com";
-
-const STORAGE_PREFIX = "bos_key_";
 
 const VALID_PREFIXES = ["bos_live_sk_", "bos_test_sk_"] as const;
 
@@ -45,23 +42,34 @@ export function GatewayProvider({ children }: { children: ReactNode }) {
   const userId = session?.user?.id ?? null;
 
   const [apiKey, setApiKeyState] = useState<string | null>(null);
+  const [hasServerKey, setHasServerKey] = useState(false);
   const [manageToken, setManageToken] = useState<string | null>(null);
 
-  const prevUserIdRef = useRef<string | null>(null);
-
-  // Load API key from localStorage when user changes; clear on sign-out
+  // Never persist raw API key client-side; keep it in memory only.
   useEffect(() => {
     if (!userId) {
-      if (prevUserIdRef.current) {
-        localStorage.removeItem(`${STORAGE_PREFIX}${prevUserIdRef.current}`);
-        prevUserIdRef.current = null;
-      }
       setApiKeyState(null);
+      setHasServerKey(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) {
+      setHasServerKey(false);
       return;
     }
-    prevUserIdRef.current = userId;
-    const stored = localStorage.getItem(`${STORAGE_PREFIX}${userId}`);
-    setApiKeyState(stored && isValidApiKey(stored) ? stored : null);
+    let cancelled = false;
+    fetch(`${API_URL}/api/me`, { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { hasApiKey?: boolean } | null) => {
+        if (!cancelled) setHasServerKey(Boolean(data?.hasApiKey));
+      })
+      .catch(() => {
+        if (!cancelled) setHasServerKey(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [userId]);
 
   // Fetch manage token when session exists
@@ -91,20 +99,17 @@ export function GatewayProvider({ children }: { children: ReactNode }) {
           "API key must start with bos_live_sk_ or bos_test_sk_",
         );
       }
-      if (userId) {
-        localStorage.setItem(`${STORAGE_PREFIX}${userId}`, key);
-        setApiKeyState(key);
-      }
+      if (!userId) return;
+      setApiKeyState(key);
+      setHasServerKey(true);
     },
     [userId],
   );
 
   const clearApiKey = useCallback(() => {
-    if (userId) {
-      localStorage.removeItem(`${STORAGE_PREFIX}${userId}`);
-    }
     setApiKeyState(null);
-  }, [userId]);
+    setHasServerKey(false);
+  }, []);
 
   const apiClient = useMemo(() => {
     const key = apiKey?.trim();
@@ -120,14 +125,14 @@ export function GatewayProvider({ children }: { children: ReactNode }) {
   const value: GatewayContextValue = useMemo(
     () => ({
       apiKey,
-      hasKey: Boolean(apiKey?.trim()),
+      hasKey: Boolean(apiKey?.trim()) || hasServerKey,
       setApiKey,
       clearApiKey,
       apiClient,
       manageClient,
       gatewayUrl: GATEWAY_URL,
     }),
-    [apiKey, setApiKey, clearApiKey, apiClient, manageClient],
+    [apiKey, hasServerKey, setApiKey, clearApiKey, apiClient, manageClient],
   );
 
   return (

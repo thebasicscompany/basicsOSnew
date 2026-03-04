@@ -3,7 +3,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { z } from "zod";
 import type { Db } from "../../db/client.js";
 import * as schema from "../../db/schema/index.js";
-import { eq, like, or } from "drizzle-orm";
+import { and, eq, like, or } from "drizzle-orm";
 
 export async function executeAIAgent(
   config: Record<string, unknown>,
@@ -45,11 +45,14 @@ export async function executeAIAgent(
             .select()
             .from(schema.contacts)
             .where(
-              or(
-                like(schema.contacts.firstName, `%${query}%`),
-                like(schema.contacts.lastName, `%${query}%`),
-                like(schema.contacts.email, `%${query}%`),
-              ),
+              and(
+                eq(schema.contacts.crmUserId, crmUserId),
+                or(
+                  like(schema.contacts.firstName, `%${query}%`),
+                  like(schema.contacts.lastName, `%${query}%`),
+                  like(schema.contacts.email, `%${query}%`),
+                ),
+              )
             )
             .limit(10);
         },
@@ -63,7 +66,12 @@ export async function executeAIAgent(
           return db
             .select()
             .from(schema.deals)
-            .where(like(schema.deals.name, `%${query}%`))
+            .where(
+              and(
+                eq(schema.deals.crmUserId, crmUserId),
+                like(schema.deals.name, `%${query}%`)
+              )
+            )
             .limit(10);
         },
       }),
@@ -75,6 +83,20 @@ export async function executeAIAgent(
           type: z.string().default("task").describe("Task type"),
         }),
         execute: async ({ text, contactId, type }) => {
+          const [contact] = await db
+            .select({ id: schema.contacts.id })
+            .from(schema.contacts)
+            .where(
+              and(
+                eq(schema.contacts.id, contactId),
+                eq(schema.contacts.crmUserId, crmUserId)
+              )
+            )
+            .limit(1);
+          if (!contact) {
+            throw new Error("Contact not found");
+          }
+
           const [task] = await db
             .insert(schema.tasks)
             .values({ crmUserId, text, contactId, type })
@@ -92,8 +114,16 @@ export async function executeAIAgent(
           const [deal] = await db
             .update(schema.deals)
             .set({ stage })
-            .where(eq(schema.deals.id, dealId))
+            .where(
+              and(
+                eq(schema.deals.id, dealId),
+                eq(schema.deals.crmUserId, crmUserId)
+              )
+            )
             .returning();
+          if (!deal) {
+            throw new Error("Deal not found");
+          }
           return deal;
         },
       }),

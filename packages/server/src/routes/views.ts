@@ -205,7 +205,7 @@ async function seedDefaultViewColumns(
 
 export function createViewRoutes(db: Db, auth: BetterAuthInstance) {
   const app = new Hono();
-  app.use("*", authMiddleware(auth));
+  app.use("*", authMiddleware(auth, db));
 
   app.get("/:objectSlug", async (c) => {
     const objectSlug = c.req.param("objectSlug");

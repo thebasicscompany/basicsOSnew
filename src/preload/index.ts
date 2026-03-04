@@ -34,10 +34,22 @@ const overlayAPI = {
     ipcRenderer.send("set-ignore-mouse", ignore),
   navigateMain: (path: string) => ipcRenderer.send("navigate-main", path),
   injectText: (text: string) => ipcRenderer.invoke("inject-text", text),
-  getSessionToken: () =>
-    ipcRenderer.invoke("get-session-token") as Promise<string | null>,
   getApiUrl: () =>
     ipcRenderer.invoke("get-api-url") as Promise<string>,
+  proxyOverlayRequest: (req: {
+    path: string;
+    method?: string;
+    headers?: Record<string, string>;
+    body?: string;
+  }) =>
+    ipcRenderer.invoke("proxy-overlay-request", req) as Promise<{
+      ok: boolean;
+      status: number;
+      statusText: string;
+      headers: Record<string, string>;
+      body: string;
+      encoding: "text" | "base64";
+    }>,
   getOverlaySettings: () =>
     ipcRenderer.invoke("get-overlay-settings") as Promise<OverlaySettings>,
   onHoldStart: (cb: () => void) => {

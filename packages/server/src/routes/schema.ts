@@ -125,7 +125,7 @@ function toNocoDBColumnShape(
 
 export function createSchemaRoutes(db: Db, auth: BetterAuthInstance) {
   const app = new Hono();
-  app.use("*", authMiddleware(auth));
+  app.use("*", authMiddleware(auth, db));
 
   app.get("/:tableName", async (c) => {
     const tableName = c.req.param("tableName");

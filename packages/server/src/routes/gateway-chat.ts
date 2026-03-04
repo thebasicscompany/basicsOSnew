@@ -683,7 +683,7 @@ async function executeValidatedTool(
 export function createGatewayChatRoutes(db: Db, auth: BetterAuthInstance, env: Env) {
   const app = new Hono();
 
-  app.post("/", authMiddleware(auth), async (c) => {
+  app.post("/", authMiddleware(auth, db), async (c) => {
     const crmUserAuth = await resolveCrmUserWithApiKey(c, db);
     if (!crmUserAuth.ok) return crmUserAuth.response;
     const { crmUser, apiKey } = crmUserAuth.data;

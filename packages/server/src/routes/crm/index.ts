@@ -15,7 +15,7 @@ type BetterAuthInstance = ReturnType<typeof createAuth>;
 export function createCrmRoutes(db: Db, auth: BetterAuthInstance, env: Env) {
   const app = new Hono();
 
-  app.use("*", authMiddleware(auth));
+  app.use("*", authMiddleware(auth, db));
 
   app.post("/merge_contacts", createMergeContactsHandler(db));
   app.get("/:resource", createListHandler(db));

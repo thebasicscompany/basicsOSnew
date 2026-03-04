@@ -25,7 +25,7 @@ export function createAirtableImportRoutes(
   env: Env,
 ) {
   const app = new Hono();
-  app.use("*", authMiddleware(auth));
+  app.use("*", authMiddleware(auth, db));
 
   /** Proxy helper: forward request to NocoDB API */
   async function nocoProxy(

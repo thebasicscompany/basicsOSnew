@@ -1,9 +1,8 @@
 /**
  * HTTP client for the voice pill overlay.
- * Calls basicsOSnew server (BFF) with Bearer session token.
+ * All authenticated requests are proxied through Electron main process.
  */
 
-let cachedApiUrl: string | null = null;
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 type GatewayErrorEnvelope = {
@@ -13,6 +12,15 @@ type GatewayErrorEnvelope = {
         message?: string;
         code?: string;
       };
+};
+
+type ProxyResponse = {
+  ok: boolean;
+  status: number;
+  statusText: string;
+  headers: Record<string, string>;
+  body: string;
+  encoding: "text" | "base64";
 };
 
 export class VoiceApiError extends Error {
@@ -27,20 +35,14 @@ export class VoiceApiError extends Error {
   }
 }
 
-const getApiUrl = async (): Promise<string> => {
-  if (cachedApiUrl) return cachedApiUrl;
-  cachedApiUrl = (await window.electronAPI?.getApiUrl()) ?? "http://localhost:3001";
-  return cachedApiUrl;
-};
-
-const readErrorEnvelope = async (res: Response): Promise<VoiceApiError> => {
+const readErrorEnvelope = (res: ProxyResponse): VoiceApiError => {
   let fallback = `Request failed (${res.status})`;
   let code: string | undefined;
 
   try {
-    const contentType = res.headers.get("content-type") ?? "";
+    const contentType = res.headers["content-type"] ?? "";
     if (contentType.includes("application/json")) {
-      const json = (await res.json()) as GatewayErrorEnvelope;
+      const json = JSON.parse(res.body) as GatewayErrorEnvelope;
       if (typeof json.error === "string") {
         fallback = json.error;
       } else if (json.error?.message) {
@@ -48,7 +50,7 @@ const readErrorEnvelope = async (res: Response): Promise<VoiceApiError> => {
         code = json.error.code;
       }
     } else {
-      const text = await res.text();
+      const text = res.body;
       if (text.trim()) fallback = text.trim().slice(0, 300);
     }
   } catch {
@@ -60,33 +62,37 @@ const readErrorEnvelope = async (res: Response): Promise<VoiceApiError> => {
 
 const fetchWithSession = async (
   path: string,
-  init: RequestInit,
+  init: { method: string; headers?: Record<string, string>; body?: string },
   options?: { timeoutMs?: number; retries?: number }
-): Promise<Response> => {
-  const apiUrl = await getApiUrl();
-  const token = await window.electronAPI?.getSessionToken();
-
-  if (!token) {
-    throw new VoiceApiError("Missing session token", 401, "missing_session");
-  }
+): Promise<ProxyResponse> => {
+  const proxyRequest = window.electronAPI?.proxyOverlayRequest;
+  if (!proxyRequest) throw new VoiceApiError("Overlay bridge unavailable", 500, "bridge_unavailable");
 
   const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const retries = options?.retries ?? 0;
-  const headers = new Headers(init.headers);
-  headers.set("Authorization", `Bearer ${token}`);
 
   let attempt = 0;
   let lastError: unknown = null;
 
   while (attempt <= retries) {
     try {
-      const res = await fetch(`${apiUrl}${path}`, {
-        ...init,
-        headers,
-        signal: AbortSignal.timeout(timeoutMs),
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(
+          () => reject(new VoiceApiError("Voice request timed out", 504, "timeout")),
+          timeoutMs
+        );
       });
+      const res = (await Promise.race([
+        proxyRequest({
+          path,
+          method: init.method,
+          headers: init.headers,
+          body: init.body,
+        }),
+        timeoutPromise,
+      ])) as ProxyResponse;
       if (!res.ok) {
-        throw await readErrorEnvelope(res);
+        throw readErrorEnvelope(res);
       }
       return res;
     } catch (err) {
@@ -114,7 +120,11 @@ export const synthesizeSpeech = async (text: string): Promise<ArrayBuffer | null
       },
       { retries: 1 }
     );
-    return res.arrayBuffer();
+    if (res.encoding !== "base64") {
+      return new TextEncoder().encode(res.body).buffer;
+    }
+    const bytes = Uint8Array.from(atob(res.body), (char) => char.charCodeAt(0));
+    return bytes.buffer;
   } catch {
     return null;
   }
@@ -144,7 +154,7 @@ export const transcribeAudioBlob = async (blob: Blob): Promise<string | null> =>
       },
       { retries: 1 }
     );
-    const json = (await res.json()) as { transcript?: string };
+    const json = JSON.parse(res.body) as { transcript?: string };
     return json.transcript ?? null;
   } catch {
     return null;
@@ -181,33 +191,16 @@ export async function* streamAssistant(
     { timeoutMs: options?.timeoutMs ?? DEFAULT_TIMEOUT_MS }
   );
   if (!res.body) throw new VoiceApiError("Empty stream response", 502);
-
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
-
-      for (const line of lines) {
-        if (line.startsWith("data: ")) {
-          const data = line.slice(6).trim();
-          if (data === "[DONE]") return;
-          try {
-            const parsed = JSON.parse(data) as { token?: string };
-            if (parsed.token) yield parsed.token;
-          } catch {
-            // ignore malformed chunk
-          }
-        }
-      }
+  const lines = res.body.split("\n");
+  for (const line of lines) {
+    if (!line.startsWith("data: ")) continue;
+    const data = line.slice(6).trim();
+    if (data === "[DONE]") return;
+    try {
+      const parsed = JSON.parse(data) as { token?: string };
+      if (parsed.token) yield parsed.token;
+    } catch {
+      // ignore malformed chunk
     }
-  } finally {
-    reader.releaseLock();
   }
 }

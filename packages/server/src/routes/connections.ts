@@ -20,7 +20,7 @@ export function createConnectionsRoutes(db: Db, auth: Auth, env: Env) {
   }
 
   // List all connections for the authenticated user
-  app.get("/", authMiddleware(auth), async (c) => {
+  app.get("/", authMiddleware(auth, db), async (c) => {
     const session = c.get("session") as { user?: { id: string } };
     const userId = session?.user?.id;
     if (!userId) return c.json({ error: "Unauthorized" }, 401);
@@ -36,7 +36,7 @@ export function createConnectionsRoutes(db: Db, auth: Auth, env: Env) {
   });
 
   // Initiate OAuth — fetches the provider URL and redirects the browser
-  app.get("/:provider/authorize", authMiddleware(auth), async (c) => {
+  app.get("/:provider/authorize", authMiddleware(auth, db), async (c) => {
     const session = c.get("session") as { user?: { id: string } };
     const userId = session?.user?.id;
     if (!userId) return c.json({ error: "Unauthorized" }, 401);
@@ -61,7 +61,7 @@ export function createConnectionsRoutes(db: Db, auth: Auth, env: Env) {
   });
 
   // Delete / disconnect a provider
-  app.delete("/:provider", authMiddleware(auth), async (c) => {
+  app.delete("/:provider", authMiddleware(auth, db), async (c) => {
     const session = c.get("session") as { user?: { id: string } };
     const userId = session?.user?.id;
     if (!userId) return c.json({ error: "Unauthorized" }, 401);

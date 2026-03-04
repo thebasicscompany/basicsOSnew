@@ -9,6 +9,7 @@ export interface Identity {
   email?: string;
   avatar?: string;
   administrator?: boolean;
+  hasApiKey?: boolean;
 }
 
 export function useMe() {

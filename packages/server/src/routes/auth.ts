@@ -22,7 +22,7 @@ export function createAuthRoutes(
     return c.json({ initialized: orgs.length > 0 });
   });
 
-  app.get("/gateway-token", authMiddleware(auth), async (c) => {
+  app.get("/gateway-token", authMiddleware(auth, db), async (c) => {
     const session = c.get("session") as {
       user?: { id: string };
       session?: { token?: string; id?: string };
@@ -34,7 +34,7 @@ export function createAuthRoutes(
     return c.json({ token });
   });
 
-  app.get("/me", authMiddleware(auth), async (c) => {
+  app.get("/me", authMiddleware(auth, db), async (c) => {
     const session = c.get("session");
     if (!session?.user) {
       return c.json({ error: "Unauthorized" }, 401);
@@ -59,10 +59,11 @@ export function createAuthRoutes(
       email: crmUser.email,
       avatar: crmUser.avatar,
       administrator: crmUser.administrator,
+      hasApiKey: Boolean(crmUser.basicsApiKey?.trim()),
     });
   });
 
-  app.patch("/me", authMiddleware(auth), async (c) => {
+  app.patch("/me", authMiddleware(auth, db), async (c) => {
     const session = c.get("session") as { user?: { id: string } };
     const userId = session?.user?.id;
     if (!userId) return c.json({ error: "Unauthorized" }, 401);
@@ -85,7 +86,7 @@ export function createAuthRoutes(
     return c.json({ ok: true });
   });
 
-  app.patch("/settings", authMiddleware(auth), async (c) => {
+  app.patch("/settings", authMiddleware(auth, db), async (c) => {
     const session = c.get("session") as { user?: { id: string } };
     const userId = session?.user?.id;
     if (!userId) return c.json({ error: "Unauthorized" }, 401);
@@ -100,7 +101,7 @@ export function createAuthRoutes(
     return c.json({ ok: true });
   });
 
-  app.get("/organization", authMiddleware(auth), async (c) => {
+  app.get("/organization", authMiddleware(auth, db), async (c) => {
     const session = c.get("session") as { user?: { id: string } };
     const userId = session?.user?.id;
     if (!userId) return c.json({ error: "Unauthorized" }, 401);
@@ -127,7 +128,7 @@ export function createAuthRoutes(
     });
   });
 
-  app.patch("/organization", authMiddleware(auth), async (c) => {
+  app.patch("/organization", authMiddleware(auth, db), async (c) => {
     const session = c.get("session") as { user?: { id: string } };
     const userId = session?.user?.id;
     if (!userId) return c.json({ error: "Unauthorized" }, 401);
@@ -296,7 +297,7 @@ export function createAuthRoutes(
     });
   });
 
-  app.post("/invites", authMiddleware(auth), async (c) => {
+  app.post("/invites", authMiddleware(auth, db), async (c) => {
     const session = c.get("session") as { user?: { id: string } };
     const userId = session?.user?.id;
     if (!userId) return c.json({ error: "Unauthorized" }, 401);

@@ -12,7 +12,7 @@ type BetterAuthInstance = ReturnType<typeof createAuth>;
 export function createAutomationRunsRoutes(db: Db, auth: BetterAuthInstance, _env: Env) {
   const app = new Hono();
 
-  app.use("*", authMiddleware(auth));
+  app.use("*", authMiddleware(auth, db));
 
   // POST /api/automation-runs/run — trigger manual run for a rule
   app.post("/run", async (c) => {

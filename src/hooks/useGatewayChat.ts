@@ -2,7 +2,6 @@ import { useChat } from "@ai-sdk/react";
 import { useCallback, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useGateway } from "@/hooks/useGateway";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "";
 
@@ -29,20 +28,14 @@ const TOOL_TO_QUERY_KEYS: Record<string, string[]> = {
  * Uses Better Auth session + API key, while tool execution runs server-side.
  */
 export function useGatewayChat() {
-  const { apiKey } = useGateway();
   const queryClient = useQueryClient();
   const [threadId, setThreadId] = useState<string | undefined>(undefined);
   const pendingToolsRef = useRef<Set<string>>(new Set());
 
   const fetchWithErrorHandling = useCallback(
     async (url: string | URL | Request, init?: RequestInit) => {
-      const headers = new Headers(init?.headers);
-      if (apiKey) {
-        headers.set("X-Basics-API-Key", apiKey);
-      }
       const res = await fetch(url, {
         ...init,
-        headers,
         credentials: "include",
       });
       if (!res.ok && res.headers.get("content-type")?.includes("application/json")) {
@@ -54,7 +47,7 @@ export function useGatewayChat() {
       }
       return res;
     },
-    [apiKey]
+    []
   );
 
   const handleError = useCallback((error: Error) => {

@@ -38,7 +38,7 @@ export function createStreamAssistantRoutes(
 ) {
   const app = new Hono();
 
-  app.post("/assistant", authMiddleware(auth), async (c) => {
+  app.post("/assistant", authMiddleware(auth, db), async (c) => {
     const crmUserAuth = await resolveCrmUserWithApiKey(c, db);
     if (!crmUserAuth.ok) return crmUserAuth.response;
     const { crmUser, apiKey } = crmUserAuth.data;

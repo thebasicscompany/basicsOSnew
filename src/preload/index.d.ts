@@ -10,8 +10,20 @@ export type OverlayElectronAPI = {
   setIgnoreMouse?: (ignore: boolean) => void;
   navigateMain?: (path: string) => void;
   injectText?: (text: string) => Promise<void>;
-  getSessionToken?: () => Promise<string | null>;
   getApiUrl?: () => Promise<string>;
+  proxyOverlayRequest?: (req: {
+    path: string;
+    method?: string;
+    headers?: Record<string, string>;
+    body?: string;
+  }) => Promise<{
+    ok: boolean;
+    status: number;
+    statusText: string;
+    headers: Record<string, string>;
+    body: string;
+    encoding: "text" | "base64";
+  }>;
   getOverlaySettings?: () => Promise<unknown>;
   onHoldStart?: (cb: () => void) => void;
   onHoldEnd?: (cb: () => void) => void;

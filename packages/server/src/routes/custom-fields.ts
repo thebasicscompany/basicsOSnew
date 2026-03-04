@@ -9,7 +9,7 @@ type BetterAuthInstance = ReturnType<typeof createAuth>;
 
 export function createCustomFieldRoutes(db: Db, auth: BetterAuthInstance) {
   const app = new Hono();
-  app.use("*", authMiddleware(auth));
+  app.use("*", authMiddleware(auth, db));
 
   app.get("/", async (c) => {
     const resource = c.req.query("resource");

@@ -225,6 +225,9 @@ export function SettingsPage() {
     )
   );
   const hasPendingChanges = apiDirty || orgDirty;
+  const configuredApiLabel = apiKey
+    ? maskApiKey(apiKey)
+    : "Stored securely on server";
 
   const handleResetPending = useCallback(() => {
     setInputValue("");
@@ -285,7 +288,7 @@ export function SettingsPage() {
                     <Input
                       id="api-key"
                       type={showPassword ? "text" : "password"}
-                      placeholder={hasKey ? maskApiKey(apiKey!) : "Paste your bos_live_sk_... key"}
+                      placeholder={hasKey ? configuredApiLabel : "Paste your bos_live_sk_... key"}
                       value={inputValue}
                       onChange={(e) => setInputValue(e.target.value)}
                       className="h-9 pr-9 text-[13px]"
@@ -309,7 +312,7 @@ export function SettingsPage() {
                 {hasKey && (
                   <div className="flex items-center gap-2">
                     <span className="text-[12px] text-muted-foreground">
-                      Configured: {maskApiKey(apiKey!)}
+                      Configured: {configuredApiLabel}
                     </span>
                     <Dialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
                       <DialogTrigger asChild>

@@ -27,7 +27,7 @@ export function createVoiceProxyRoutes(
 ) {
   const app = new Hono();
 
-  app.post("/transcriptions", authMiddleware(auth), async (c) => {
+  app.post("/transcriptions", authMiddleware(auth, db), async (c) => {
     const crmUserAuth = await resolveCrmUserWithApiKey(c, db);
     if (!crmUserAuth.ok) return crmUserAuth.response;
     const { apiKey } = crmUserAuth.data;
@@ -68,7 +68,7 @@ export function createVoiceProxyRoutes(
     return c.json({ transcript });
   });
 
-  app.post("/speech", authMiddleware(auth), async (c) => {
+  app.post("/speech", authMiddleware(auth, db), async (c) => {
     const crmUserAuth = await resolveCrmUserWithApiKey(c, db);
     if (!crmUserAuth.ok) return crmUserAuth.response;
     const { apiKey } = crmUserAuth.data;

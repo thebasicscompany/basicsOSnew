@@ -40,8 +40,7 @@ export async function resolveCrmUserWithApiKey(
     };
   }
 
-  const apiKey =
-    c.req.header("X-Basics-API-Key")?.trim() || crmUser.basicsApiKey?.trim();
+  const apiKey = crmUser.basicsApiKey?.trim();
 
   if (!apiKey) {
     return {
