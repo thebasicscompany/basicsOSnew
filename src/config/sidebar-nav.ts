@@ -20,7 +20,7 @@ export type NavGroupConfig = { label: string; items: NavItem[] };
 export const SIDEBAR_NAV_APPS: NavGroupConfig = {
   label: "Apps",
   items: [
-    { title: "CRM", path: ROUTES.CRM, icon: SquaresFourIcon },
+    { title: "Dashboard", path: ROUTES.CRM, icon: SquaresFourIcon },
     { title: "AI Chat", path: ROUTES.CHAT, icon: ChatCircleIcon },
     { title: "Voice", path: ROUTES.VOICE, icon: MicrophoneIcon },
     { title: "MCP", path: ROUTES.MCP, icon: PlugIcon },

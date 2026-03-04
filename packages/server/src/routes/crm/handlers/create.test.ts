@@ -6,7 +6,7 @@ vi.mock("../../../lib/rbac.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../../lib/rbac.js")>();
   return {
     ...actual,
-    getPermissionSetForUser: vi.fn(),
+    requirePermission: vi.fn(),
   };
 });
 
@@ -33,9 +33,9 @@ vi.mock("../../../lib/api-key-crypto.js", async (importOriginal) => {
   };
 });
 
-async function getPermissionMock() {
+async function getRequirePermissionMock() {
   const mod = await import("../../../lib/rbac.js");
-  return vi.mocked(mod.getPermissionSetForUser);
+  return vi.mocked(mod.requirePermission);
 }
 
 function makeContext(
@@ -85,17 +85,20 @@ function makeDb({
 }
 
 describe("createCreateHandler security boundaries", () => {
+  const crmUser = { id: 11, organizationId: "org-1", userId: "user-1" };
+
   beforeEach(async () => {
-    const permissionMock = await getPermissionMock();
-    permissionMock.mockReset();
+    const requirePermissionMock = await getRequirePermissionMock();
+    requirePermissionMock.mockReset();
   });
 
   it("blocks create when user lacks recordsWrite permission", async () => {
-    const permissionMock = await getPermissionMock();
-    permissionMock.mockResolvedValue(new Set([PERMISSIONS.recordsRead]));
-    const { db } = makeDb({
-      crmUser: { id: 11, organizationId: "org-1", userId: "user-1" },
+    const requirePermissionMock = await getRequirePermissionMock();
+    requirePermissionMock.mockResolvedValue({
+      ok: false,
+      response: { status: 403, body: { error: "Forbidden" } } as any,
     });
+    const { db } = makeDb({ crmUser });
     const handler = createCreateHandler(db, {
       BASICOS_API_URL: "http://localhost",
     } as any);
@@ -111,11 +114,13 @@ describe("createCreateHandler security boundaries", () => {
   });
 
   it("rejects unknown writable fields via strict schema validation", async () => {
-    const permissionMock = await getPermissionMock();
-    permissionMock.mockResolvedValue(new Set([PERMISSIONS.recordsWrite]));
-    const { db } = makeDb({
-      crmUser: { id: 11, organizationId: "org-1", userId: "user-1" },
-    });
+    const requirePermissionMock = await getRequirePermissionMock();
+    requirePermissionMock.mockResolvedValue({
+      ok: true,
+      crmUser,
+      permissions: new Set([PERMISSIONS.recordsWrite]),
+    } as any);
+    const { db } = makeDb({ crmUser });
     const handler = createCreateHandler(db, {
       BASICOS_API_URL: "http://localhost",
     } as any);
@@ -131,10 +136,15 @@ describe("createCreateHandler security boundaries", () => {
   });
 
   it("injects crmUserId and organizationId from server-side identity", async () => {
-    const permissionMock = await getPermissionMock();
-    permissionMock.mockResolvedValue(new Set([PERMISSIONS.recordsWrite]));
+    const authCrmUser = { id: 77, organizationId: "org-secure", userId: "user-1" };
+    const requirePermissionMock = await getRequirePermissionMock();
+    requirePermissionMock.mockResolvedValue({
+      ok: true,
+      crmUser: authCrmUser,
+      permissions: new Set([PERMISSIONS.recordsWrite]),
+    } as any);
     const { db, spies } = makeDb({
-      crmUser: { id: 77, organizationId: "org-secure", userId: "user-1" },
+      crmUser: authCrmUser,
       insertReturning: [{ id: 101, firstName: "Ava" }],
     });
     const handler = createCreateHandler(db, {

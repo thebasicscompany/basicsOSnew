@@ -1,8 +1,10 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router";
+import { toast } from "sonner";
 import { DataTable, buildColumnItems } from "@/components/data-table";
 import { CreateRecordModal } from "@/components/create-record/CreateRecordModal";
 import { CreateAttributeModal } from "@/components/create-attribute/CreateAttributeModal";
+import { RecordDetailDeleteDialog } from "@/components/record-detail";
 import {
   DealsLayoutToggle,
   ObjectListHeaderActions,
@@ -11,7 +13,7 @@ import {
 } from "@/components/object-list";
 import { DealsKanbanBoard } from "@/components/deals/DealsKanbanBoard";
 import { useObject, useAttributes } from "@/hooks/use-object-registry";
-import { useRecords, useUpdateRecord } from "@/hooks/use-records";
+import { useRecords, useUpdateRecord, useDeleteRecord } from "@/hooks/use-records";
 import { useViews, useViewState } from "@/hooks/use-views";
 import { useRenameView, useDeleteView } from "@/hooks/use-view-queries";
 import type { ViewSort, ViewFilter } from "@/types/views";
@@ -27,6 +29,10 @@ export function ObjectListPage() {
   const navigate = useNavigate();
   const [createOpen, setCreateOpen] = useState(false);
   const [addColumnOpen, setAddColumnOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    recordId: number;
+    record: Record<string, unknown>;
+  } | null>(null);
 
   const obj = useObject(objectSlug);
   const attributes = useAttributes(objectSlug);
@@ -89,6 +95,7 @@ export function ObjectListPage() {
   });
 
   const updateRecord = useUpdateRecord(objectSlug);
+  const deleteRecord = useDeleteRecord(objectSlug);
 
   const handlePaginationChange = useCallback(
     (newPage: number, newPerPage: number) => {
@@ -118,6 +125,41 @@ export function ObjectListPage() {
     },
     [navigate, objectSlug],
   );
+
+  const handleRowDelete = useCallback(
+    (recordId: number, record: Record<string, unknown>) => {
+      setDeleteTarget({ recordId, record });
+    },
+    [],
+  );
+
+  const primaryAttr = useMemo(
+    () => attributes.find((a) => a.isPrimary),
+    [attributes],
+  );
+
+  const deleteDisplayName = deleteTarget
+    ? (() => {
+        if (!primaryAttr) return "Unnamed";
+        const val = deleteTarget.record[primaryAttr.columnName];
+        return typeof val === "string" && val ? val : "Unnamed";
+      })()
+    : "";
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteRecord.mutateAsync(deleteTarget.recordId);
+      toast.success(
+        `${obj?.singularName ?? "Record"} deleted`,
+      );
+      setDeleteTarget(null);
+    } catch {
+      toast.error(
+        `Failed to delete ${obj?.singularName?.toLowerCase() ?? "record"}`,
+      );
+    }
+  }, [deleteTarget, deleteRecord, obj?.singularName]);
 
   const handleAddSort = useCallback(
     (sort: Omit<ViewSort, "id">) => {
@@ -290,6 +332,7 @@ export function ObjectListPage() {
               viewColumns={viewState.columns}
               onCellUpdate={handleCellUpdate}
               onRowExpand={handleRowExpand}
+              onRowDelete={handleRowDelete}
               onNewRecord={() => setCreateOpen(true)}
               onAddColumn={() => setAddColumnOpen(true)}
               onColumnResize={(fieldId, width) => {
@@ -320,6 +363,14 @@ export function ObjectListPage() {
           resource={objectSlug}
           open={addColumnOpen}
           onOpenChange={setAddColumnOpen}
+        />
+
+        <RecordDetailDeleteDialog
+          open={!!deleteTarget}
+          onOpenChange={(open) => !open && setDeleteTarget(null)}
+          displayName={deleteDisplayName}
+          onConfirm={handleDeleteConfirm}
+          isDeleting={deleteRecord.isPending}
         />
       </div>
     </>

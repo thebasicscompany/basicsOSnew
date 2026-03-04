@@ -149,17 +149,19 @@ Readiness assessment (today):
   - ✅ `packages/server/src/routes/views.ts` – Done. Split into `views/column-routes`, `filter-routes`, `sort-routes`, `view-item-routes`, `object-routes`.
   - ✅ `packages/server/src/routes/auth.ts` – Done. Split into `auth/init-signup-invite-routes`, `me-settings-routes`, `organization-routes`.
 - Server CRM handlers:
-  - Extract shared session/org/permission resolution into one middleware/helper to remove duplication in create/update/list/delete handlers.
-  - Extract embedding/event side effects from CRUD handlers into post-write domain services.
+  - ✅ Extract shared session/org/permission resolution into one middleware/helper – Done. CRM handlers use `requirePermission` / `getCrmUserFromSession` from lib/rbac.
+  - ✅ Extract embedding/event side effects from CRUD handlers into post-write domain services – Done. `services/crm/*` own orchestration; `data-access/crm/*` own queries; `schemas/crm/*` own zod; routes are thin.
 - Frontend:
   - `src/components/ai-elements/prompt-input.tsx` (split provider/hooks/attachments/presentation).
   - `src/components/pages/SettingsPage.tsx` (split into account/org/security/connections modules).
 
-### Target route organization
+### Target route organization ✅ Implemented for CRM
 - `routes/*` should only handle HTTP concerns (parsing, status codes, response shape).
 - `services/*` should own business orchestration.
 - `repositories/*` (or `data-access/*`) should own Drizzle query composition.
 - `schemas/*` should own zod contracts and DTO mapping.
+
+CRM routes now follow this structure: `schemas/crm/`, `data-access/crm/`, `services/crm/`, thin `routes/crm/handlers/`.
 
 ### Acceptance criteria for decomposition phase
 - No route module > 250-300 LOC unless justified.

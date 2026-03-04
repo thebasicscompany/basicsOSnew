@@ -1,6 +1,13 @@
 import * as React from "react";
 import { flexRender, type ColumnDef, type Row } from "@tanstack/react-table";
-import { PlusIcon, TableIcon } from "@phosphor-icons/react";
+import { ArrowSquareOutIcon, PlusIcon, TableIcon, TrashIcon } from "@phosphor-icons/react";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -27,6 +34,7 @@ interface DataTableBodyProps<T extends Record<string, unknown>> {
   singularName: string;
   onNewRecord?: () => void;
   onRowExpand?: (recordId: number) => void;
+  onRowDelete?: (recordId: number, record: T) => void;
   onCellClick: (rowIndex: number, colId: string, attribute: Attribute) => void;
   onCellDoubleClick: (rowIndex: number, colId: string) => void;
 }
@@ -43,6 +51,7 @@ export function DataTableBody<T extends Record<string, unknown>>({
   singularName,
   onNewRecord,
   onRowExpand,
+  onRowDelete,
   onCellClick,
   onCellDoubleClick,
 }: DataTableBodyProps<T>) {
@@ -79,22 +88,22 @@ export function DataTableBody<T extends Record<string, unknown>>({
           </TableCell>
         </TableRow>
       ) : (
-        rows.map((row) => (
-          <TableRow
-            key={row.id}
-            onDoubleClick={
-              onRowExpand
-                ? () =>
-                    onRowExpand(
-                      (row.original as { Id?: number; id?: number }).Id ??
-                        (row.original as { id?: number }).id ??
-                        0,
-                    )
-                : undefined
-            }
-            className={onRowExpand ? "cursor-pointer" : undefined}
-          >
-            {row.getVisibleCells().map((cell) => {
+        rows.map((row) => {
+          const recordId =
+            (row.original as { Id?: number; id?: number }).Id ??
+            (row.original as { id?: number }).id ??
+            0;
+          const rowContent = (
+            <TableRow
+              key={row.id}
+              onDoubleClick={
+                onRowExpand
+                  ? () => onRowExpand(recordId)
+                  : undefined
+              }
+              className={onRowExpand ? "cursor-pointer" : undefined}
+            >
+              {row.getVisibleCells().map((cell) => {
               const colDef = cell.column.columnDef;
               const colId = cell.column.id;
               const rowIndex = row.index;
@@ -154,8 +163,40 @@ export function DataTableBody<T extends Record<string, unknown>>({
                 </TableCell>
               );
             })}
-          </TableRow>
-        ))
+            </TableRow>
+          );
+
+          const hasActions = onRowExpand || onRowDelete;
+          if (!hasActions) {
+            return rowContent;
+          }
+
+          return (
+            <ContextMenu key={row.id}>
+              <ContextMenuTrigger asChild>{rowContent}</ContextMenuTrigger>
+              <ContextMenuContent>
+                {onRowExpand && (
+                  <ContextMenuItem onClick={() => onRowExpand(recordId)}>
+                    <ArrowSquareOutIcon className="mr-2 h-4 w-4" />
+                    Open
+                  </ContextMenuItem>
+                )}
+                {onRowDelete && (
+                  <>
+                    {onRowExpand && <ContextMenuSeparator />}
+                    <ContextMenuItem
+                      variant="destructive"
+                      onClick={() => onRowDelete(recordId, row.original)}
+                    >
+                      <TrashIcon className="mr-2 h-4 w-4" />
+                      Delete
+                    </ContextMenuItem>
+                  </>
+                )}
+              </ContextMenuContent>
+            </ContextMenu>
+          );
+        })
       )}
     </TableBody>
   );

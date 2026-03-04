@@ -72,6 +72,7 @@ export function DataTable(props: DataTableProps) {
               singularName={singularName}
               onNewRecord={onNewRecord}
               onRowExpand={onRowExpand}
+              onRowDelete={props.onRowDelete}
               onCellClick={handleCellClick}
               onCellDoubleClick={handleCellDoubleClick}
             />

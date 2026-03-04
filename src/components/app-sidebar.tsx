@@ -1,6 +1,5 @@
 import type { ComponentProps } from "react";
-import { LayoutIcon, MagnifyingGlassIcon } from "@phosphor-icons/react";
-import { WorkspaceSwitcher } from "@/components/workspace-switcher";
+import { MagnifyingGlassIcon } from "@phosphor-icons/react";
 import { NavGroup } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
 import { ObjectRegistryNavSection } from "@/components/ObjectRegistryNavSection";
@@ -27,19 +26,19 @@ import {
 
 export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
   const { data: organization } = useOrganization();
-  const workspaces = [
-    {
-      name: organization?.name ?? "Basics Hub",
-      logo: LayoutIcon,
-      logoUrl: organization?.logo?.src ?? null,
-      plan: "Desktop",
-    },
-  ];
   const shortcutLabel = getCommandPaletteShortcutLabel();
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <WorkspaceSwitcher workspaces={workspaces} />
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <div className="flex h-12 min-w-0 shrink-0 items-center overflow-hidden rounded-md px-2 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-2">
+              <span className="truncate font-semibold text-sm group-data-[collapsible=icon]:hidden">
+                {organization?.name ?? "Basics Hub"}
+              </span>
+            </div>
+          </SidebarMenuItem>
+        </SidebarMenu>
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton

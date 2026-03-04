@@ -31,6 +31,7 @@ export interface DataTableProps {
   viewColumns: ViewColumn[];
   onCellUpdate: (recordId: number, columnName: string, value: unknown) => void;
   onRowExpand?: (recordId: number) => void;
+  onRowDelete?: (recordId: number, record: Record<string, unknown>) => void;
   onNewRecord?: () => void;
   onAddColumn?: () => void;
   onColumnResize?: (fieldId: string, width: number) => void;

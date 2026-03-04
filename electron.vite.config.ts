@@ -5,6 +5,8 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   main: {},
+  // With "type": "module", electron-vite outputs preload as index.mjs and rewrites
+  // the main process preload path accordingly. Do not override to index.js.
   preload: {},
   renderer: {
     build: {

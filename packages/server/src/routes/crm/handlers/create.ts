@@ -1,26 +1,14 @@
 import type { Context } from "hono";
 import type { Db } from "../../../db/client.js";
 import type { Env } from "../../../env.js";
-import * as schema from "../../../db/schema/index.js";
-import { eq } from "drizzle-orm";
-import {
-  buildEntityText,
-  getEntityType,
-  upsertEntityEmbedding,
-} from "../../../lib/embeddings.js";
-import { fireEvent, reloadRule } from "../../../lib/automation-engine.js";
+import { PERMISSIONS, requirePermission } from "../../../lib/rbac.js";
+import { createRecord } from "../../../services/crm/create-record.js";
+import { snakeToCamel } from "../utils.js";
 import {
   CRM_RESOURCES,
   TABLE_MAP,
-  hasCrmUserId,
-  hasOrganizationId,
   type Resource,
 } from "../constants.js";
-import { snakeToCamel } from "../utils.js";
-import { PERMISSIONS, getPermissionSetForUser } from "../../../lib/rbac.js";
-import { getWriteAllowlist } from "./field-allowlists.js";
-import { resolveStoredApiKey } from "../../../lib/api-key-crypto.js";
-import { validateWritePayload } from "./payload-schemas.js";
 
 export function createCreateHandler(db: Db, env: Env) {
   return async (c: Context) => {
@@ -29,100 +17,42 @@ export function createCreateHandler(db: Db, env: Env) {
       return c.json({ error: "Cannot create on this resource" }, 400);
     }
 
-    const session = c.get("session") as { user?: { id: string } };
-    const crmUserRows = await db
-      .select()
-      .from(schema.crmUsers)
-      .where(eq(schema.crmUsers.userId, session.user!.id))
-      .limit(1);
-    const crmUser = crmUserRows[0];
-    const crmUserId = crmUser?.id;
-    const orgId = crmUser?.organizationId;
-    if (!crmUserId || !crmUser)
-      return c.json({ error: "User not found in CRM" }, 404);
-    if (!orgId) return c.json({ error: "Organization not found" }, 404);
-    const permissions = await getPermissionSetForUser(db, crmUser);
-    if (!permissions.has("*") && !permissions.has(PERMISSIONS.recordsWrite)) {
+    const authz = await requirePermission(c, db, PERMISSIONS.recordsWrite);
+    if (!authz.ok) return authz.response;
+    const { crmUser } = authz;
+    if (resource === "crm_users" && !authz.permissions.has("*")) {
       return c.json({ error: "Forbidden" }, 403);
     }
-    if (resource === "crm_users" && !permissions.has("*")) {
-      return c.json({ error: "Forbidden" }, 403);
+    const crmUserId = crmUser.id;
+    const orgId = crmUser.organizationId;
+    if (!crmUserId || !orgId) {
+      return c.json({ error: "Organization not found" }, 404);
+    }
+
+    if (!TABLE_MAP[resource as Exclude<Resource, "companies_summary" | "contacts_summary">]) {
+      return c.json({ error: "Unknown resource" }, 404);
     }
 
     const rawBody = (await c.req.json()) as Record<string, unknown>;
-    const table =
-      TABLE_MAP[
-        resource as Exclude<Resource, "companies_summary" | "contacts_summary">
-      ];
-    if (!table) return c.json({ error: "Unknown resource" }, 404);
+    const body = snakeToCamel(rawBody) as Record<string, unknown>;
 
-    const bodyRaw = snakeToCamel(rawBody) as Record<string, unknown>;
-    const validated = validateWritePayload(resource, "create", bodyRaw);
-    if (!validated.success) return c.json({ error: validated.error }, 400);
+    const result = await createRecord(db, env, {
+      resource,
+      body,
+      crmUserId,
+      orgId,
+      crmUserRow: crmUser as Record<string, unknown>,
+    });
 
-    const allowedFields = getWriteAllowlist(resource);
-    if (allowedFields.size === 0) {
-      return c.json({ error: "Create not supported for this resource" }, 400);
+    if (!result.success) {
+      const status =
+        result.error === "Insert failed"
+          ? 500
+          : result.error === "Not found"
+            ? 404
+            : 400;
+      return c.json({ error: result.error }, status);
     }
-    const body: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(validated.data)) {
-      if (allowedFields.has(key)) body[key] = value;
-    }
-    if (Object.keys(body).length === 0) {
-      return c.json({ error: "No writable fields provided" }, 400);
-    }
-
-    if (hasCrmUserId(resource)) {
-      body.crmUserId = crmUserId;
-    }
-    if (hasOrganizationId(resource)) {
-      body.organizationId = orgId;
-    }
-
-    const [inserted] = await db.insert(table).values(body).returning();
-    if (!inserted) return c.json({ error: "Insert failed" }, 500);
-
-    const entityType = getEntityType(resource);
-    const apiKey = resolveStoredApiKey(crmUserRows[0] ?? {});
-    if (
-      entityType &&
-      apiKey &&
-      inserted &&
-      typeof (inserted as { id?: unknown }).id === "number"
-    ) {
-      const chunkText = buildEntityText(
-        entityType,
-        inserted as Record<string, unknown>,
-      );
-      upsertEntityEmbedding(
-        db,
-        env.BASICOS_API_URL,
-        apiKey,
-        crmUserId,
-        entityType,
-        (inserted as { id: number }).id,
-        chunkText,
-      ).catch(() => {});
-    }
-
-    const eventResource = ["deals", "contacts", "tasks"].includes(resource)
-      ? resource
-      : null;
-    if (eventResource) {
-      fireEvent(
-        `${eventResource.replace(/s$/, "")}.created`,
-        inserted as Record<string, unknown>,
-        crmUserId,
-      ).catch(() => {});
-    }
-
-    if (
-      resource === "automation_rules" &&
-      typeof (inserted as { id?: number }).id === "number"
-    ) {
-      reloadRule((inserted as { id: number }).id).catch(() => {});
-    }
-
-    return c.json(inserted, 201);
+    return c.json(result.record, 201);
   };
 }

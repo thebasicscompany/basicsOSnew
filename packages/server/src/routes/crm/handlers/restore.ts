@@ -1,14 +1,11 @@
 import type { Context } from "hono";
 import type { Db } from "../../../db/client.js";
-import * as schema from "../../../db/schema/index.js";
-import { and, eq } from "drizzle-orm";
-import type { Resource } from "../constants.js";
-import { PERMISSIONS, getPermissionSetForUser } from "../../../lib/rbac.js";
-import { writeAuditLogSafe } from "../../../lib/audit-log.js";
+import { PERMISSIONS, requirePermission } from "../../../lib/rbac.js";
+import { restoreDealService } from "../../../services/crm/restore-deal.js";
 
 export function createRestoreHandler(db: Db) {
   return async (c: Context) => {
-    const resource = c.req.param("resource") as Resource;
+    const resource = c.req.param("resource");
     if (resource !== "deals") {
       return c.json({ error: "Restore is only supported for deals" }, 400);
     }
@@ -18,39 +15,22 @@ export function createRestoreHandler(db: Db) {
       return c.json({ error: "Invalid request" }, 400);
     }
 
-    const session = c.get("session") as { user?: { id: string } };
-    const [crmUser] = await db
-      .select()
-      .from(schema.crmUsers)
-      .where(eq(schema.crmUsers.userId, session.user!.id))
-      .limit(1);
-    if (!crmUser) return c.json({ error: "User not found in CRM" }, 404);
-    if (!crmUser.organizationId)
+    const authz = await requirePermission(c, db, PERMISSIONS.recordsRestore);
+    if (!authz.ok) return authz.response;
+    const { crmUser } = authz;
+    if (!crmUser.organizationId) {
       return c.json({ error: "Organization not found" }, 404);
-    const permissions = await getPermissionSetForUser(db, crmUser);
-    if (!permissions.has("*") && !permissions.has(PERMISSIONS.recordsRestore)) {
-      return c.json({ error: "Forbidden" }, 403);
     }
 
-    const [restored] = await db
-      .update(schema.deals)
-      .set({ archivedAt: null, updatedAt: new Date() })
-      .where(
-        and(
-          eq(schema.deals.id, id),
-          eq(schema.deals.organizationId, crmUser.organizationId),
-        ),
-      )
-      .returning();
-
-    if (!restored) return c.json({ error: "Not found" }, 404);
-    await writeAuditLogSafe(db, {
+    const result = await restoreDealService(db, {
+      id,
+      orgId: crmUser.organizationId,
       crmUserId: crmUser.id,
-      organizationId: crmUser.organizationId,
-      action: "crm.record.restored",
-      entityType: "deals",
-      entityId: id,
     });
-    return c.json(restored);
+
+    if (!result.success) {
+      return c.json({ error: result.error }, 404);
+    }
+    return c.json(result.record);
   };
 }

@@ -1,13 +1,4 @@
-import {
-  app,
-  globalShortcut,
-  ipcMain,
-  session,
-  clipboard,
-  BrowserWindow,
-  screen,
-  shell,
-} from "electron";
+import { app, globalShortcut, ipcMain, session, clipboard, BrowserWindow, screen, shell } from "electron";
 import path from "path";
 import { exec } from "child_process";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
@@ -16,15 +7,15 @@ import __cjs_mod__ from "node:module";
 const __filename = import.meta.filename;
 const __dirname = import.meta.dirname;
 const require2 = __cjs_mod__.createRequire(import.meta.url);
-const IS_PRODUCTION =
-  typeof process !== "undefined" && process.env["NODE_ENV"] === "production";
+const IS_PRODUCTION = typeof process !== "undefined" && process.env["NODE_ENV"] === "production";
 const createDesktopLogger = (tag) => {
   const prefix = `[${tag}]`;
   return {
-    debug: IS_PRODUCTION ? () => {} : (...args) => console.log(prefix, ...args),
+    debug: IS_PRODUCTION ? () => {
+    } : (...args) => console.log(prefix, ...args),
     info: (...args) => console.log(prefix, ...args),
     warn: (...args) => console.warn(prefix, ...args),
-    error: (...args) => console.error(prefix, ...args),
+    error: (...args) => console.error(prefix, ...args)
   };
 };
 const log$2 = createDesktopLogger("settings");
@@ -33,27 +24,26 @@ const OVERLAY_DEFAULTS = {
     assistantToggle: "CommandOrControl+Space",
     dictationToggle: "CommandOrControl+Shift+Space",
     dictationHoldKey: "CommandOrControl+Shift+Space",
-    meetingToggle: "CommandOrControl+Alt+Space",
+    meetingToggle: "CommandOrControl+Alt+Space"
   },
   voice: {
     language: "en-US",
     silenceTimeoutMs: 2e3,
     ttsEnabled: true,
-    ttsRate: 1.05,
+    ttsRate: 1.05
   },
   behavior: {
     doubleTapWindowMs: 400,
     autoDismissMs: 5e3,
     showDictationPreview: true,
-    holdThresholdMs: 150,
+    holdThresholdMs: 150
   },
   meeting: {
     autoDetect: false,
-    chunkIntervalMs: 5e3,
-  },
+    chunkIntervalMs: 5e3
+  }
 };
-const getSettingsPath = () =>
-  path.join(app.getPath("userData"), "basicos-overlay-settings.json");
+const getSettingsPath = () => path.join(app.getPath("userData"), "basicos-overlay-settings.json");
 const getOverlaySettings = () => {
   try {
     const raw = fs.readFileSync(getSettingsPath(), "utf8");
@@ -62,7 +52,7 @@ const getOverlaySettings = () => {
       shortcuts: { ...OVERLAY_DEFAULTS.shortcuts, ...parsed.shortcuts },
       voice: { ...OVERLAY_DEFAULTS.voice, ...parsed.voice },
       behavior: { ...OVERLAY_DEFAULTS.behavior, ...parsed.behavior },
-      meeting: { ...OVERLAY_DEFAULTS.meeting, ...parsed.meeting },
+      meeting: { ...OVERLAY_DEFAULTS.meeting, ...parsed.meeting }
     };
   } catch {
     return OVERLAY_DEFAULTS;
@@ -74,13 +64,13 @@ const setOverlaySettings = (partial) => {
     shortcuts: { ...current.shortcuts, ...partial.shortcuts },
     voice: { ...current.voice, ...partial.voice },
     behavior: { ...current.behavior, ...partial.behavior },
-    meeting: { ...current.meeting, ...partial.meeting },
+    meeting: { ...current.meeting, ...partial.meeting }
   };
   try {
     fs.writeFileSync(
       getSettingsPath(),
       JSON.stringify(merged, null, 2),
-      "utf8",
+      "utf8"
     );
   } catch (err) {
     log$2.error("Failed to write settings:", err);
@@ -114,7 +104,7 @@ const createShortcutManager = (callbacks) => {
     const handleAssistant = createDoubleTapDetector(
       doubleTapMs,
       () => callbacks.onAssistantPress(),
-      () => callbacks.onAssistantDoubleTap(),
+      () => callbacks.onAssistantDoubleTap()
     );
     const ok = globalShortcut.register(assistantKey, handleAssistant);
     if (!ok) {
@@ -129,8 +119,10 @@ const createShortcutManager = (callbacks) => {
 const log = createDesktopLogger("hold-key");
 const noopDetector = {
   start: () => log.debug("Hold-key detector disabled (stub)"),
-  stop: () => {},
-  updateConfig: () => {},
+  stop: () => {
+  },
+  updateConfig: () => {
+  }
 };
 const createHoldKeyDetector = (_config, _callbacks) => {
   return noopDetector;
@@ -138,7 +130,7 @@ const createHoldKeyDetector = (_config, _callbacks) => {
 let state = {
   active: false,
   meetingId: null,
-  startedAt: null,
+  startedAt: null
 };
 function createMeetingManager(options) {
   const { onMeetingStart, onMeetingStop } = options;
@@ -150,7 +142,7 @@ function createMeetingManager(options) {
       state = {
         active: true,
         meetingId,
-        startedAt: Date.now(),
+        startedAt: Date.now()
       };
       onMeetingStart(meetingId);
     },
@@ -160,7 +152,7 @@ function createMeetingManager(options) {
       state = {
         active: false,
         meetingId: null,
-        startedAt: null,
+        startedAt: null
       };
       if (meetingId) onMeetingStop(meetingId);
     },
@@ -170,7 +162,7 @@ function createMeetingManager(options) {
     getPersistedState() {
       if (!state.active) return null;
       return { ...state };
-    },
+    }
   };
 }
 const PILL_WIDTH = 400;
@@ -184,25 +176,24 @@ let holdDetector = null;
 let meetingMgr = null;
 let registeredMeetingAccelerator = null;
 const WEB_URL = process.env["BASICOS_URL"] ?? "http://localhost:5173";
-const API_URL =
-  process.env["BASICOS_API_URL"] ??
-  process.env["VITE_API_URL"] ??
-  "http://localhost:3001";
+const API_URL = process.env["BASICOS_API_URL"] ?? process.env["VITE_API_URL"] ?? "http://localhost:3001";
 const ALLOWED_PROXY_PATHS = /* @__PURE__ */ new Set([
   "/v1/audio/transcriptions",
   "/v1/audio/speech",
-  "/stream/assistant",
+  "/stream/assistant"
 ]);
 const getAllowedOrigins = () => {
   const origins = /* @__PURE__ */ new Set();
   try {
     origins.add(new URL(WEB_URL).origin);
-  } catch {}
+  } catch {
+  }
   const rendererUrl = process.env["ELECTRON_RENDERER_URL"];
   if (rendererUrl) {
     try {
       origins.add(new URL(rendererUrl).origin);
-    } catch {}
+    } catch {
+    }
   }
   return origins;
 };
@@ -224,7 +215,7 @@ const resolveAllowedMainUrl = (urlOrPath) => {
 };
 const getOverlayStatus = () => ({
   visible: !!overlayWindow?.isVisible(),
-  active: overlayActive,
+  active: overlayActive
 });
 const broadcastOverlayStatus = () => {
   const status = getOverlayStatus();
@@ -251,7 +242,7 @@ const detectNotch = () => {
     hasNotch: false,
     notchHeight: 0,
     menuBarHeight: menuBarHeight > 0 ? menuBarHeight : 25,
-    windowWidth: PILL_WIDTH,
+    windowWidth: PILL_WIDTH
   };
 };
 function createMainWindow() {
@@ -268,8 +259,8 @@ function createMainWindow() {
       preload: path.join(__dirname, "../preload/index.mjs"),
       sandbox: true,
       contextIsolation: true,
-      nodeIntegration: false,
-    },
+      nodeIntegration: false
+    }
   });
   mainWindow.on("ready-to-show", () => {
     mainWindow?.show();
@@ -312,16 +303,13 @@ function createOverlayWindow() {
       preload: path.join(__dirname, "../preload/index.mjs"),
       sandbox: true,
       contextIsolation: true,
-      nodeIntegration: false,
+      nodeIntegration: false
     },
     hasShadow: false,
-    backgroundColor: "#00000000",
+    backgroundColor: "#00000000"
   });
   overlayWindow.setAlwaysOnTop(true, "screen-saver");
-  const overlayUrl =
-    is.dev && process.env["ELECTRON_RENDERER_URL"]
-      ? `${process.env["ELECTRON_RENDERER_URL"].replace(/\/$/, "")}/overlay.html`
-      : path.join(__dirname, "../renderer/overlay.html");
+  const overlayUrl = is.dev && process.env["ELECTRON_RENDERER_URL"] ? `${process.env["ELECTRON_RENDERER_URL"].replace(/\/$/, "")}/overlay.html` : path.join(__dirname, "../renderer/overlay.html");
   if (is.dev && overlayUrl.startsWith("http")) {
     overlayWindow.loadURL(overlayUrl);
   } else {
@@ -338,7 +326,8 @@ function createOverlayWindow() {
       } else if (target.protocol === "http:" || target.protocol === "https:") {
         shell.openExternal(url).catch(() => void 0);
       }
-    } catch {}
+    } catch {
+    }
     return { action: "deny" };
   });
   overlayWindow.setIgnoreMouseEvents(true, { forward: true });
@@ -356,31 +345,37 @@ function createOverlayWindow() {
 }
 ipcMain.handle("get-api-url", () => API_URL);
 ipcMain.handle("get-overlay-settings", () => getOverlaySettings());
-ipcMain.handle("update-overlay-settings", (_event, partial) => {
-  const updated = setOverlaySettings(partial);
-  if (shortcutMgr) {
-    shortcutMgr.registerAll(
-      updated.shortcuts.assistantToggle,
-      updated.behavior.doubleTapWindowMs,
+ipcMain.handle(
+  "update-overlay-settings",
+  (_event, partial) => {
+    const updated = setOverlaySettings(
+      partial
     );
+    if (shortcutMgr) {
+      shortcutMgr.registerAll(
+        updated.shortcuts.assistantToggle,
+        updated.behavior.doubleTapWindowMs
+      );
+    }
+    if (registeredMeetingAccelerator) {
+      globalShortcut.unregister(registeredMeetingAccelerator);
+      registeredMeetingAccelerator = null;
+    }
+    globalShortcut.register(
+      updated.shortcuts.meetingToggle,
+      () => overlayWindow?.webContents.send("meeting-toggle")
+    );
+    registeredMeetingAccelerator = updated.shortcuts.meetingToggle;
+    if (holdDetector) {
+      holdDetector.updateConfig({
+        accelerator: updated.shortcuts.dictationHoldKey,
+        holdThresholdMs: updated.behavior.holdThresholdMs
+      });
+    }
+    overlayWindow?.webContents.send("settings-changed", updated);
+    return updated;
   }
-  if (registeredMeetingAccelerator) {
-    globalShortcut.unregister(registeredMeetingAccelerator);
-    registeredMeetingAccelerator = null;
-  }
-  globalShortcut.register(updated.shortcuts.meetingToggle, () =>
-    overlayWindow?.webContents.send("meeting-toggle"),
-  );
-  registeredMeetingAccelerator = updated.shortcuts.meetingToggle;
-  if (holdDetector) {
-    holdDetector.updateConfig({
-      accelerator: updated.shortcuts.dictationHoldKey,
-      holdThresholdMs: updated.behavior.holdThresholdMs,
-    });
-  }
-  overlayWindow?.webContents.send("settings-changed", updated);
-  return updated;
-});
+);
 ipcMain.on("set-ignore-mouse", (_event, ignore) => {
   if (ignore) {
     overlayWindow?.setIgnoreMouseEvents(true, { forward: true });
@@ -401,66 +396,66 @@ ipcMain.on("navigate-main", (_event, urlOrPath) => {
     }
   }
 });
-ipcMain.handle("proxy-overlay-request", async (_event, req) => {
-  const method = (req.method ?? "GET").toUpperCase();
-  const pathName = req.path?.trim();
-  if (!pathName || !ALLOWED_PROXY_PATHS.has(pathName)) {
+ipcMain.handle(
+  "proxy-overlay-request",
+  async (_event, req) => {
+    const method = (req.method ?? "GET").toUpperCase();
+    const pathName = req.path?.trim();
+    if (!pathName || !ALLOWED_PROXY_PATHS.has(pathName)) {
+      return {
+        ok: false,
+        status: 400,
+        statusText: "Bad request",
+        headers: {},
+        body: ""
+      };
+    }
+    if (!["GET", "POST"].includes(method)) {
+      return {
+        ok: false,
+        status: 405,
+        statusText: "Method not allowed",
+        headers: {},
+        body: ""
+      };
+    }
+    const cookies = await session.defaultSession.cookies.get({
+      name: "better-auth.session_token"
+    });
+    const token = cookies[0]?.value;
+    if (!token) {
+      return {
+        ok: false,
+        status: 401,
+        statusText: "Unauthorized",
+        headers: {},
+        body: ""
+      };
+    }
+    const headers = new Headers(req.headers ?? {});
+    headers.set("Authorization", `Bearer ${token}`);
+    const res = await fetch(`${API_URL}${pathName}`, {
+      method,
+      headers,
+      body: req.body
+    });
+    const contentType = res.headers.get("content-type") ?? "";
+    const isBinary = pathName === "/v1/audio/speech" || contentType.startsWith("audio/");
+    const textBody = isBinary ? Buffer.from(await res.arrayBuffer()).toString("base64") : await res.text();
+    const outHeaders = {};
+    res.headers.forEach((value, key) => {
+      outHeaders[key] = value;
+    });
     return {
-      ok: false,
-      status: 400,
-      statusText: "Bad request",
-      headers: {},
-      body: "",
+      ok: res.ok,
+      status: res.status,
+      statusText: res.statusText,
+      headers: outHeaders,
+      body: textBody,
+      encoding: isBinary ? "base64" : "text"
     };
   }
-  if (!["GET", "POST"].includes(method)) {
-    return {
-      ok: false,
-      status: 405,
-      statusText: "Method not allowed",
-      headers: {},
-      body: "",
-    };
-  }
-  const cookies = await session.defaultSession.cookies.get({
-    name: "better-auth.session_token",
-  });
-  const token = cookies[0]?.value;
-  if (!token) {
-    return {
-      ok: false,
-      status: 401,
-      statusText: "Unauthorized",
-      headers: {},
-      body: "",
-    };
-  }
-  const headers = new Headers(req.headers ?? {});
-  headers.set("Authorization", `Bearer ${token}`);
-  const res = await fetch(`${API_URL}${pathName}`, {
-    method,
-    headers,
-    body: req.body,
-  });
-  const contentType = res.headers.get("content-type") ?? "";
-  const isBinary =
-    pathName === "/v1/audio/speech" || contentType.startsWith("audio/");
-  const textBody = isBinary
-    ? Buffer.from(await res.arrayBuffer()).toString("base64")
-    : await res.text();
-  const outHeaders = {};
-  res.headers.forEach((value, key) => {
-    outHeaders[key] = value;
-  });
-  return {
-    ok: res.ok,
-    status: res.status,
-    statusText: res.statusText,
-    headers: outHeaders,
-    body: textBody,
-    encoding: isBinary ? "base64" : "text",
-  };
-});
+);
 ipcMain.handle("inject-text", (_event, text) => {
   return new Promise((resolve) => {
     clipboard.writeText(text);
@@ -468,14 +463,14 @@ ipcMain.handle("inject-text", (_event, text) => {
       setTimeout(() => {
         exec(
           `osascript -e 'tell application "System Events" to keystroke "v" using {command down}'`,
-          () => setTimeout(resolve, 200),
+          () => setTimeout(resolve, 200)
         );
       }, 50);
     } else if (process.platform === "win32") {
       setTimeout(() => {
         exec(
           `powershell -command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')"`,
-          () => setTimeout(resolve, 200),
+          () => setTimeout(resolve, 200)
         );
       }, 50);
     } else {
@@ -487,7 +482,7 @@ ipcMain.handle("start-meeting", async () => {
   if (!meetingMgr) return;
   const apiUrl = process.env["BASICOS_API_URL"] ?? "http://localhost:3001";
   const cookies = await session.defaultSession.cookies.get({
-    name: "better-auth.session_token",
+    name: "better-auth.session_token"
   });
   const token = cookies[0]?.value;
   if (!token) throw new Error("No session token");
@@ -499,9 +494,7 @@ ipcMain.handle("stop-meeting", async () => {
   await meetingMgr.stop(apiUrl);
 });
 ipcMain.handle("meeting-state", () => {
-  return meetingMgr
-    ? meetingMgr.getState()
-    : { active: false, meetingId: null, startedAt: null };
+  return meetingMgr ? meetingMgr.getState() : { active: false, meetingId: null, startedAt: null };
 });
 ipcMain.handle("get-persisted-meeting", () => {
   return meetingMgr?.getPersistedState() ?? null;
@@ -545,7 +538,7 @@ app.whenReady().then(() => {
     },
     onMeetingStop: (meetingId) => {
       overlayWindow?.webContents.send("meeting-stopped", meetingId);
-    },
+    }
   });
   shortcutMgr = createShortcutManager({
     onAssistantPress: () => {
@@ -563,16 +556,18 @@ app.whenReady().then(() => {
       } else {
         activateOverlay("continuous");
       }
-    },
+    }
   });
-  holdDetector = createHoldKeyDetector({
-    accelerator: getOverlaySettings().shortcuts.dictationHoldKey,
-    holdThresholdMs: getOverlaySettings().behavior.holdThresholdMs,
-  });
+  holdDetector = createHoldKeyDetector(
+    {
+      accelerator: getOverlaySettings().shortcuts.dictationHoldKey,
+      holdThresholdMs: getOverlaySettings().behavior.holdThresholdMs
+    }
+  );
   const settings = getOverlaySettings();
   shortcutMgr.registerAll(
     settings.shortcuts.assistantToggle,
-    settings.behavior.doubleTapWindowMs,
+    settings.behavior.doubleTapWindowMs
   );
   holdDetector.start();
   registerMeetingShortcut(settings.shortcuts.meetingToggle);
