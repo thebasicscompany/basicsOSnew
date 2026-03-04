@@ -2,10 +2,10 @@
   <img src="./public/logos/basicos-wordmark-basics-white.png" width="220" alt="BasicsOS" />
 </p>
 
-<h3 align="center">Open-Source CRM Hub for Modern Teams</h3>
+<h3 align="center">Open-Source CRM Desktop App for Modern Teams</h3>
 
 <p align="center">
-  Contacts, companies, deals, tasks, notes, AI chat, automations, and desktop support in one platform.<br/>
+  Contacts, companies, deals, tasks, notes, AI chat, and automations in one desktop app.<br/>
   <strong>Open-source core. Commercial services available.</strong>
 </p>
 
@@ -26,7 +26,7 @@
 
 ## What is BasicsOS?
 
-BasicsOS is a CRM hub built with React, Vite, and a Node/Hono REST API. It supports configurable CRM objects, custom fields, generic list/detail views, workflow automations, and AI-assisted operations.
+BasicsOS is an Electron-first CRM desktop app built with React, Vite, and a Node/Hono REST API. It supports configurable CRM objects, custom fields, generic list/detail views, workflow automations, and AI-assisted operations.
 
 This repository is the open-source codebase. Commercial offerings may include hosted infrastructure, support SLAs, and managed services.
 
@@ -52,7 +52,7 @@ Add product visuals here when ready.
 - Built-in AI chat and streaming assistant
 - Workflow automation builder (email, AI, CRM, Slack, Gmail)
 - REST API server with Hono + Drizzle + PostgreSQL
-- Optional Electron desktop app
+- Electron desktop app experience
 
 ---
 
@@ -104,13 +104,13 @@ pnpm db:seed
 cd ../..
 ```
 
-### 4. Run frontend + API
+### 4. Run the desktop app + API
 
 ```sh
-pnpm run dev:rest
+pnpm run dev:all
 ```
 
-Open `http://localhost:5173` and log in with:
+The Electron app will open. Log in with:
 
 - Email: `admin@example.com`
 - Password: `admin123`
@@ -151,10 +151,11 @@ src/
 ## Common Commands
 
 ```sh
-pnpm run dev:rest      # frontend + API (recommended)
-pnpm run dev           # frontend only
+pnpm run dev:all       # desktop app + API (recommended)
+pnpm run dev:electron  # Electron only
 pnpm run dev:server    # API only
-pnpm run dev:all       # API + Electron
+pnpm run dev:rest      # web frontend + API (debug/alternate workflow)
+pnpm run dev           # web frontend only
 pnpm test
 pnpm run typecheck
 pnpm run lint
@@ -177,7 +178,7 @@ pnpm db:studio
 ## Troubleshooting
 
 - Ensure Docker is running and Postgres container is healthy.
-- Confirm ports are free: `5173` (frontend), `3001` (API), `5435` (Postgres).
+- Confirm ports are free: `3001` (API), `5435` (Postgres), and `5173` if using web debug mode.
 - If auth fails, verify `BETTER_AUTH_SECRET` and `BETTER_AUTH_URL` in `packages/server/.env`.
 
 ---

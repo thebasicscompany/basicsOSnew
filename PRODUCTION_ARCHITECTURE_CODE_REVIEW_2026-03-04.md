@@ -134,6 +134,37 @@ Readiness assessment (today):
   - No formal deployment topology or zero-downtime migration strategy documented.
   - No explicit background worker lifecycle orchestration.
   - Cross-service token design currently expands browser attack surface.
+  - Several route and UI files are monolithic and should be decomposed before new feature growth.
+
+## Decomposition Plan (Do This First)
+
+### Why first
+- Current route files bundle transport concerns, validation, business logic, and persistence concerns in the same modules.
+- This raises regression risk for production hardening work (auth, rate limits, payload controls), because changes have high blast radius.
+
+### Priority decomposition targets
+- Server routes:
+  - `packages/server/src/routes/gateway-chat.ts` (split into `schemas`, `tool-defs`, `tool-executors`, `thread-store`, `orchestrator`, `route`).
+  - `packages/server/src/routes/views.ts` (split by subresource: `views`, `columns`, `sorts`, `filters`).
+  - `packages/server/src/routes/auth.ts` (split into `bootstrap`, `profile`, `org`, `invites`, `settings`).
+- Server CRM handlers:
+  - Extract shared session/org/permission resolution into one middleware/helper to remove duplication in create/update/list/delete handlers.
+  - Extract embedding/event side effects from CRUD handlers into post-write domain services.
+- Frontend:
+  - `src/components/ai-elements/prompt-input.tsx` (split provider/hooks/attachments/presentation).
+  - `src/components/pages/SettingsPage.tsx` (split into account/org/security/connections modules).
+
+### Target route organization
+- `routes/*` should only handle HTTP concerns (parsing, status codes, response shape).
+- `services/*` should own business orchestration.
+- `repositories/*` (or `data-access/*`) should own Drizzle query composition.
+- `schemas/*` should own zod contracts and DTO mapping.
+
+### Acceptance criteria for decomposition phase
+- No route module > 250-300 LOC unless justified.
+- Shared authz/tenant resolution logic reused across CRM/view/auth routes.
+- Existing tests still pass; add focused tests around extracted services.
+- No external API behavior change during decomposition (pure refactor contract).
 
 ## Validation Performed
 - `cmd /c pnpm run -s typecheck`: passed.
@@ -143,6 +174,7 @@ Readiness assessment (today):
 ## Production Readiness Checklist
 
 ### Must-fix before production
+- [ ] Complete decomposition phase for monolithic route/UI modules (above), with no API contract changes.
 - [ ] Replace localhost-only auth/CORS with env allowlist.
 - [ ] Remove browser exposure of Better Auth session token (`/api/gateway-token` pattern).
 - [ ] Implement distributed rate limiting with trusted proxy handling.
@@ -157,8 +189,9 @@ Readiness assessment (today):
 - [ ] Expand test suite to include integration/E2E for critical user journeys.
 
 ## Suggested Remediation Order (Fastest Risk Burn-down)
-1. Auth/CORS + session-token exposure redesign.
-2. Rate limit + payload-size protections.
-3. Signup race condition fix + DB invariants.
-4. CI gates + lint cleanup.
-5. Shutdown/observability + coverage expansion.
+1. Decomposition phase for monolithic route/UI modules (stabilize change surface first).
+2. Auth/CORS + session-token exposure redesign.
+3. Rate limit + payload-size protections.
+4. Signup race condition fix + DB invariants.
+5. CI gates + lint cleanup.
+6. Shutdown/observability + coverage expansion.
