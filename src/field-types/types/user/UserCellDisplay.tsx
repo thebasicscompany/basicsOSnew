@@ -1,4 +1,4 @@
-import type { CellDisplayProps } from "../../types";
+import type { CellDisplayProps } from "@/field-types/types";
 import { cn } from "@/lib/utils";
 
 interface UserValue {

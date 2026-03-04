@@ -1,6 +1,6 @@
 import { CheckIcon, CaretDownIcon, XIcon } from "@phosphor-icons/react";
 import { useState } from "react";
-import type { FormInputProps, SelectOption } from "../../types";
+import type { FormInputProps, SelectOption } from "@/field-types/types";
 import {
   Popover,
   PopoverTrigger,
@@ -13,7 +13,7 @@ import {
   CommandEmpty,
   CommandItem,
 } from "@/components/ui/command";
-import { getColorClasses, getColorByHash } from "../../colors";
+import { getColorClasses, getColorByHash } from "@/field-types/colors";
 import { cn } from "@/lib/utils";
 export function MultiSelectFormInput({
   value,

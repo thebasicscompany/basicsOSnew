@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import type { CellEditorProps } from "../../types";
+import type { CellEditorProps } from "@/field-types/types";
 
 export function CheckboxCellEditor({ value, onSave }: CellEditorProps) {
   const checked = value === true || value === 1 || value === "true";

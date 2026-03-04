@@ -1,4 +1,4 @@
-import { synthesizeSpeech } from "../api";
+import { synthesizeSpeech } from "@/overlay/api";
 
 let currentAudio: HTMLAudioElement | null = null;
 

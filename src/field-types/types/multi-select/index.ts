@@ -3,7 +3,7 @@ import type {
   FieldTypeDefinition,
   CalculationType,
   SelectOption,
-} from "../../types";
+} from "@/field-types/types";
 import { MultiSelectCellDisplay } from "./MultiSelectCellDisplay";
 import { MultiSelectCellEditor } from "./MultiSelectCellEditor";
 import { MultiSelectFormInput } from "./MultiSelectFormInput";

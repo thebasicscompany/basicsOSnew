@@ -8,8 +8,8 @@ import {
 } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { XIcon } from "@phosphor-icons/react";
-import type { OverlaySettings, NotchInfo } from "../shared-overlay/types";
-import { FLASH_SHORT_MS } from "../shared-overlay/constants";
+import type { OverlaySettings, NotchInfo } from "@/shared-overlay/types";
+import { FLASH_SHORT_MS } from "@/shared-overlay/constants";
 import { setIgnoreMouse } from "./lib/ipc";
 import { speak, cancel as cancelTTS } from "./lib/tts";
 import {

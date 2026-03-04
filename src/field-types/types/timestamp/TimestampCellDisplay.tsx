@@ -1,4 +1,4 @@
-import type { CellDisplayProps } from "../../types";
+import type { CellDisplayProps } from "@/field-types/types";
 
 function timeAgo(date: Date): string {
   const now = Date.now();

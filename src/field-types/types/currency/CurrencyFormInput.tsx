@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { FormInputProps } from "../../types";
+import type { FormInputProps } from "@/field-types/types";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 

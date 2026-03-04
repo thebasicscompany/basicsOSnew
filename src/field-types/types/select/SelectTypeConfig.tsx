@@ -1,12 +1,12 @@
 import { PlusIcon, XIcon } from "@phosphor-icons/react";
 import { useState } from "react";
-import type { TypeConfigProps, SelectOption } from "../../types";
+import type { TypeConfigProps, SelectOption } from "@/field-types/types";
 import { Input } from "@/components/ui/input";
 import {
   getColorClasses,
   getNextAvailableColor,
   TAG_COLOR_PALETTE,
-} from "../../colors";
+} from "@/field-types/colors";
 import { cn } from "@/lib/utils";
 export function SelectTypeConfig({ config, onChange }: TypeConfigProps) {
   const [newLabel, setNewLabel] = useState("");

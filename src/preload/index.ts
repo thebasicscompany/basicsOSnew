@@ -4,7 +4,7 @@ import type {
   ActivationMode,
   OverlaySettings,
   BrandingInfo,
-} from "../shared-overlay/types";
+} from "@/shared-overlay/types";
 
 const overlayAPI = {
   onActivate: (cb: (mode: ActivationMode) => void) => {

@@ -1,5 +1,5 @@
 import { UserIcon } from "@phosphor-icons/react";
-import type { FieldTypeDefinition, CalculationType } from "../../types";
+import type { FieldTypeDefinition, CalculationType } from "@/field-types/types";
 import { UserCellDisplay } from "./UserCellDisplay";
 import { UserCellEditor } from "./UserCellEditor";
 

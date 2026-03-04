@@ -1,5 +1,5 @@
 import { MapPinIcon } from "@phosphor-icons/react";
-import type { CellDisplayProps } from "../../types";
+import type { CellDisplayProps } from "@/field-types/types";
 interface LocationValue {
   city?: string;
   state?: string;

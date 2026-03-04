@@ -2,7 +2,7 @@
 // Stub implementation: hold-to-talk disabled to avoid native deps on Windows.
 // To enable: add uiohook-napi dep and implement with uiohook.keyDown/keyUp.
 
-import { createDesktopLogger } from "../shared-overlay/logger.js";
+import { createDesktopLogger } from "@/shared-overlay/logger.js";
 
 const log = createDesktopLogger("hold-key");
 

@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import { API_STREAM_TIMEOUT_MS } from "../../shared-overlay/constants";
-import { streamAssistant } from "../api";
+import { API_STREAM_TIMEOUT_MS } from "@/shared-overlay/constants";
+import { streamAssistant } from "@/overlay/api";
 import { createOverlayLogger } from "./overlay-logger";
 import { detectCommand } from "./voice-commands";
 import type { PillAction, PillState } from "./notch-pill-state";

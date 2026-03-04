@@ -1,6 +1,6 @@
 import { CheckIcon, CaretDownIcon } from "@phosphor-icons/react";
 import { useState } from "react";
-import type { FormInputProps, StatusOption } from "../../types";
+import type { FormInputProps, StatusOption } from "@/field-types/types";
 import {
   Popover,
   PopoverTrigger,
@@ -13,7 +13,7 @@ import {
   CommandEmpty,
   CommandItem,
 } from "@/components/ui/command";
-import { STATUS_DOT_COLORS } from "../../colors";
+import { STATUS_DOT_COLORS } from "@/field-types/colors";
 import { cn } from "@/lib/utils";
 export function StatusFormInput({
   value,

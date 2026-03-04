@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import type { DetailEditorProps } from "../../types";
+import type { DetailEditorProps } from "@/field-types/types";
 import { Input } from "@/components/ui/input";
 
 export function TextDetailEditor({

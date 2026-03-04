@@ -1,5 +1,5 @@
 import { ClockIcon } from "@phosphor-icons/react";
-import type { FieldTypeDefinition, CalculationType } from "../../types";
+import type { FieldTypeDefinition, CalculationType } from "@/field-types/types";
 import { TimestampCellDisplay } from "./TimestampCellDisplay";
 import { TimestampCellEditor } from "./TimestampCellEditor";
 import { TimestampFormInput } from "./TimestampFormInput";

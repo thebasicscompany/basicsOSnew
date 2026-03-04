@@ -3,7 +3,7 @@ import type {
   FieldTypeDefinition,
   CalculationType,
   StatusOption,
-} from "../../types";
+} from "@/field-types/types";
 import { StatusCellDisplay } from "./StatusCellDisplay";
 import { StatusCellEditor } from "./StatusCellEditor";
 import { StatusFormInput } from "./StatusFormInput";

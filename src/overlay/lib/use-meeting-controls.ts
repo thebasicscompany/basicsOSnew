@@ -1,8 +1,8 @@
 import { useCallback } from "react";
-import { FLASH_MEDIUM_MS, FLASH_LONG_MS } from "../../shared-overlay/constants";
+import { FLASH_MEDIUM_MS, FLASH_LONG_MS } from "@/shared-overlay/constants";
 import { createOverlayLogger } from "./overlay-logger";
 import type { PillAction, PillContext } from "./notch-pill-state";
-import type { MeetingRecorderActions } from "../meeting-recorder-stub";
+import type { MeetingRecorderActions } from "@/overlay/meeting-recorder-stub";
 
 const log = createOverlayLogger("meeting-controls");
 

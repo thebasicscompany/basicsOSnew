@@ -1,4 +1,4 @@
-import type { TypeConfigProps } from "../../types";
+import type { TypeConfigProps } from "@/field-types/types";
 
 export function LocationTypeConfig({ config, onChange }: TypeConfigProps) {
   return (

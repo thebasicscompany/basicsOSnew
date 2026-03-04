@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from "react";
-import type { CellEditorProps } from "../../types";
+import type { CellEditorProps } from "@/field-types/types";
 import {
   Popover,
   PopoverContent,

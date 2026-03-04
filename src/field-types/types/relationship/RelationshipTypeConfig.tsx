@@ -1,4 +1,4 @@
-import type { TypeConfigProps } from "../../types";
+import type { TypeConfigProps } from "@/field-types/types";
 import { Input } from "@/components/ui/input";
 
 export function RelationshipTypeConfig({ config, onChange }: TypeConfigProps) {

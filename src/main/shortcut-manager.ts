@@ -1,5 +1,5 @@
 import { globalShortcut } from "electron";
-import { createDesktopLogger } from "../shared-overlay/logger.js";
+import { createDesktopLogger } from "@/shared-overlay/logger.js";
 
 const log = createDesktopLogger("shortcuts");
 

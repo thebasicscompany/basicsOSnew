@@ -1,5 +1,5 @@
 import { AlignLeftIcon } from "@phosphor-icons/react";
-import type { FieldTypeDefinition, CalculationType } from "../../types";
+import type { FieldTypeDefinition, CalculationType } from "@/field-types/types";
 import { LongTextCellDisplay } from "./LongTextCellDisplay";
 import { LongTextCellEditor } from "./LongTextCellEditor";
 import { LongTextFormInput } from "./LongTextFormInput";

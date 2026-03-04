@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { MIN_TRANSCRIPTION_BLOB_SIZE } from "../../shared-overlay/constants";
+import { MIN_TRANSCRIPTION_BLOB_SIZE } from "@/shared-overlay/constants";
 import { createOverlayLogger } from "./overlay-logger";
-import { transcribeAudioBlob } from "../api";
+import { transcribeAudioBlob } from "@/overlay/api";
 
 const log = createOverlayLogger("whisper");
 

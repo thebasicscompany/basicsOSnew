@@ -1,5 +1,5 @@
-import type { CellDisplayProps, SelectOption } from "../../types";
-import { getColorClasses, getColorByHash } from "../../colors";
+import type { CellDisplayProps, SelectOption } from "@/field-types/types";
+import { getColorClasses, getColorByHash } from "@/field-types/colors";
 import { cn } from "@/lib/utils";
 
 export function SelectCellDisplay({ value, config }: CellDisplayProps) {

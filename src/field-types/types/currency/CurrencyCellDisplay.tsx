@@ -1,4 +1,4 @@
-import type { CellDisplayProps } from "../../types";
+import type { CellDisplayProps } from "@/field-types/types";
 
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",

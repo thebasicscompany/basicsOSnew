@@ -1,4 +1,4 @@
-import type { FormInputProps } from "../../types";
+import type { FormInputProps } from "@/field-types/types";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 

@@ -1,6 +1,6 @@
 import { CalendarIcon } from "@phosphor-icons/react";
 import { useState } from "react";
-import type { FormInputProps } from "../../types";
+import type { FormInputProps } from "@/field-types/types";
 import {
   Popover,
   PopoverTrigger,

@@ -1,4 +1,4 @@
-import type { CellDisplayProps } from "../../types";
+import type { CellDisplayProps } from "@/field-types/types";
 
 export function NumberCellDisplay({ value }: CellDisplayProps) {
   if (value == null || value === "") {

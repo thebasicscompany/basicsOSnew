@@ -1,6 +1,6 @@
 import { StarIcon } from "@phosphor-icons/react";
 import { useState } from "react";
-import type { CellEditorProps } from "../../types";
+import type { CellEditorProps } from "@/field-types/types";
 import { cn } from "@/lib/utils";
 
 export function RatingCellEditor({ value, config, onSave }: CellEditorProps) {

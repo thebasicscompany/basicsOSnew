@@ -1,5 +1,5 @@
 import { LinkIcon } from "@phosphor-icons/react";
-import type { FieldTypeDefinition, CalculationType } from "../../types";
+import type { FieldTypeDefinition, CalculationType } from "@/field-types/types";
 import { RelationshipCellDisplay } from "./RelationshipCellDisplay";
 import { RelationshipCellEditor } from "./RelationshipCellEditor";
 import { RelationshipTypeConfig } from "./RelationshipTypeConfig";

@@ -1,4 +1,4 @@
-import type { CellDisplayProps } from "../../types";
+import type { CellDisplayProps } from "@/field-types/types";
 
 const dateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",

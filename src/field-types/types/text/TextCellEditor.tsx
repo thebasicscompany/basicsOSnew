@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from "react";
-import type { CellEditorProps } from "../../types";
+import type { CellEditorProps } from "@/field-types/types";
 
 export function TextCellEditor({ value, onSave, onCancel }: CellEditorProps) {
   const [draft, setDraft] = useState<string>(value ?? "");

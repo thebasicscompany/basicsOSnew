@@ -1,5 +1,5 @@
 import { CurrencyDollarIcon } from "@phosphor-icons/react";
-import type { FieldTypeDefinition, CalculationType } from "../../types";
+import type { FieldTypeDefinition, CalculationType } from "@/field-types/types";
 import { CurrencyCellDisplay } from "./CurrencyCellDisplay";
 import { CurrencyCellEditor } from "./CurrencyCellEditor";
 import { CurrencyFormInput } from "./CurrencyFormInput";

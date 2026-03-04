@@ -1,8 +1,8 @@
 import { DotsThreeVerticalIcon, PlusIcon, XIcon } from "@phosphor-icons/react";
 import { useState } from "react";
-import type { TypeConfigProps, StatusOption } from "../../types";
+import type { TypeConfigProps, StatusOption } from "@/field-types/types";
 import { Input } from "@/components/ui/input";
-import { STATUS_DOT_COLORS } from "../../colors";
+import { STATUS_DOT_COLORS } from "@/field-types/colors";
 import { cn } from "@/lib/utils";
 export function StatusTypeConfig({ config, onChange }: TypeConfigProps) {
   const [newLabel, setNewLabel] = useState("");

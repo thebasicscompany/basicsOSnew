@@ -1,5 +1,5 @@
 import { PhoneIcon } from "@phosphor-icons/react";
-import type { FieldTypeDefinition, CalculationType } from "../../types";
+import type { FieldTypeDefinition, CalculationType } from "@/field-types/types";
 import { PhoneCellDisplay } from "./PhoneCellDisplay";
 import { PhoneCellEditor } from "./PhoneCellEditor";
 

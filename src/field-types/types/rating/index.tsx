@@ -1,5 +1,5 @@
 import { StarIcon } from "@phosphor-icons/react";
-import type { FieldTypeDefinition, CalculationType } from "../../types";
+import type { FieldTypeDefinition, CalculationType } from "@/field-types/types";
 import { RatingCellDisplay } from "./RatingCellDisplay";
 import { RatingCellEditor } from "./RatingCellEditor";
 

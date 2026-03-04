@@ -1,4 +1,4 @@
-import type { ActivationMode } from "../../shared-overlay/types";
+import type { ActivationMode } from "@/shared-overlay/types";
 
 export type PillState =
   | "idle"

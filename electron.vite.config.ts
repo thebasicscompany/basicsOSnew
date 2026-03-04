@@ -4,10 +4,18 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
-  main: {},
+  main: {
+    resolve: {
+      alias: { "@": path.resolve(__dirname, "src") },
+    },
+  },
   // With "type": "module", electron-vite outputs preload as index.mjs and rewrites
   // the main process preload path accordingly. Do not override to index.js.
-  preload: {},
+  preload: {
+    resolve: {
+      alias: { "@": path.resolve(__dirname, "src") },
+    },
+  },
   renderer: {
     build: {
       rollupOptions: {

@@ -3,7 +3,7 @@ import type {
   FieldTypeDefinition,
   CalculationType,
   SelectOption,
-} from "../../types";
+} from "@/field-types/types";
 import { SelectCellDisplay } from "./SelectCellDisplay";
 import { SelectCellEditor } from "./SelectCellEditor";
 import { SelectFormInput } from "./SelectFormInput";

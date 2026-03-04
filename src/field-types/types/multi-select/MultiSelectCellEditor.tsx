@@ -1,6 +1,6 @@
 import { CheckIcon } from "@phosphor-icons/react";
 import { useState } from "react";
-import type { CellEditorProps, SelectOption } from "../../types";
+import type { CellEditorProps, SelectOption } from "@/field-types/types";
 import {
   Popover,
   PopoverContent,
@@ -13,7 +13,7 @@ import {
   CommandEmpty,
   CommandItem,
 } from "@/components/ui/command";
-import { getColorClasses, getColorByHash } from "../../colors";
+import { getColorClasses, getColorByHash } from "@/field-types/colors";
 import { cn } from "@/lib/utils";
 export function MultiSelectCellEditor({
   value,

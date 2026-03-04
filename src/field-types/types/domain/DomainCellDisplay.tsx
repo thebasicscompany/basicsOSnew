@@ -1,5 +1,5 @@
 import { ArrowSquareOutIcon } from "@phosphor-icons/react";
-import type { CellDisplayProps } from "../../types";
+import type { CellDisplayProps } from "@/field-types/types";
 function ensureProtocol(url: string): string {
   if (/^https?:\/\//i.test(url)) return url;
   return `https://${url}`;

@@ -1,5 +1,5 @@
 import { TextAaIcon } from "@phosphor-icons/react";
-import type { FieldTypeDefinition, CalculationType } from "../../types";
+import type { FieldTypeDefinition, CalculationType } from "@/field-types/types";
 import { TextCellDisplay } from "./TextCellDisplay";
 import { TextCellEditor } from "./TextCellEditor";
 import { TextFormInput } from "./TextFormInput";

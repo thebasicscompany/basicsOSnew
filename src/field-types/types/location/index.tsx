@@ -1,5 +1,5 @@
 import { MapPinIcon } from "@phosphor-icons/react";
-import type { FieldTypeDefinition, CalculationType } from "../../types";
+import type { FieldTypeDefinition, CalculationType } from "@/field-types/types";
 import { LocationCellDisplay } from "./LocationCellDisplay";
 import { LocationCellEditor } from "./LocationCellEditor";
 import { LocationTypeConfig } from "./LocationTypeConfig";

@@ -1,8 +1,8 @@
 import { app } from "electron";
 import fs from "fs";
 import path from "path";
-import type { OverlaySettings } from "../shared-overlay/types.js";
-import { createDesktopLogger } from "../shared-overlay/logger.js";
+import type { OverlaySettings } from "@/shared-overlay/types.js";
+import { createDesktopLogger } from "@/shared-overlay/logger.js";
 
 const log = createDesktopLogger("settings");
 

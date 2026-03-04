@@ -16,8 +16,8 @@ import { createShortcutManager } from "./shortcut-manager";
 import type { ShortcutManager } from "./shortcut-manager";
 import { createHoldKeyDetector } from "./hold-key-detector";
 import { createMeetingManager } from "./meeting-manager-stub";
-import type { ActivationMode } from "../shared-overlay/types";
-import { PILL_WIDTH, PILL_HEIGHT } from "../shared-overlay/constants";
+import type { ActivationMode } from "@/shared-overlay/types";
+import { PILL_WIDTH, PILL_HEIGHT } from "@/shared-overlay/constants";
 
 let mainWindow: BrowserWindow | null = null;
 let overlayWindow: BrowserWindow | null = null;

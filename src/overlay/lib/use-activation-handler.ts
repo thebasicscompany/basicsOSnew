@@ -1,6 +1,6 @@
 import { useCallback } from "react";
-import type { ActivationMode } from "../../shared-overlay/types";
-import { FLASH_SHORT_MS } from "../../shared-overlay/constants";
+import type { ActivationMode } from "@/shared-overlay/types";
+import { FLASH_SHORT_MS } from "@/shared-overlay/constants";
 import type {
   PillAction,
   PillContext,

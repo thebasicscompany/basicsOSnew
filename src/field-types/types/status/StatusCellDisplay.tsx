@@ -1,5 +1,5 @@
-import type { CellDisplayProps, StatusOption } from "../../types";
-import { STATUS_DOT_COLORS } from "../../colors";
+import type { CellDisplayProps, StatusOption } from "@/field-types/types";
+import { STATUS_DOT_COLORS } from "@/field-types/colors";
 import { cn } from "@/lib/utils";
 
 export function StatusCellDisplay({ value, config }: CellDisplayProps) {

@@ -1,5 +1,5 @@
 import { CalendarIcon } from "@phosphor-icons/react";
-import type { FieldTypeDefinition, CalculationType } from "../../types";
+import type { FieldTypeDefinition, CalculationType } from "@/field-types/types";
 import { DateCellDisplay } from "./DateCellDisplay";
 import { DateCellEditor } from "./DateCellEditor";
 import { DateFormInput } from "./DateFormInput";
