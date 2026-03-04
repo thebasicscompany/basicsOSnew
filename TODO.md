@@ -14,6 +14,10 @@ This document summarizes dead/deprecated code, refactoring opportunities, incomp
 | **AGENTS.md** | Rewritten to match current architecture (ObjectRegistry, REST API, Hono, etc.) |
 | **Topological sort** | Extracted `packages/shared/src/graph.ts`; refactored automation-executor, WorkflowPropertiesSheet, useAvailableVariables |
 | **Entity picker** | Added `EntityPickerInput` in `packages/automations/src/EntityPicker.tsx`; CRM action fields (contactId, dealId) now have searchable contact/deal dropdown + variable picker |
+| **Editable page title** | Title slot API in `page-header.tsx`; automation builder uses editable Input in header; duplicate name input and Active switch removed |
+| **Hub rename** | Builder "Back" → "Hub"; sidebar "All" → "Hub"; HardDrivesIcon for Hub |
+| **update_deal CRM action** | Added `update_deal` to `crm-action.ts`; NodeConfigPanel + CrmActionNode config for deal, stage, name, amount |
+| **in-negociation typo** | Migration 0009, seed, status-badge, DealsKanbanBoard; SQL run in Docker (1 row updated) |
 
 ---
 
@@ -67,10 +71,9 @@ This document summarizes dead/deprecated code, refactoring opportunities, incomp
 - **Issue:** `ipcMain.on("ping", () => console.log("pong"));` — Electron IPC ping handler with console.log.
 - **Action:** Remove or replace with structured logging if needed.
 
-### 2.5 Typo in constants
-- **Location:** `src/components/deals/DealsKanbanBoard.tsx`
-- **Issue:** `"in-negociation"` should be `"in-negotiation"`.
-- **Action:** Fix typo and ensure DB/stage values are aligned (migration if necessary).
+### 2.5 Typo in constants ~~(in-negociation)~~ ✅ FIXED
+- **Location:** `src/components/deals/DealsKanbanBoard.tsx`, `status-badge.tsx`, seed, migration 0009
+- **Change:** `in-negociation` → `in-negotiation`; migration run in Docker.
 
 ---
 
@@ -104,19 +107,17 @@ This document summarizes dead/deprecated code, refactoring opportunities, incomp
 - **Issue:** `Navigate to="/settings#connections"` discards `?connected=slack` (or similar) from OAuth callback. Success toast in ConnectionsPage never runs.
 - **Action:** Preserve query params when redirecting, e.g. `to={`/settings${searchParams.toString() ? `?${searchParams}` : ''}#connections`}` and handle `connected` in Settings/ConnectionsContent.
 
-### 4.2 Connections route UX
-- **Issue:** Sidebar links to “Connections” but `/connections` immediately redirects to Settings. Users may expect a standalone Connections page.
-- **Action:** Either keep as redirect and add helper text in Settings, or expose a dedicated Connections page.
+### 4.2 Connections route UX ~~(obsolete)~~
+- **Note:** Connections lives in Settings, not sidebar. `/connections` redirects to Settings#connections. No change needed.
 
 ### 4.3 Kanban board loading
 - **Location:** `src/components/deals/DealsKanbanBoard.tsx`
 - **Issue:** Uses `Skeleton` when `isPending`, but layout/structure during loading could be clearer.
 - **Action:** Reuse or align with DataTable loading pattern for consistency.
 
-### 4.4 Automation node config: raw ID inputs
+### 4.4 Automation node config: raw ID inputs ~~(entity picker)~~ ✅ DONE
 - **Location:** `packages/automations/src/NodeConfigPanel.tsx`
-- **Issue:** CRM action fields (contactId, dealId) use VariableInput (variable picker exists) but no entity picker (dropdown to select contact/deal by name).
-- **Action:** Add VariablePicker integration and/or entity selector for these IDs to reduce errors.
+- **Change:** EntityPickerInput for contactId, dealId in CRM actions.
 
 ### 4.5 Empty states and error recovery
 - **Locations:** Various list/detail pages
@@ -160,6 +161,5 @@ This document summarizes dead/deprecated code, refactoring opportunities, incomp
 
 ### Remaining
 - `packages/shared/src/auth/canAccess.ts` — resolve FIXME
-- `src/components/deals/DealsKanbanBoard.tsx` + seed — fix typo (needs coordinated migration)
-- `packages/server/src/lib/automation-actions/crm-action.ts` — consider `update_deal`
-- `packages/automations/src/useAvailableVariables.ts` — add missing outputs
+- `packages/automations/src/useAvailableVariables.ts` — add missing outputs (slack_result, gmail_messages)
+- Various — eslint/ts suppressions; error-state retry buttons; Voice app; Chat file attachments
