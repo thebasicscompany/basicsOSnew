@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./public/logos/basicos-wordmark.png" width="220" alt="BasicsOS" />
+  <img src="./public/logos/basicos-wordmark-basics-white.png" width="220" alt="BasicsOS" />
 </p>
 
 <h3 align="center">Open-Source CRM Hub for Modern Teams</h3>
