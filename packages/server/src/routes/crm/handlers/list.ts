@@ -14,7 +14,7 @@ import {
 import {
   CRM_RESOURCES,
   TABLE_MAP,
-  hasCrmUserId,
+  hasOrganizationId,
   type Resource,
 } from "../constants.js";
 import {
@@ -22,6 +22,7 @@ import {
   buildGenericFilterCondition,
   type GenericFilter,
 } from "../utils.js";
+import { PERMISSIONS, getPermissionSetForUser } from "../../../lib/rbac.js";
 
 export function createListHandler(db: Db) {
   return async (c: Context) => {
@@ -36,9 +37,15 @@ export function createListHandler(db: Db) {
       .from(schema.crmUsers)
       .where(eq(schema.crmUsers.userId, session.user!.id))
       .limit(1);
-    const crmUserId = crmUserRows[0]?.id;
-    const orgId = crmUserRows[0]?.organizationId;
-    if (!crmUserId) return c.json({ error: "User not found in CRM" }, 404);
+    const crmUser = crmUserRows[0];
+    const crmUserId = crmUser?.id;
+    const orgId = crmUser?.organizationId;
+    if (!crmUserId || !crmUser) return c.json({ error: "User not found in CRM" }, 404);
+    if (!orgId) return c.json({ error: "Organization not found" }, 404);
+    const permissions = await getPermissionSetForUser(db, crmUser);
+    if (!permissions.has("*") && !permissions.has(PERMISSIONS.recordsRead)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
 
     const range = c.req.query("range");
     const sortParam = c.req.query("sort");
@@ -90,7 +97,7 @@ export function createListHandler(db: Db) {
     }
 
     if (resource === "companies_summary") {
-      const companyConds: SQL[] = [eq(schema.companies.crmUserId, crmUserId)];
+      const companyConds: SQL[] = [eq(schema.companies.organizationId, orgId)];
       if (q) {
         companyConds.push(
           or(
@@ -128,7 +135,7 @@ export function createListHandler(db: Db) {
     }
 
     if (resource === "contacts_summary") {
-      const contactConds: SQL[] = [eq(schema.contacts.crmUserId, crmUserId)];
+      const contactConds: SQL[] = [eq(schema.contacts.organizationId, orgId)];
       if (q) {
         contactConds.push(
           or(
@@ -176,12 +183,14 @@ export function createListHandler(db: Db) {
 
     const conditions: SQL[] = [];
     if (resource === "crm_users") {
-      if (orgId) conditions.push(eq(schema.crmUsers.organizationId, orgId));
-    } else if (hasCrmUserId(resource)) {
-      conditions.push(eq((table as typeof schema.companies).crmUserId, crmUserId));
+      conditions.push(eq(schema.crmUsers.organizationId, orgId));
+    } else if (hasOrganizationId(resource)) {
+      conditions.push(eq((table as typeof schema.companies).organizationId, orgId));
     }
 
     if (resource === "deals") {
+      const includeArchived = filter.include_archived === true;
+      if (!includeArchived) conditions.push(sql`${schema.deals.archivedAt} is null`);
       if (q) conditions.push(ilike(schema.deals.name, `%${q}%`));
       if (filter.stage) conditions.push(eq(schema.deals.stage, filter.stage as string));
       if (filter.category) conditions.push(eq(schema.deals.category, filter.category as string));

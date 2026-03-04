@@ -2,6 +2,7 @@ import type { Context } from "hono";
 import type { Db } from "../../../db/client.js";
 import * as schema from "../../../db/schema/index.js";
 import { eq, and } from "drizzle-orm";
+import { PERMISSIONS, getPermissionSetForUser } from "../../../lib/rbac.js";
 
 export function createMergeContactsHandler(db: Db) {
   return async (c: Context) => {
@@ -17,18 +18,24 @@ export function createMergeContactsHandler(db: Db) {
       .from(schema.crmUsers)
       .where(eq(schema.crmUsers.userId, session.user!.id))
       .limit(1);
-    const crmUserId = crmUserRows[0]?.id;
-    if (!crmUserId) return c.json({ error: "User not found in CRM" }, 404);
+    const crmUser = crmUserRows[0];
+    const orgId = crmUser?.organizationId;
+    if (!crmUser) return c.json({ error: "User not found in CRM" }, 404);
+    if (!orgId) return c.json({ error: "Organization not found" }, 404);
+    const permissions = await getPermissionSetForUser(db, crmUser);
+    if (!permissions.has("*") && !permissions.has(PERMISSIONS.recordsMerge)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
 
     const [loser] = await db
       .select()
       .from(schema.contacts)
-      .where(and(eq(schema.contacts.id, loserId), eq(schema.contacts.crmUserId, crmUserId)))
+      .where(and(eq(schema.contacts.id, loserId), eq(schema.contacts.organizationId, orgId)))
       .limit(1);
     const [winner] = await db
       .select()
       .from(schema.contacts)
-      .where(and(eq(schema.contacts.id, winnerId), eq(schema.contacts.crmUserId, crmUserId)))
+      .where(and(eq(schema.contacts.id, winnerId), eq(schema.contacts.organizationId, orgId)))
       .limit(1);
 
     if (!loser || !winner) return c.json({ error: "Contact not found" }, 404);
@@ -36,7 +43,7 @@ export function createMergeContactsHandler(db: Db) {
     await db.update(schema.tasks).set({ contactId: winnerId }).where(eq(schema.tasks.contactId, loserId));
     await db.update(schema.contactNotes).set({ contactId: winnerId }).where(eq(schema.contactNotes.contactId, loserId));
 
-    const allDeals = await db.select().from(schema.deals).where(eq(schema.deals.crmUserId, crmUserId));
+    const allDeals = await db.select().from(schema.deals).where(eq(schema.deals.organizationId, orgId));
     for (const deal of allDeals) {
       const ids = (deal.contactIds as number[]) ?? [];
       if (ids.includes(loserId)) {
@@ -46,7 +53,9 @@ export function createMergeContactsHandler(db: Db) {
       }
     }
 
-    await db.delete(schema.contacts).where(eq(schema.contacts.id, loserId));
+    await db
+      .delete(schema.contacts)
+      .where(and(eq(schema.contacts.id, loserId), eq(schema.contacts.organizationId, orgId)));
 
     return c.json({ id: winnerId });
   };

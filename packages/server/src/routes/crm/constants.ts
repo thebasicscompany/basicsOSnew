@@ -46,3 +46,17 @@ export function hasCrmUserId(resource: Resource): boolean {
     "automation_rules",
   ].includes(resource);
 }
+
+export function hasOrganizationId(resource: Resource): boolean {
+  return [
+    "contacts",
+    "companies",
+    "deals",
+    "contact_notes",
+    "deal_notes",
+    "tasks",
+    "crm_users",
+    "tags",
+    "automation_rules",
+  ].includes(resource);
+}

@@ -9,6 +9,7 @@ import { createGetOneHandler } from "./handlers/get-one.js";
 import { createCreateHandler } from "./handlers/create.js";
 import { createUpdateHandler } from "./handlers/update.js";
 import { createDeleteHandler } from "./handlers/delete.js";
+import { createRestoreHandler } from "./handlers/restore.js";
 
 type BetterAuthInstance = ReturnType<typeof createAuth>;
 
@@ -21,6 +22,7 @@ export function createCrmRoutes(db: Db, auth: BetterAuthInstance, env: Env) {
   app.get("/:resource", createListHandler(db));
   app.get("/:resource/:id", createGetOneHandler(db));
   app.post("/:resource", createCreateHandler(db, env));
+  app.post("/:resource/:id/restore", createRestoreHandler(db));
   app.put("/:resource/:id", createUpdateHandler(db, env));
   app.delete("/:resource/:id", createDeleteHandler(db));
 

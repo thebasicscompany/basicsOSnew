@@ -5,9 +5,10 @@ import { eq, and, sql, type SQL } from "drizzle-orm";
 import {
   CRM_RESOURCES,
   TABLE_MAP,
-  hasCrmUserId,
+  hasOrganizationId,
   type Resource,
 } from "../constants.js";
+import { PERMISSIONS, getPermissionSetForUser } from "../../../lib/rbac.js";
 
 export function createGetOneHandler(db: Db) {
   return async (c: Context) => {
@@ -24,9 +25,15 @@ export function createGetOneHandler(db: Db) {
       .from(schema.crmUsers)
       .where(eq(schema.crmUsers.userId, session.user!.id))
       .limit(1);
-    const crmUserId = crmUserRows[0]?.id;
-    const orgId = crmUserRows[0]?.organizationId;
-    if (!crmUserId) return c.json({ error: "User not found in CRM" }, 404);
+    const crmUser = crmUserRows[0];
+    const crmUserId = crmUser?.id;
+    const orgId = crmUser?.organizationId;
+    if (!crmUserId || !crmUser) return c.json({ error: "User not found in CRM" }, 404);
+    if (!orgId) return c.json({ error: "Organization not found" }, 404);
+    const permissions = await getPermissionSetForUser(db, crmUser);
+    if (!permissions.has("*") && !permissions.has(PERMISSIONS.recordsRead)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
 
     if (resource === "companies_summary") {
       const [row] = await db
@@ -39,7 +46,7 @@ export function createGetOneHandler(db: Db) {
         .from(schema.companies)
         .leftJoin(schema.deals, eq(schema.companies.id, schema.deals.companyId))
         .leftJoin(schema.contacts, eq(schema.companies.id, schema.contacts.companyId))
-        .where(and(eq(schema.companies.id, id as number), eq(schema.companies.crmUserId, crmUserId)))
+        .where(and(eq(schema.companies.id, id as number), eq(schema.companies.organizationId, orgId)))
         .groupBy(schema.companies.id)
         .limit(1);
       if (!row) return c.json({ error: "Not found" }, 404);
@@ -57,7 +64,7 @@ export function createGetOneHandler(db: Db) {
         .from(schema.contacts)
         .leftJoin(schema.tasks, eq(schema.contacts.id, schema.tasks.contactId))
         .leftJoin(schema.companies, eq(schema.contacts.companyId, schema.companies.id))
-        .where(and(eq(schema.contacts.id, id as number), eq(schema.contacts.crmUserId, crmUserId)))
+        .where(and(eq(schema.contacts.id, id as number), eq(schema.contacts.organizationId, orgId)))
         .groupBy(schema.contacts.id, schema.companies.name)
         .limit(1);
       if (!row) return c.json({ error: "Not found" }, 404);
@@ -70,9 +77,12 @@ export function createGetOneHandler(db: Db) {
     const idCol = (table as unknown as { id: typeof schema.contacts.id }).id;
     const conditions: SQL[] = [eq(idCol, id)];
     if (resource === "crm_users") {
-      if (orgId) conditions.push(eq(schema.crmUsers.organizationId, orgId));
-    } else if (hasCrmUserId(resource)) {
-      conditions.push(eq((table as typeof schema.companies).crmUserId, crmUserId));
+      conditions.push(eq(schema.crmUsers.organizationId, orgId));
+    } else if (hasOrganizationId(resource)) {
+      conditions.push(eq((table as typeof schema.companies).organizationId, orgId));
+    }
+    if (resource === "deals") {
+      conditions.push(sql`${schema.deals.archivedAt} is null`);
     }
 
     const [row] = await db.select().from(table).where(and(...conditions)).limit(1);

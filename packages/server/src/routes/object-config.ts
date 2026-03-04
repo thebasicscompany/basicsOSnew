@@ -6,6 +6,7 @@ import type { Env } from "../env.js";
 import type { createAuth } from "../auth.js";
 import * as schema from "../db/schema/index.js";
 import { eq, and, asc } from "drizzle-orm";
+import { PERMISSIONS, requirePermission } from "../lib/rbac.js";
 
 type BetterAuthInstance = ReturnType<typeof createAuth>;
 
@@ -18,22 +19,9 @@ export function createObjectConfigRoutes(
 
   app.use("*", authMiddleware(auth, db));
 
-  const getCrmUser = async (userId: string) => {
-    const [crmUser] = await db
-      .select()
-      .from(schema.crmUsers)
-      .where(eq(schema.crmUsers.userId, userId))
-      .limit(1);
-    return crmUser;
-  };
-
-  const requireAdmin = async (c: Context) => {
-    const session = c.get("session") as { user?: { id?: string } };
-    const userId = session?.user?.id;
-    if (!userId) return c.json({ error: "Unauthorized" }, 401);
-    const crmUser = await getCrmUser(userId);
-    if (!crmUser) return c.json({ error: "User not found in CRM" }, 404);
-    if (!crmUser.administrator) return c.json({ error: "Admin access required" }, 403);
+  const requireObjectConfigWrite = async (c: Context) => {
+    const authz = await requirePermission(c, db, PERMISSIONS.objectConfigWrite);
+    if (!authz.ok) return authz.response;
     return null;
   };
 
@@ -184,7 +172,7 @@ export function createObjectConfigRoutes(
   // PUT /:slug — Update object config (partial)
   app.put("/:slug", async (c) => {
     const slug = c.req.param("slug");
-    const adminError = await requireAdmin(c);
+    const adminError = await requireObjectConfigWrite(c);
     if (adminError) return adminError;
 
     try {
@@ -244,7 +232,7 @@ export function createObjectConfigRoutes(
   // POST /:slug/overrides — Create/update attribute override (upsert by column_name)
   app.post("/:slug/overrides", async (c) => {
     const slug = c.req.param("slug");
-    const adminError = await requireAdmin(c);
+    const adminError = await requireObjectConfigWrite(c);
     if (adminError) return adminError;
 
     try {

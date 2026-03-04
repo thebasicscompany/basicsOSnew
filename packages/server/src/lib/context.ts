@@ -8,19 +8,19 @@ import * as schema from "../db/schema/index.js";
  */
 export async function buildCrmSummary(
   db: Db,
-  crmUserId: number
+  organizationId: string
 ): Promise<string> {
   const [dealStats, overdueStats, recentContacts] = await Promise.all([
     db
       .select({ count: count(), total: sum(schema.deals.amount) })
       .from(schema.deals)
-      .where(and(eq(schema.deals.crmUserId, crmUserId), isNull(schema.deals.archivedAt))),
+      .where(and(eq(schema.deals.organizationId, organizationId), isNull(schema.deals.archivedAt))),
     db
       .select({ count: count() })
       .from(schema.tasks)
       .where(
         and(
-          eq(schema.tasks.crmUserId, crmUserId),
+          eq(schema.tasks.organizationId, organizationId),
           isNull(schema.tasks.doneDate),
           lt(schema.tasks.dueDate, new Date())
         )
@@ -28,7 +28,7 @@ export async function buildCrmSummary(
     db
       .select({ firstName: schema.contacts.firstName, lastName: schema.contacts.lastName })
       .from(schema.contacts)
-      .where(eq(schema.contacts.crmUserId, crmUserId))
+      .where(eq(schema.contacts.organizationId, organizationId))
       .orderBy(desc(schema.contacts.id))
       .limit(5),
   ]);
@@ -58,7 +58,7 @@ export async function retrieveRelevantContext(
   db: Db,
   gatewayUrl: string,
   apiKey: string,
-  crmUserId: number,
+  organizationId: string,
   query: string,
   limit = 5
 ): Promise<string | null> {
@@ -83,11 +83,13 @@ export async function retrieveRelevantContext(
     if (!embedding?.length) return null;
 
     const embeddingStr = `[${embedding.join(",")}]`;
-    const rows = await db.execute(
-      sql.raw(
-        `SELECT entity_type, chunk_text FROM match_context_embeddings(${crmUserId}, '${embeddingStr}'::vector, ${limit})`
-      )
-    );
+    const rows = await db.execute(sql`
+      SELECT entity_type, chunk_text
+      FROM context_embeddings
+      WHERE organization_id = ${organizationId}
+      ORDER BY embedding <=> ${embeddingStr}::vector
+      LIMIT ${limit}
+    `);
 
     const results = (
       Array.isArray(rows) ? rows : ((rows as { rows?: unknown[] }).rows ?? [])

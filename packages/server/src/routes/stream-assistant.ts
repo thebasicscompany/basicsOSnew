@@ -42,6 +42,7 @@ export function createStreamAssistantRoutes(
     const crmUserAuth = await resolveCrmUserWithApiKey(c, db);
     if (!crmUserAuth.ok) return crmUserAuth.response;
     const { crmUser, apiKey } = crmUserAuth.data;
+    if (!crmUser.organizationId) return c.json({ error: "Organization not found" }, 404);
 
     let body: { message?: string; history?: Array<{ role: string; content: string }> };
     try {
@@ -64,8 +65,8 @@ export function createStreamAssistantRoutes(
     }));
 
     const [crmSummary, ragContext] = await Promise.all([
-      buildCrmSummary(db, crmUser.id),
-      retrieveRelevantContext(db, env.BASICOS_API_URL, apiKey, crmUser.id, message),
+      buildCrmSummary(db, crmUser.organizationId),
+      retrieveRelevantContext(db, env.BASICOS_API_URL, apiKey, crmUser.organizationId, message),
     ]);
 
     let contextText = `## Your CRM\n${crmSummary}`;
@@ -153,6 +154,7 @@ export function createStreamAssistantRoutes(
         const result = await executeAssistantToolDrizzle(
           db,
           crmUser.id,
+          crmUser.organizationId,
           tc.function.name,
           args
         );

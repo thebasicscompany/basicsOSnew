@@ -4,7 +4,8 @@ import * as schema from "../../../db/schema/index.js";
 import { eq, and } from "drizzle-orm";
 import { getEntityType, deleteEntityEmbedding } from "../../../lib/embeddings.js";
 import { fireEvent } from "../../../lib/automation-engine.js";
-import { CRM_RESOURCES, TABLE_MAP, hasCrmUserId, type Resource } from "../constants.js";
+import { CRM_RESOURCES, TABLE_MAP, hasOrganizationId, type Resource } from "../constants.js";
+import { PERMISSIONS, getPermissionSetForUser } from "../../../lib/rbac.js";
 
 export function createDeleteHandler(db: Db) {
   return async (c: Context) => {
@@ -20,9 +21,16 @@ export function createDeleteHandler(db: Db) {
       .from(schema.crmUsers)
       .where(eq(schema.crmUsers.userId, session.user!.id))
       .limit(1);
-    const crmUserId = crmUserRows[0]?.id;
-    const orgId = crmUserRows[0]?.organizationId;
-    if (!crmUserId) return c.json({ error: "User not found in CRM" }, 404);
+    const crmUser = crmUserRows[0];
+    const crmUserId = crmUser?.id;
+    const orgId = crmUser?.organizationId;
+    if (!crmUserId || !crmUser) return c.json({ error: "User not found in CRM" }, 404);
+    if (!orgId) return c.json({ error: "Organization not found" }, 404);
+    const permissions = await getPermissionSetForUser(db, crmUser);
+    const canHardDelete =
+      permissions.has("*") || permissions.has(PERMISSIONS.recordsDeleteHard);
+    const canArchive =
+      permissions.has("*") || permissions.has(PERMISSIONS.recordsArchive);
 
     const table = TABLE_MAP[resource as Exclude<Resource, "companies_summary" | "contacts_summary">];
     if (!table) return c.json({ error: "Unknown resource" }, 404);
@@ -30,9 +38,23 @@ export function createDeleteHandler(db: Db) {
     const idCol = (table as unknown as { id: typeof schema.contacts.id }).id;
     const conditions = [eq(idCol, id)];
     if (resource === "crm_users") {
-      if (orgId) conditions.push(eq(schema.crmUsers.organizationId, orgId));
-    } else if (hasCrmUserId(resource)) {
-      conditions.push(eq((table as typeof schema.companies).crmUserId, crmUserId));
+      conditions.push(eq(schema.crmUsers.organizationId, orgId));
+    } else if (hasOrganizationId(resource)) {
+      conditions.push(eq((table as typeof schema.companies).organizationId, orgId));
+    }
+
+    // Non-admin users can only archive deals; hard delete is admin-only.
+    if (!canHardDelete) {
+      if (resource !== "deals" || !canArchive) {
+        return c.json({ error: "Forbidden" }, 403);
+      }
+      const [archived] = await db
+        .update(schema.deals)
+        .set({ archivedAt: new Date(), updatedAt: new Date() })
+        .where(and(eq(schema.deals.id, id), eq(schema.deals.organizationId, orgId)))
+        .returning();
+      if (!archived) return c.json({ error: "Not found" }, 404);
+      return c.json({ archived: true, record: archived });
     }
 
     const [deleted] = await db.delete(table).where(and(...conditions)).returning();

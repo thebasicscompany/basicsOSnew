@@ -19,3 +19,4 @@ export * from "./favicons_excluded_domains.js";
 export * from "./custom_field_defs.js";
 export * from "./object-config.js";
 export * from "./views.js";
+export * from "./rbac.js";

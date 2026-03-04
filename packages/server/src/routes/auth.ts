@@ -278,14 +278,33 @@ export function createAuthRoutes(
       return c.json({ error: "Signup failed" }, 400);
     }
 
-    await db.insert(schema.crmUsers).values({
+    const [createdCrmUser] = await db.insert(schema.crmUsers).values({
       firstName: first_name,
       lastName: last_name,
       email,
       userId: user.id,
       organizationId,
       administrator: isFirstUser,
-    });
+    }).returning({ id: schema.crmUsers.id, organizationId: schema.crmUsers.organizationId });
+
+    if (createdCrmUser?.organizationId) {
+      const roleKey = isFirstUser ? "org_admin" : "member";
+      const [role] = await db
+        .select({ id: schema.rbacRoles.id })
+        .from(schema.rbacRoles)
+        .where(eq(schema.rbacRoles.key, roleKey))
+        .limit(1);
+      if (role) {
+        await db
+          .insert(schema.rbacUserRoles)
+          .values({
+            crmUserId: createdCrmUser.id,
+            roleId: role.id,
+            organizationId: createdCrmUser.organizationId,
+          })
+          .onConflictDoNothing();
+      }
+    }
 
     if (!isFirstUser && invite_token?.trim()) {
       await db.delete(schema.invites).where(eq(schema.invites.token, invite_token.trim()));

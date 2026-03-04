@@ -4,7 +4,6 @@ import type { Context, Next } from "hono";
 import { createAuth } from "./auth.js";
 import type { Db } from "./db/client.js";
 import type { Env } from "./env.js";
-import { createAssistantRoutes } from "./routes/assistant.js";
 import { createAuthRoutes } from "./routes/auth.js";
 import { createAutomationRunsRoutes } from "./routes/automation-runs.js";
 import { createCrmRoutes } from "./routes/crm/index.js";
@@ -145,9 +144,6 @@ export function createApp(db: Db, env: Env) {
 
   // CRM REST API
   app.route("/api", createCrmRoutes(db, auth, env));
-
-  // Assistant
-  app.route("/assistant", createAssistantRoutes(db, auth, env));
 
   // Voice pill BFF — /v1/audio/* and /stream/assistant
   app.route("/v1/audio", createVoiceProxyRoutes(db, auth, env));

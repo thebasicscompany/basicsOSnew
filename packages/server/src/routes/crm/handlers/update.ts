@@ -12,10 +12,11 @@ import { fireEvent, reloadRule } from "../../../lib/automation-engine.js";
 import {
   CRM_RESOURCES,
   TABLE_MAP,
-  hasCrmUserId,
+  hasOrganizationId,
   type Resource,
 } from "../constants.js";
 import { snakeToCamel } from "../utils.js";
+import { PERMISSIONS, getPermissionSetForUser } from "../../../lib/rbac.js";
 
 export function createUpdateHandler(db: Db, env: Env) {
   return async (c: Context) => {
@@ -36,9 +37,18 @@ export function createUpdateHandler(db: Db, env: Env) {
       .from(schema.crmUsers)
       .where(eq(schema.crmUsers.userId, session.user!.id))
       .limit(1);
-    const crmUserId = crmUserRows[0]?.id;
-    const orgId = crmUserRows[0]?.organizationId;
-    if (!crmUserId) return c.json({ error: "User not found in CRM" }, 404);
+    const crmUser = crmUserRows[0];
+    const crmUserId = crmUser?.id;
+    const orgId = crmUser?.organizationId;
+    if (!crmUserId || !crmUser) return c.json({ error: "User not found in CRM" }, 404);
+    if (!orgId) return c.json({ error: "Organization not found" }, 404);
+    const permissions = await getPermissionSetForUser(db, crmUser);
+    if (!permissions.has("*") && !permissions.has(PERMISSIONS.recordsWrite)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+    if (resource === "crm_users" && !permissions.has("*")) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
 
     const rawBody = (await c.req.json()) as Record<string, unknown>;
     delete rawBody.id;
@@ -54,11 +64,10 @@ export function createUpdateHandler(db: Db, env: Env) {
     const idCol = (table as unknown as { id: typeof schema.contacts.id }).id;
     const conditions = [eq(idCol, id)];
     if (resource === "crm_users") {
-      if (orgId) conditions.push(eq(schema.crmUsers.organizationId, orgId));
-    } else if (hasCrmUserId(resource)) {
-      conditions.push(eq((table as typeof schema.companies).crmUserId, crmUserId));
+      conditions.push(eq(schema.crmUsers.organizationId, orgId));
+    } else if (hasOrganizationId(resource)) {
+      conditions.push(eq((table as typeof schema.companies).organizationId, orgId));
     }
-
     const [updated] = await db.update(table).set(body).where(and(...conditions)).returning();
     if (!updated) return c.json({ error: "Not found" }, 404);
 

@@ -69,6 +69,9 @@ export function createAssistantRoutes(db: Db, auth: BetterAuthInstance, env: Env
     }
 
     const crmUserInfo = { crmUserId: crmUser.id, apiKey: crmUser.basicsApiKey };
+    if (!crmUser.organizationId) {
+      return c.json({ error: "Organization not found" }, 404);
+    }
 
     const queryEmbedding = await embedQuery(
       env.BASICOS_API_URL,
@@ -164,6 +167,7 @@ ${contextText}`;
           const result = await executeAssistantToolDrizzle(
             db,
             crmUserInfo.crmUserId,
+            crmUser.organizationId,
             tc.function.name,
             args
           );
@@ -214,11 +218,10 @@ async function similaritySearch(
   limit: number
 ): Promise<{ entity_type: string; entity_id: number; chunk_text: string }[]> {
   const embeddingStr = `[${queryEmbedding.join(",")}]`;
-  const result = await db.execute(
-    sql.raw(
-      `select entity_type, entity_id, chunk_text from match_context_embeddings(${crmUserId}, '${embeddingStr}'::vector, ${limit})`
-    )
-  );
+  const result = await db.execute(sql`
+    select entity_type, entity_id, chunk_text
+    from match_context_embeddings(${crmUserId}, ${embeddingStr}::vector, ${limit})
+  `);
   const rows = Array.isArray(result) ? result : (result as { rows?: unknown[] }).rows ?? [];
   return rows as { entity_type: string; entity_id: number; chunk_text: string }[];
 }

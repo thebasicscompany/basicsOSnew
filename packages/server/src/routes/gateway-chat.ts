@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { and, desc, eq, ilike, or } from "drizzle-orm";
+import { and, desc, eq, ilike, isNull, or } from "drizzle-orm";
 import { z } from "zod";
 import { authMiddleware } from "../middleware/auth.js";
 import type { Db } from "../db/client.js";
@@ -426,6 +426,7 @@ async function persistMessage(
 async function executeValidatedTool(
   db: Db,
   crmUserId: number,
+  organizationId: string,
   toolName: string,
   rawArgs: Record<string, unknown>
 ): Promise<unknown> {
@@ -433,7 +434,7 @@ async function executeValidatedTool(
     const rows = await db
       .select({ id: schema.contacts.id })
       .from(schema.contacts)
-      .where(and(eq(schema.contacts.id, contactId), eq(schema.contacts.crmUserId, crmUserId)))
+      .where(and(eq(schema.contacts.id, contactId), eq(schema.contacts.organizationId, organizationId)))
       .limit(1);
     return Boolean(rows[0]);
   };
@@ -443,7 +444,7 @@ async function executeValidatedTool(
     if (!parsed.success) return { error: "Invalid arguments", details: parsed.error.flatten() };
     const args = parsed.data;
     const query = args.query?.trim() ?? "";
-    const conditions = [eq(schema.contacts.crmUserId, crmUserId)];
+    const conditions = [eq(schema.contacts.organizationId, organizationId)];
     if (query) {
       conditions.push(
         or(
@@ -462,7 +463,7 @@ async function executeValidatedTool(
     const rows = await db
       .select()
       .from(schema.contacts)
-      .where(and(eq(schema.contacts.id, parsed.data.id), eq(schema.contacts.crmUserId, crmUserId)))
+      .where(and(eq(schema.contacts.id, parsed.data.id), eq(schema.contacts.organizationId, organizationId)))
       .limit(1);
     return rows[0] ?? null;
   }
@@ -475,6 +476,7 @@ async function executeValidatedTool(
       .insert(schema.contacts)
       .values({
         crmUserId,
+        organizationId,
         firstName: args.first_name ?? null,
         lastName: args.last_name ?? null,
         email: args.email ?? null,
@@ -498,7 +500,7 @@ async function executeValidatedTool(
     const [row] = await db
       .update(schema.contacts)
       .set(updates)
-      .where(and(eq(schema.contacts.id, args.id), eq(schema.contacts.crmUserId, crmUserId)))
+      .where(and(eq(schema.contacts.id, args.id), eq(schema.contacts.organizationId, organizationId)))
       .returning();
     return row ?? { error: "contact not found" };
   }
@@ -508,7 +510,7 @@ async function executeValidatedTool(
     if (!parsed.success) return { error: "Invalid arguments", details: parsed.error.flatten() };
     const args = parsed.data;
     const query = args.query?.trim() ?? "";
-    const conditions = [eq(schema.deals.crmUserId, crmUserId)];
+    const conditions = [eq(schema.deals.organizationId, organizationId), isNull(schema.deals.archivedAt)];
     if (query) conditions.push(ilike(schema.deals.name, `%${query}%`));
     if (args.stage) conditions.push(eq(schema.deals.stage, args.stage));
     return db.select().from(schema.deals).where(and(...conditions)).limit(limitFrom(args.limit));
@@ -520,7 +522,13 @@ async function executeValidatedTool(
     const rows = await db
       .select()
       .from(schema.deals)
-      .where(and(eq(schema.deals.id, parsed.data.id), eq(schema.deals.crmUserId, crmUserId)))
+      .where(
+        and(
+          eq(schema.deals.id, parsed.data.id),
+          eq(schema.deals.organizationId, organizationId),
+          isNull(schema.deals.archivedAt)
+        )
+      )
       .limit(1);
     return rows[0] ?? null;
   }
@@ -533,6 +541,7 @@ async function executeValidatedTool(
       .insert(schema.deals)
       .values({
         crmUserId,
+        organizationId,
         name: args.name.trim(),
         stage: args.stage ?? "qualification",
         category: args.category ?? null,
@@ -558,7 +567,13 @@ async function executeValidatedTool(
     const [row] = await db
       .update(schema.deals)
       .set(updates)
-      .where(and(eq(schema.deals.id, args.id), eq(schema.deals.crmUserId, crmUserId)))
+      .where(
+        and(
+          eq(schema.deals.id, args.id),
+          eq(schema.deals.organizationId, organizationId),
+          isNull(schema.deals.archivedAt)
+        )
+      )
       .returning();
     return row ?? { error: "deal not found" };
   }
@@ -568,7 +583,7 @@ async function executeValidatedTool(
     if (!parsed.success) return { error: "Invalid arguments", details: parsed.error.flatten() };
     const args = parsed.data;
     const query = args.query?.trim() ?? "";
-    const conditions = [eq(schema.companies.crmUserId, crmUserId)];
+    const conditions = [eq(schema.companies.organizationId, organizationId)];
     if (query) {
       conditions.push(
         or(
@@ -589,6 +604,7 @@ async function executeValidatedTool(
       .insert(schema.companies)
       .values({
         crmUserId,
+        organizationId,
         name: args.name.trim(),
         sector: args.sector ?? null,
         city: args.city ?? null,
@@ -605,7 +621,7 @@ async function executeValidatedTool(
     return db
       .select()
       .from(schema.tasks)
-      .where(and(eq(schema.tasks.crmUserId, crmUserId), eq(schema.tasks.contactId, args.contact_id)))
+      .where(and(eq(schema.tasks.organizationId, organizationId), eq(schema.tasks.contactId, args.contact_id)))
       .orderBy(desc(schema.tasks.id))
       .limit(limitFrom(args.limit));
   }
@@ -627,6 +643,7 @@ async function executeValidatedTool(
       .insert(schema.tasks)
       .values({
         crmUserId,
+        organizationId,
         contactId: args.contact_id,
         text: args.text.trim(),
         type: args.type ?? "call",
@@ -642,7 +659,7 @@ async function executeValidatedTool(
     const [row] = await db
       .update(schema.tasks)
       .set({ doneDate: new Date() })
-      .where(and(eq(schema.tasks.id, parsed.data.id), eq(schema.tasks.crmUserId, crmUserId)))
+      .where(and(eq(schema.tasks.id, parsed.data.id), eq(schema.tasks.organizationId, organizationId)))
       .returning();
     return row ?? { error: "task not found" };
   }
@@ -654,7 +671,7 @@ async function executeValidatedTool(
     return db
       .select()
       .from(schema.contactNotes)
-      .where(and(eq(schema.contactNotes.crmUserId, crmUserId), eq(schema.contactNotes.contactId, args.contact_id)))
+      .where(and(eq(schema.contactNotes.organizationId, organizationId), eq(schema.contactNotes.contactId, args.contact_id)))
       .orderBy(desc(schema.contactNotes.id))
       .limit(limitFrom(args.limit));
   }
@@ -669,6 +686,7 @@ async function executeValidatedTool(
       .insert(schema.contactNotes)
       .values({
         crmUserId,
+        organizationId,
         contactId: args.contact_id,
         text: args.text.trim(),
         status: args.type ?? null,
@@ -687,6 +705,7 @@ export function createGatewayChatRoutes(db: Db, auth: BetterAuthInstance, env: E
     const crmUserAuth = await resolveCrmUserWithApiKey(c, db);
     if (!crmUserAuth.ok) return crmUserAuth.response;
     const { crmUser, apiKey } = crmUserAuth.data;
+    if (!crmUser.organizationId) return c.json({ error: "Organization not found" }, 404);
 
     let body: unknown;
     try {
@@ -712,8 +731,8 @@ export function createGatewayChatRoutes(db: Db, auth: BetterAuthInstance, env: E
     await persistMessage(db, threadId, "user", queryText);
 
     const [crmSummary, ragContext] = await Promise.all([
-      buildCrmSummary(db, crmUser.id),
-      retrieveRelevantContext(db, env.BASICOS_API_URL, apiKey, crmUser.id, queryText),
+      buildCrmSummary(db, crmUser.organizationId),
+      retrieveRelevantContext(db, env.BASICOS_API_URL, apiKey, crmUser.organizationId, queryText),
     ]);
 
     let systemPrompt = `${BASE_SYSTEM_PROMPT}\n\n## Your CRM\n${crmSummary}`;
@@ -791,7 +810,13 @@ export function createGatewayChatRoutes(db: Db, auth: BetterAuthInstance, env: E
           args = {};
         }
 
-        const result = await executeValidatedTool(db, crmUser.id, tc.function.name, args);
+        const result = await executeValidatedTool(
+          db,
+          crmUser.id,
+          crmUser.organizationId,
+          tc.function.name,
+          args
+        );
         usedTools.add(tc.function.name);
         latestToolOutputs.push({ name: tc.function.name, result });
         await persistMessage(db, threadId, "tool", JSON.stringify(result), {

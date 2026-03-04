@@ -10,7 +10,7 @@ export const EMBEDDABLE_RESOURCES = new Set([
   "deal_notes",
 ]);
 
-// Maps CRM resource name → entity_type stored in context_embeddings
+// Maps CRM resource name to entity_type stored in context_embeddings.
 const ENTITY_TYPE_MAP: Record<string, string> = {
   contacts: "contact",
   companies: "company",
@@ -92,7 +92,7 @@ async function generateEmbedding(
 
 /**
  * Generates an embedding for a CRM entity and upserts it into context_embeddings.
- * Safe to call fire-and-forget — all errors are swallowed.
+ * Safe to call fire-and-forget; all errors are swallowed.
  */
 export async function upsertEntityEmbedding(
   db: Db,
@@ -108,20 +108,32 @@ export async function upsertEntityEmbedding(
   const embedding = await generateEmbedding(gatewayUrl, apiKey, chunkText);
   if (!embedding) return;
 
-  // embeddingStr is a JSON array of numbers — safe to inline as raw SQL
-  const embeddingStr = `[${embedding.join(",")}]`;
-  // Escape single quotes in user-provided text for raw SQL
-  const safeText = chunkText.replace(/'/g, "''");
-  const safeType = entityType.replace(/'/g, "''");
+  const [crmUser] = await db
+    .select({ organizationId: schema.crmUsers.organizationId })
+    .from(schema.crmUsers)
+    .where(eq(schema.crmUsers.id, crmUserId))
+    .limit(1);
+  if (!crmUser?.organizationId) return;
 
-  await db.execute(
-    sql.raw(`
-      INSERT INTO context_embeddings (crm_user_id, entity_type, entity_id, chunk_text, embedding, updated_at)
-      VALUES (${crmUserId}, '${safeType}', ${entityId}, '${safeText}', '${embeddingStr}'::vector, now())
-      ON CONFLICT (crm_user_id, entity_type, entity_id)
-      DO UPDATE SET chunk_text = EXCLUDED.chunk_text, embedding = EXCLUDED.embedding, updated_at = now()
-    `)
-  );
+  const embeddingStr = `[${embedding.join(",")}]`;
+  await db.execute(sql`
+    INSERT INTO context_embeddings (crm_user_id, organization_id, entity_type, entity_id, chunk_text, embedding, updated_at)
+    VALUES (
+      ${crmUserId},
+      ${crmUser.organizationId},
+      ${entityType},
+      ${entityId},
+      ${chunkText},
+      ${embeddingStr}::vector,
+      now()
+    )
+    ON CONFLICT (crm_user_id, entity_type, entity_id)
+    DO UPDATE SET
+      chunk_text = EXCLUDED.chunk_text,
+      organization_id = EXCLUDED.organization_id,
+      embedding = EXCLUDED.embedding,
+      updated_at = now()
+  `);
 }
 
 /**
