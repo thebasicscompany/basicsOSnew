@@ -25,7 +25,7 @@ export function createCustomFieldRoutes(db: Db, auth: BetterAuthInstance) {
     ] as const;
     const baseFilter = or(
       eq(schema.customFieldDefs.organizationId, orgId),
-      isNull(schema.customFieldDefs.organizationId)
+      isNull(schema.customFieldDefs.organizationId),
     );
     const rows = resource
       ? await db
@@ -55,7 +55,7 @@ export function createCustomFieldRoutes(db: Db, auth: BetterAuthInstance) {
     if (!body.resource || !body.name || !body.label || !body.fieldType) {
       return c.json(
         { error: "resource, name, label, fieldType are required" },
-        400
+        400,
       );
     }
     const safeName = body.name.toLowerCase().replace(/[^a-z0-9_]/g, "_");
@@ -86,8 +86,11 @@ export function createCustomFieldRoutes(db: Db, auth: BetterAuthInstance) {
       .where(
         and(
           eq(schema.customFieldDefs.id, id),
-          eq(schema.customFieldDefs.organizationId, authz.crmUser.organizationId)
-        )
+          eq(
+            schema.customFieldDefs.organizationId,
+            authz.crmUser.organizationId,
+          ),
+        ),
       )
       .returning();
     if (deleted.length === 0) return c.json({ error: "Not found" }, 404);

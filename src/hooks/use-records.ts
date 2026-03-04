@@ -2,10 +2,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import * as crmApi from "@/lib/api/crm";
 import type { FilterDef } from "@/lib/api/crm";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
 export interface RecordSortParam {
   field: string;
   order: "ASC" | "DESC";
@@ -26,10 +22,6 @@ interface RecordListResult<T> {
   data: T[];
   total: number;
 }
-
-// ---------------------------------------------------------------------------
-// List hook
-// ---------------------------------------------------------------------------
 
 /**
  * Fetch a paginated, sorted, filtered list of records for a given object.
@@ -68,10 +60,6 @@ export function useRecords<T = Record<string, unknown>>(
   });
 }
 
-// ---------------------------------------------------------------------------
-// Single record hook
-// ---------------------------------------------------------------------------
-
 /**
  * Fetch a single record by ID.
  *
@@ -87,10 +75,6 @@ export function useRecord<T = Record<string, unknown>>(
     enabled: !!objectSlug && recordId != null,
   });
 }
-
-// ---------------------------------------------------------------------------
-// Create mutation
-// ---------------------------------------------------------------------------
 
 /**
  * Create a new record for the given object.
@@ -108,10 +92,6 @@ export function useCreateRecord<T = Record<string, unknown>>(
     },
   });
 }
-
-// ---------------------------------------------------------------------------
-// Update mutation
-// ---------------------------------------------------------------------------
 
 /**
  * Update an existing record by ID.
@@ -136,10 +116,6 @@ export function useUpdateRecord<T = Record<string, unknown>>(
     },
   });
 }
-
-// ---------------------------------------------------------------------------
-// Delete mutation
-// ---------------------------------------------------------------------------
 
 /**
  * Delete a record by ID.

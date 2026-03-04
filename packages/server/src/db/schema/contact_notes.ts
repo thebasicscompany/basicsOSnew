@@ -22,18 +22,24 @@ export const contactNotes = pgTable(
       .references(() => contacts.id, { onDelete: "cascade" }),
     text: text("text"),
     date: timestamp("date", { withTimezone: true }).defaultNow(),
-    crmUserId: bigint("crm_user_id", { mode: "number" }).references(() => crmUsers.id, {
-      onDelete: "cascade",
-    }),
+    crmUserId: bigint("crm_user_id", { mode: "number" }).references(
+      () => crmUsers.id,
+      {
+        onDelete: "cascade",
+      },
+    ),
     organizationId: uuid("organization_id").references(() => organizations.id, {
       onDelete: "cascade",
     }),
     status: varchar("status", { length: 64 }),
-    attachments: jsonb("attachments").$type<Array<{ url: string; name?: string; type?: string }>>(),
+    attachments:
+      jsonb("attachments").$type<
+        Array<{ url: string; name?: string; type?: string }>
+      >(),
   },
   (t) => [
     index("contact_notes_contact_id_idx").on(t.contactId),
     index("contact_notes_crm_user_id_idx").on(t.crmUserId),
     index("contact_notes_org_idx").on(t.organizationId),
-  ]
+  ],
 );

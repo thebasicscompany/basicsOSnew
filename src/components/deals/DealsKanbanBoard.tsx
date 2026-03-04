@@ -1,6 +1,11 @@
 import { useCallback, useMemo } from "react";
 import { useNavigate } from "react-router";
-import { DragDropContext, Droppable, Draggable, type DropResult } from "@hello-pangea/dnd";
+import {
+  DragDropContext,
+  Droppable,
+  Draggable,
+  type DropResult,
+} from "@hello-pangea/dnd";
 import { PlusIcon } from "@phosphor-icons/react";
 import { useRecords, useUpdateRecord } from "@/hooks/use-records";
 import { DealStageBadge } from "@/components/status-badge";
@@ -32,7 +37,10 @@ export function DealsKanbanBoard() {
   });
   const updateRecord = useUpdateRecord("deals");
 
-  const deals = (data?.data ?? []) as Record<string, unknown>[];
+  const deals = useMemo(
+    () => (data?.data ?? []) as Record<string, unknown>[],
+    [data?.data],
+  );
   const allStages = useMemo(() => {
     const stageSet = new Set(DEFAULT_STAGES);
     for (const d of deals) {
@@ -114,7 +122,7 @@ export function DealsKanbanBoard() {
                   <div className="flex items-center gap-2 border-b px-3 py-2">
                     <DealStageBadge stage={stageId} />
                     <span className="text-xs text-muted-foreground">
-                      {(dealsByStage[stageId]?.length ?? 0)} deals
+                      {dealsByStage[stageId]?.length ?? 0} deals
                     </span>
                   </div>
                   <div className="min-h-[120px] flex-1 space-y-2 overflow-y-auto p-2">
@@ -136,7 +144,8 @@ export function DealsKanbanBoard() {
                               onClick={() => handleCardClick(id)}
                               className={cn(
                                 "cursor-pointer rounded-md border bg-card p-3 shadow-sm transition-shadow hover:shadow-md",
-                                snapshot.isDragging && "shadow-lg ring-2 ring-primary/50",
+                                snapshot.isDragging &&
+                                  "shadow-lg ring-2 ring-primary/50",
                               )}
                             >
                               <p className="font-medium truncate">{name}</p>

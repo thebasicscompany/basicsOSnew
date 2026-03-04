@@ -6,8 +6,9 @@ import * as schema from "../db/schema/index.js";
 import { eq } from "drizzle-orm";
 import { PERMISSIONS, requirePermission } from "../lib/rbac.js";
 import { resolveStoredApiKey } from "../lib/api-key-crypto.js";
+import type { createAuth } from "../auth.js";
 
-type Auth = ReturnType<typeof import("../auth.js").createAuth>;
+type Auth = ReturnType<typeof createAuth>;
 
 export function createConnectionsRoutes(db: Db, auth: Auth, env: Env) {
   const app = new Hono();
@@ -56,7 +57,9 @@ export function createConnectionsRoutes(db: Db, auth: Auth, env: Env) {
     const apiKey = await getCrmUserApiKey(userId);
     if (!apiKey) return c.json({ error: "Basics API key not configured" }, 400);
 
-    const redirectAfter = encodeURIComponent(`${env.BETTER_AUTH_URL}/connections`);
+    const redirectAfter = encodeURIComponent(
+      `${env.BETTER_AUTH_URL}/connections`,
+    );
     const res = await fetch(
       `${env.BASICOS_API_URL}/v1/connections/${provider}/authorize?redirect_after=${redirectAfter}`,
       { headers: { Authorization: `Bearer ${apiKey}` } },
@@ -84,10 +87,13 @@ export function createConnectionsRoutes(db: Db, auth: Auth, env: Env) {
     const apiKey = await getCrmUserApiKey(userId);
     if (!apiKey) return c.json({ error: "Basics API key not configured" }, 400);
 
-    const res = await fetch(`${env.BASICOS_API_URL}/v1/connections/${provider}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${apiKey}` },
-    });
+    const res = await fetch(
+      `${env.BASICOS_API_URL}/v1/connections/${provider}`,
+      {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${apiKey}` },
+      },
+    );
 
     if (!res.ok) return c.json({ error: "Failed to delete connection" }, 500);
     return c.json({ ok: true });

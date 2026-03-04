@@ -4,7 +4,11 @@ import { authMiddleware } from "../middleware/auth.js";
 import type { Db } from "../db/client.js";
 import type { createAuth } from "../auth.js";
 import * as schema from "../db/schema/index.js";
-import { PERMISSIONS, requirePermission, wouldRemoveLastManager } from "../lib/rbac.js";
+import {
+  PERMISSIONS,
+  requirePermission,
+  wouldRemoveLastManager,
+} from "../lib/rbac.js";
 import { writeAuditLogSafe } from "../lib/audit-log.js";
 
 type BetterAuthInstance = ReturnType<typeof createAuth>;
@@ -17,7 +21,8 @@ export function createRbacRoutes(db: Db, auth: BetterAuthInstance) {
     const authz = await requirePermission(c, db, PERMISSIONS.rbacManage);
     if (!authz.ok) return authz.response;
     const { crmUser } = authz;
-    if (!crmUser.organizationId) return c.json({ error: "Organization not found" }, 404);
+    if (!crmUser.organizationId)
+      return c.json({ error: "Organization not found" }, 404);
 
     const roles = await db
       .select()
@@ -25,8 +30,8 @@ export function createRbacRoutes(db: Db, auth: BetterAuthInstance) {
       .where(
         or(
           isNull(schema.rbacRoles.organizationId),
-          eq(schema.rbacRoles.organizationId, crmUser.organizationId)
-        )
+          eq(schema.rbacRoles.organizationId, crmUser.organizationId),
+        ),
       );
 
     const roleIds = roles.map((r) => r.id);
@@ -41,7 +46,10 @@ export function createRbacRoutes(db: Db, auth: BetterAuthInstance) {
             .from(schema.rbacRolePermissions)
             .innerJoin(
               schema.rbacPermissions,
-              eq(schema.rbacRolePermissions.permissionId, schema.rbacPermissions.id)
+              eq(
+                schema.rbacRolePermissions.permissionId,
+                schema.rbacPermissions.id,
+              ),
             )
             .where(inArray(schema.rbacRolePermissions.roleId, roleIds));
 
@@ -60,7 +68,7 @@ export function createRbacRoutes(db: Db, auth: BetterAuthInstance) {
         description: role.description,
         isSystem: role.isSystem,
         permissions: permsByRole.get(role.id) ?? [],
-      }))
+      })),
     );
   });
 
@@ -68,7 +76,8 @@ export function createRbacRoutes(db: Db, auth: BetterAuthInstance) {
     const authz = await requirePermission(c, db, PERMISSIONS.rbacManage);
     if (!authz.ok) return authz.response;
     const { crmUser } = authz;
-    if (!crmUser.organizationId) return c.json({ error: "Organization not found" }, 404);
+    if (!crmUser.organizationId)
+      return c.json({ error: "Organization not found" }, 404);
 
     const users = await db
       .select({
@@ -92,12 +101,15 @@ export function createRbacRoutes(db: Db, auth: BetterAuthInstance) {
               roleName: schema.rbacRoles.name,
             })
             .from(schema.rbacUserRoles)
-            .innerJoin(schema.rbacRoles, eq(schema.rbacUserRoles.roleId, schema.rbacRoles.id))
+            .innerJoin(
+              schema.rbacRoles,
+              eq(schema.rbacUserRoles.roleId, schema.rbacRoles.id),
+            )
             .where(
               and(
                 inArray(schema.rbacUserRoles.crmUserId, userIds),
-                eq(schema.rbacUserRoles.organizationId, crmUser.organizationId)
-              )
+                eq(schema.rbacUserRoles.organizationId, crmUser.organizationId),
+              ),
             );
 
     const rolesByUser = new Map<number, Array<{ key: string; name: string }>>();
@@ -111,7 +123,7 @@ export function createRbacRoutes(db: Db, auth: BetterAuthInstance) {
       users.map((u) => ({
         ...u,
         roles: rolesByUser.get(u.id) ?? [],
-      }))
+      })),
     );
   });
 
@@ -119,7 +131,8 @@ export function createRbacRoutes(db: Db, auth: BetterAuthInstance) {
     const authz = await requirePermission(c, db, PERMISSIONS.rbacManage);
     if (!authz.ok) return authz.response;
     const { crmUser } = authz;
-    if (!crmUser.organizationId) return c.json({ error: "Organization not found" }, 404);
+    if (!crmUser.organizationId)
+      return c.json({ error: "Organization not found" }, 404);
 
     const targetId = Number(c.req.param("crmUserId"));
     if (!Number.isFinite(targetId) || targetId <= 0) {
@@ -129,12 +142,18 @@ export function createRbacRoutes(db: Db, auth: BetterAuthInstance) {
     const rawBody = await c.req.json().catch(() => null);
     const roleKeysRaw = (rawBody as { roleKeys?: unknown } | null)?.roleKeys;
     const roleKeys = Array.isArray(roleKeysRaw)
-      ? roleKeysRaw.filter((k): k is string => typeof k === "string" && k.trim().length > 0)
+      ? roleKeysRaw.filter(
+          (k): k is string => typeof k === "string" && k.trim().length > 0,
+        )
       : [];
-    if (roleKeys.length === 0) return c.json({ error: "roleKeys is required" }, 400);
+    if (roleKeys.length === 0)
+      return c.json({ error: "roleKeys is required" }, 400);
 
     const [targetUser] = await db
-      .select({ id: schema.crmUsers.id, organizationId: schema.crmUsers.organizationId })
+      .select({
+        id: schema.crmUsers.id,
+        organizationId: schema.crmUsers.organizationId,
+      })
       .from(schema.crmUsers)
       .where(eq(schema.crmUsers.id, targetId))
       .limit(1);
@@ -151,9 +170,9 @@ export function createRbacRoutes(db: Db, auth: BetterAuthInstance) {
           inArray(schema.rbacRoles.key, roleKeys),
           or(
             isNull(schema.rbacRoles.organizationId),
-            eq(schema.rbacRoles.organizationId, crmUser.organizationId)
-          )
-        )
+            eq(schema.rbacRoles.organizationId, crmUser.organizationId),
+          ),
+        ),
       );
     if (roles.length !== roleKeys.length) {
       return c.json({ error: "One or more role keys are invalid" }, 400);
@@ -165,13 +184,13 @@ export function createRbacRoutes(db: Db, auth: BetterAuthInstance) {
       .from(schema.rbacRolePermissions)
       .innerJoin(
         schema.rbacPermissions,
-        eq(schema.rbacRolePermissions.permissionId, schema.rbacPermissions.id)
+        eq(schema.rbacRolePermissions.permissionId, schema.rbacPermissions.id),
       )
       .where(
         and(
           inArray(schema.rbacRolePermissions.roleId, selectedRoleIds),
-          eq(schema.rbacPermissions.key, PERMISSIONS.rbacManage)
-        )
+          eq(schema.rbacPermissions.key, PERMISSIONS.rbacManage),
+        ),
       );
     const newRoleHasManagePermission = (selectedRoleManage[0]?.count ?? 0) > 0;
 
@@ -180,37 +199,39 @@ export function createRbacRoutes(db: Db, auth: BetterAuthInstance) {
       .from(schema.rbacUserRoles)
       .innerJoin(
         schema.rbacRolePermissions,
-        eq(schema.rbacUserRoles.roleId, schema.rbacRolePermissions.roleId)
+        eq(schema.rbacUserRoles.roleId, schema.rbacRolePermissions.roleId),
       )
       .innerJoin(
         schema.rbacPermissions,
-        eq(schema.rbacRolePermissions.permissionId, schema.rbacPermissions.id)
+        eq(schema.rbacRolePermissions.permissionId, schema.rbacPermissions.id),
       )
       .where(
         and(
           eq(schema.rbacUserRoles.crmUserId, targetId),
           eq(schema.rbacUserRoles.organizationId, crmUser.organizationId),
-          eq(schema.rbacPermissions.key, PERMISSIONS.rbacManage)
-        )
+          eq(schema.rbacPermissions.key, PERMISSIONS.rbacManage),
+        ),
       );
     const targetHadManagePermission = (targetManageRows[0]?.count ?? 0) > 0;
 
     const orgManageRows = await db
-      .select({ count: sql<number>`count(distinct ${schema.rbacUserRoles.crmUserId})::int` })
+      .select({
+        count: sql<number>`count(distinct ${schema.rbacUserRoles.crmUserId})::int`,
+      })
       .from(schema.rbacUserRoles)
       .innerJoin(
         schema.rbacRolePermissions,
-        eq(schema.rbacUserRoles.roleId, schema.rbacRolePermissions.roleId)
+        eq(schema.rbacUserRoles.roleId, schema.rbacRolePermissions.roleId),
       )
       .innerJoin(
         schema.rbacPermissions,
-        eq(schema.rbacRolePermissions.permissionId, schema.rbacPermissions.id)
+        eq(schema.rbacRolePermissions.permissionId, schema.rbacPermissions.id),
       )
       .where(
         and(
           eq(schema.rbacUserRoles.organizationId, crmUser.organizationId),
-          eq(schema.rbacPermissions.key, PERMISSIONS.rbacManage)
-        )
+          eq(schema.rbacPermissions.key, PERMISSIONS.rbacManage),
+        ),
       );
     const currentManagerCount = orgManageRows[0]?.count ?? 0;
 
@@ -221,7 +242,10 @@ export function createRbacRoutes(db: Db, auth: BetterAuthInstance) {
         currentManagerCount,
       })
     ) {
-      return c.json({ error: "Cannot remove the last RBAC manager in the organization" }, 400);
+      return c.json(
+        { error: "Cannot remove the last RBAC manager in the organization" },
+        400,
+      );
     }
 
     await db
@@ -229,8 +253,8 @@ export function createRbacRoutes(db: Db, auth: BetterAuthInstance) {
       .where(
         and(
           eq(schema.rbacUserRoles.crmUserId, targetId),
-          eq(schema.rbacUserRoles.organizationId, crmUser.organizationId)
-        )
+          eq(schema.rbacUserRoles.organizationId, crmUser.organizationId),
+        ),
       );
 
     await db.insert(schema.rbacUserRoles).values(
@@ -238,14 +262,19 @@ export function createRbacRoutes(db: Db, auth: BetterAuthInstance) {
         crmUserId: targetId,
         roleId: r.id,
         organizationId: crmUser.organizationId!,
-      }))
+      })),
     );
 
     // Keep legacy administrator flag in sync while migration is ongoing.
     await db
       .update(schema.crmUsers)
       .set({ administrator: newRoleHasManagePermission })
-      .where(and(eq(schema.crmUsers.id, targetId), eq(schema.crmUsers.organizationId, crmUser.organizationId)));
+      .where(
+        and(
+          eq(schema.crmUsers.id, targetId),
+          eq(schema.crmUsers.organizationId, crmUser.organizationId),
+        ),
+      );
 
     await writeAuditLogSafe(db, {
       crmUserId: crmUser.id,

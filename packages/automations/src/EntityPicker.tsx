@@ -28,7 +28,7 @@ function getDisplayLabel(
   if (resource === "contacts") {
     const first = (item.firstName ?? item.first_name) as string | null;
     const last = (item.lastName ?? item.last_name) as string | null;
-    const email = (item.email) as string | null;
+    const email = item.email as string | null;
     const name = [first, last].filter(Boolean).join(" ").trim();
     return name || email || `#${item.id}`;
   }
@@ -75,7 +75,10 @@ export function EntityPickerInput({
           {
             pagination: { page: 1, perPage: 20 },
             filter: q ? { q } : {},
-            sort: resource === "contacts" ? { field: "first_name", order: "ASC" } : { field: "name", order: "ASC" },
+            sort:
+              resource === "contacts"
+                ? { field: "first_name", order: "ASC" }
+                : { field: "name", order: "ASC" },
           },
         );
         setItems(data);
@@ -109,21 +112,30 @@ export function EntityPickerInput({
     [onChange],
   );
 
-
   const inputContainerRef = useRef<HTMLDivElement>(null);
   const selectionRef = useRef<{ start: number; end: number } | null>(null);
 
   const captureSelection = () => {
-    const el = inputContainerRef.current?.querySelector("input") as HTMLInputElement | null;
+    const el = inputContainerRef.current?.querySelector(
+      "input",
+    ) as HTMLInputElement | null;
     if (el) {
-      selectionRef.current = { start: el.selectionStart ?? 0, end: el.selectionEnd ?? 0 };
+      selectionRef.current = {
+        start: el.selectionStart ?? 0,
+        end: el.selectionEnd ?? 0,
+      };
     }
   };
 
   const handleInsertVariableAtCursor = (text: string) => {
-    const el = inputContainerRef.current?.querySelector("input") as HTMLInputElement | null;
+    const el = inputContainerRef.current?.querySelector(
+      "input",
+    ) as HTMLInputElement | null;
     if (!el) return;
-    const { start, end } = selectionRef.current ?? { start: el.selectionStart ?? 0, end: el.selectionEnd ?? 0 };
+    const { start, end } = selectionRef.current ?? {
+      start: el.selectionStart ?? 0,
+      end: el.selectionEnd ?? 0,
+    };
     const next = value.slice(0, start) + text + value.slice(end);
     onChange(next);
     requestAnimationFrame(() => {
@@ -134,7 +146,10 @@ export function EntityPickerInput({
   };
 
   return (
-    <div ref={inputContainerRef} className={cn("flex w-full min-w-0 items-center gap-1.5", className)}>
+    <div
+      ref={inputContainerRef}
+      className={cn("flex w-full min-w-0 items-center gap-1.5", className)}
+    >
       <Popover open={open} onOpenChange={setOpen}>
         <div className="flex min-w-0 flex-1 items-center gap-1 rounded-md border bg-background">
           <Input
@@ -177,7 +192,9 @@ export function EntityPickerInput({
                     onSelect={() => handleSelect(item)}
                   >
                     <span className="flex-1 truncate">{label}</span>
-                    {isSelected && <CheckIcon className="size-4 shrink-0 text-primary" />}
+                    {isSelected && (
+                      <CheckIcon className="size-4 shrink-0 text-primary" />
+                    )}
                   </CommandItem>
                 );
               })}
@@ -187,7 +204,10 @@ export function EntityPickerInput({
       </Popover>
       {variables.length > 0 && (
         <div onMouseDown={captureSelection}>
-          <VariablePicker variables={variables} onInsert={handleInsertVariableAtCursor} />
+          <VariablePicker
+            variables={variables}
+            onInsert={handleInsertVariableAtCursor}
+          />
         </div>
       )}
     </div>

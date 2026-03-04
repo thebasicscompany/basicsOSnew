@@ -1,4 +1,4 @@
-import { LightningIcon } from "@phosphor-icons/react"
+import { LightningIcon } from "@phosphor-icons/react";
 import type { NodeProps } from "@xyflow/react";
 import { CompactAutomationNode } from "./CompactAutomationNode";
 

@@ -1,4 +1,4 @@
-import { CurrencyDollarIcon } from "@phosphor-icons/react"
+import { CurrencyDollarIcon } from "@phosphor-icons/react";
 import type { FieldTypeDefinition, CalculationType } from "../../types";
 import { CurrencyCellDisplay } from "./CurrencyCellDisplay";
 import { CurrencyCellEditor } from "./CurrencyCellEditor";

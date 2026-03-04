@@ -32,7 +32,9 @@ export function viewRowToNocoRaw(row: typeof schema.views.$inferSelect): {
   };
 }
 
-export function columnRowToNocoRaw(row: typeof schema.viewColumns.$inferSelect): {
+export function columnRowToNocoRaw(
+  row: typeof schema.viewColumns.$inferSelect,
+): {
   id: string;
   fk_column_id: string;
   title: string | null;
@@ -64,7 +66,9 @@ export function sortRowToNocoRaw(row: typeof schema.viewSorts.$inferSelect): {
   };
 }
 
-export function filterRowToNocoRaw(row: typeof schema.viewFilters.$inferSelect): {
+export function filterRowToNocoRaw(
+  row: typeof schema.viewFilters.$inferSelect,
+): {
   id: string;
   fk_column_id: string;
   comparison_op: string;

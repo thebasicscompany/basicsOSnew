@@ -1,4 +1,4 @@
-import { CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react"
+import { CaretDownIcon, CaretUpIcon } from "@phosphor-icons/react";
 import { useRef, useEffect, useState } from "react";
 import type { CellEditorProps } from "../../types";
 export function CurrencyCellEditor({

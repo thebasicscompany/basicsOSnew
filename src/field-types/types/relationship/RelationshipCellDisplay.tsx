@@ -1,4 +1,4 @@
-import { ArrowSquareUpRightIcon } from "@phosphor-icons/react"
+import { ArrowSquareUpRightIcon } from "@phosphor-icons/react";
 import type { CellDisplayProps } from "../../types";
 interface LinkedRecord {
   id: string;

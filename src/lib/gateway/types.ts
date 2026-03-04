@@ -1,9 +1,4 @@
-/**
- * Gateway API types — match the Basics Gateway spec exactly.
- * @see GATEWAY_API.md
- */
-
-// --- Error model ---
+// Error
 
 export interface GatewayError {
   message: string;
@@ -57,7 +52,7 @@ export interface ChatRequest {
   tools?: unknown[];
 }
 
-// --- Models ---
+// Models
 
 export interface ModelInfo {
   id: string;
@@ -66,7 +61,7 @@ export interface ModelInfo {
   capabilities: string[];
 }
 
-// --- Audio ---
+// Audio
 
 export interface TranscriptionResult {
   transcript: string;
@@ -74,7 +69,7 @@ export interface TranscriptionResult {
   [key: string]: unknown;
 }
 
-// --- Embeddings ---
+// Embeddings
 
 export interface EmbeddingResult {
   object: "list";
@@ -82,7 +77,7 @@ export interface EmbeddingResult {
   model: string;
 }
 
-// --- Email ---
+// Email
 
 export interface EmailRequest {
   to: string;
@@ -95,7 +90,7 @@ export interface EmailResult {
   ok: boolean;
 }
 
-// --- Manage API: Keys ---
+// Manage API: Keys
 
 export interface ApiKey {
   id: string;

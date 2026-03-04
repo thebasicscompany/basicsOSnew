@@ -17,7 +17,12 @@ export function registerSortRoutes(app: Hono, db: Db): void {
     if (crmUser == null) return c.json({ error: "User not found in CRM" }, 404);
     const { crmUserId, organizationId } = crmUser;
 
-    const view = await getViewAndCheckOwnership(db, viewId, crmUserId, organizationId);
+    const view = await getViewAndCheckOwnership(
+      db,
+      viewId,
+      crmUserId,
+      organizationId,
+    );
     if (!view) return c.json({ error: "View not found" }, 404);
 
     const list = await db
@@ -39,10 +44,18 @@ export function registerSortRoutes(app: Hono, db: Db): void {
     if (crmUser == null) return c.json({ error: "User not found in CRM" }, 404);
     const { crmUserId, organizationId } = crmUser;
 
-    const view = await getViewAndCheckOwnership(db, viewId, crmUserId, organizationId);
+    const view = await getViewAndCheckOwnership(
+      db,
+      viewId,
+      crmUserId,
+      organizationId,
+    );
     if (!view) return c.json({ error: "View not found" }, 404);
 
-    const body = await c.req.json<{ fk_column_id: string; direction: "asc" | "desc" }>();
+    const body = await c.req.json<{
+      fk_column_id: string;
+      direction: "asc" | "desc";
+    }>();
     const existing = await db
       .select()
       .from(schema.viewSorts)
@@ -74,12 +87,22 @@ export function registerSortRoutes(app: Hono, db: Db): void {
     if (crmUser == null) return c.json({ error: "User not found in CRM" }, 404);
     const { crmUserId, organizationId } = crmUser;
 
-    const view = await getViewAndCheckOwnership(db, viewId, crmUserId, organizationId);
+    const view = await getViewAndCheckOwnership(
+      db,
+      viewId,
+      crmUserId,
+      organizationId,
+    );
     if (!view) return c.json({ error: "View not found" }, 404);
 
     await db
       .delete(schema.viewSorts)
-      .where(and(eq(schema.viewSorts.viewId, viewId), eq(schema.viewSorts.id, sortId)));
+      .where(
+        and(
+          eq(schema.viewSorts.viewId, viewId),
+          eq(schema.viewSorts.id, sortId),
+        ),
+      );
     return c.json({});
   });
 }

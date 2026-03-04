@@ -17,10 +17,6 @@ import { cn } from "@/lib/utils";
 import { getFieldType } from "@/field-types";
 import type { Attribute } from "@/field-types/types";
 
-// ---------------------------------------------------------------------------
-// Props
-// ---------------------------------------------------------------------------
-
 export interface CellProps {
   attribute: Attribute;
   value: any;
@@ -33,10 +29,6 @@ export interface CellProps {
   cellRect?: DOMRect;
   className?: string;
 }
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
 
 export function Cell({
   attribute,
@@ -54,19 +46,14 @@ export function Cell({
   const wrapperRef = useRef<HTMLDivElement>(null);
   const isCheckbox = attribute.uiType === "checkbox";
 
-  // ---- interaction handlers ------------------------------------------------
-
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
-      // Checkbox: toggle immediately
       if (isCheckbox) {
         e.stopPropagation();
         onSave(!value);
         return;
       }
 
-      // If already selected, enter editing; otherwise the parent grid handles
-      // selection on its own.
       if (isSelected && !isEditing) {
         onStartEditing();
       }
@@ -83,8 +70,6 @@ export function Cell({
     [isCheckbox, onStartEditing],
   );
 
-  // ---- render: protected ---------------------------------------------------
-
   if (isProtected) {
     return (
       <div
@@ -97,8 +82,6 @@ export function Cell({
       </div>
     );
   }
-
-  // ---- render: editing (skip for checkbox) ---------------------------------
 
   if (isEditing && !isCheckbox) {
     const CellEditor = fieldType.CellEditor;
@@ -120,8 +103,6 @@ export function Cell({
       </div>
     );
   }
-
-  // ---- render: display -----------------------------------------------------
 
   const empty = fieldType.isEmpty(value);
   const CellDisplay = fieldType.CellDisplay;

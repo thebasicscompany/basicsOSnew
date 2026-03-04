@@ -15,7 +15,10 @@ export function createGetOneHandler(db: Db) {
     const resource = c.req.param("resource") as Resource;
     const idRaw = c.req.param("id");
     const id = resource === "configuration" ? 1 : parseInt(idRaw, 10);
-    if ((resource !== "configuration" && isNaN(id as number)) || !CRM_RESOURCES.includes(resource)) {
+    if (
+      (resource !== "configuration" && isNaN(id as number)) ||
+      !CRM_RESOURCES.includes(resource)
+    ) {
       return c.json({ error: "Invalid request" }, 400);
     }
 
@@ -28,7 +31,8 @@ export function createGetOneHandler(db: Db) {
     const crmUser = crmUserRows[0];
     const crmUserId = crmUser?.id;
     const orgId = crmUser?.organizationId;
-    if (!crmUserId || !crmUser) return c.json({ error: "User not found in CRM" }, 404);
+    if (!crmUserId || !crmUser)
+      return c.json({ error: "User not found in CRM" }, 404);
     if (!orgId) return c.json({ error: "Organization not found" }, 404);
     const permissions = await getPermissionSetForUser(db, crmUser);
     if (!permissions.has("*") && !permissions.has(PERMISSIONS.recordsRead)) {
@@ -40,13 +44,26 @@ export function createGetOneHandler(db: Db) {
         // @ts-expect-error - Drizzle SelectedFields typing with spread table + agg
         .select({
           ...schema.companies,
-          nbDeals: sql<number>`count(distinct ${schema.deals.id})::int`.as("nb_deals"),
-          nbContacts: sql<number>`count(distinct ${schema.contacts.id})::int`.as("nb_contacts"),
+          nbDeals: sql<number>`count(distinct ${schema.deals.id})::int`.as(
+            "nb_deals",
+          ),
+          nbContacts:
+            sql<number>`count(distinct ${schema.contacts.id})::int`.as(
+              "nb_contacts",
+            ),
         })
         .from(schema.companies)
         .leftJoin(schema.deals, eq(schema.companies.id, schema.deals.companyId))
-        .leftJoin(schema.contacts, eq(schema.companies.id, schema.contacts.companyId))
-        .where(and(eq(schema.companies.id, id as number), eq(schema.companies.organizationId, orgId)))
+        .leftJoin(
+          schema.contacts,
+          eq(schema.companies.id, schema.contacts.companyId),
+        )
+        .where(
+          and(
+            eq(schema.companies.id, id as number),
+            eq(schema.companies.organizationId, orgId),
+          ),
+        )
         .groupBy(schema.companies.id)
         .limit(1);
       if (!row) return c.json({ error: "Not found" }, 404);
@@ -59,19 +76,32 @@ export function createGetOneHandler(db: Db) {
         .select({
           ...schema.contacts,
           companyName: schema.companies.name,
-          nbTasks: sql<number>`count(distinct ${schema.tasks.id})::int`.as("nb_tasks"),
+          nbTasks: sql<number>`count(distinct ${schema.tasks.id})::int`.as(
+            "nb_tasks",
+          ),
         })
         .from(schema.contacts)
         .leftJoin(schema.tasks, eq(schema.contacts.id, schema.tasks.contactId))
-        .leftJoin(schema.companies, eq(schema.contacts.companyId, schema.companies.id))
-        .where(and(eq(schema.contacts.id, id as number), eq(schema.contacts.organizationId, orgId)))
+        .leftJoin(
+          schema.companies,
+          eq(schema.contacts.companyId, schema.companies.id),
+        )
+        .where(
+          and(
+            eq(schema.contacts.id, id as number),
+            eq(schema.contacts.organizationId, orgId),
+          ),
+        )
         .groupBy(schema.contacts.id, schema.companies.name)
         .limit(1);
       if (!row) return c.json({ error: "Not found" }, 404);
       return c.json(row);
     }
 
-    const table = TABLE_MAP[resource as Exclude<Resource, "companies_summary" | "contacts_summary">];
+    const table =
+      TABLE_MAP[
+        resource as Exclude<Resource, "companies_summary" | "contacts_summary">
+      ];
     if (!table) return c.json({ error: "Unknown resource" }, 404);
 
     const idCol = (table as unknown as { id: typeof schema.contacts.id }).id;
@@ -79,13 +109,19 @@ export function createGetOneHandler(db: Db) {
     if (resource === "crm_users") {
       conditions.push(eq(schema.crmUsers.organizationId, orgId));
     } else if (hasOrganizationId(resource)) {
-      conditions.push(eq((table as typeof schema.companies).organizationId, orgId));
+      conditions.push(
+        eq((table as typeof schema.companies).organizationId, orgId),
+      );
     }
     if (resource === "deals") {
       conditions.push(sql`${schema.deals.archivedAt} is null`);
     }
 
-    const [row] = await db.select().from(table).where(and(...conditions)).limit(1);
+    const [row] = await db
+      .select()
+      .from(table)
+      .where(and(...conditions))
+      .limit(1);
     if (!row) return c.json({ error: "Not found" }, 404);
     return c.json(row);
   };

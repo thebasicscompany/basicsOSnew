@@ -1,5 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getList, getOne, create, update, remove, type ListParams } from "@/lib/api/crm";
+import {
+  getList,
+  getOne,
+  create,
+  update,
+  remove,
+  type ListParams,
+} from "@/lib/api/crm";
 import { mapRecords, snakeToCamel, unmapRecord } from "@/lib/crm/field-mapper";
 
 export interface ContactSummary {
@@ -26,7 +33,10 @@ export interface ContactSummary {
   customFields?: Record<string, unknown>;
 }
 
-export interface Contact extends Omit<ContactSummary, "companyName" | "nbTasks"> {
+export interface Contact extends Omit<
+  ContactSummary,
+  "companyName" | "nbTasks"
+> {
   customFields?: Record<string, unknown>;
 }
 
@@ -34,8 +44,14 @@ export function useContacts(params: ListParams = {}) {
   return useQuery({
     queryKey: ["contacts_summary", params],
     queryFn: async () => {
-      const result = await getList<Record<string, unknown>>("contacts_summary", params);
-      return { data: mapRecords(result.data) as ContactSummary[], total: result.total };
+      const result = await getList<Record<string, unknown>>(
+        "contacts_summary",
+        params,
+      );
+      return {
+        data: mapRecords(result.data) as ContactSummary[],
+        total: result.total,
+      };
     },
   });
 }
@@ -43,7 +59,10 @@ export function useContacts(params: ListParams = {}) {
 export function useContact(id: number | null) {
   return useQuery({
     queryKey: ["contacts", id],
-    queryFn: async () => snakeToCamel(await getOne<Record<string, unknown>>("contacts", id!)) as Contact,
+    queryFn: async () =>
+      snakeToCamel(
+        await getOne<Record<string, unknown>>("contacts", id!),
+      ) as Contact,
     enabled: id != null,
   });
 }
@@ -65,7 +84,11 @@ export function useUpdateContact() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<Contact> }) =>
-      update<Contact>("contacts", id, unmapRecord(data as Record<string, unknown>)),
+      update<Contact>(
+        "contacts",
+        id,
+        unmapRecord(data as Record<string, unknown>),
+      ),
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: ["contacts_summary"] });
       queryClient.invalidateQueries({ queryKey: ["contacts", id] });

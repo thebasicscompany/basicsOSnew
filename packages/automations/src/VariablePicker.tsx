@@ -17,7 +17,11 @@ export interface VariablePickerProps {
   className?: string;
 }
 
-export function VariablePicker({ variables, onInsert, className }: VariablePickerProps) {
+export function VariablePicker({
+  variables,
+  onInsert,
+  className,
+}: VariablePickerProps) {
   const handleSelectVariable = (label: string) => {
     onInsert(label);
   };
@@ -40,7 +44,10 @@ export function VariablePicker({ variables, onInsert, className }: VariablePicke
           type="button"
           variant="ghost"
           size="icon"
-          className={cn("size-7 shrink-0 text-muted-foreground hover:text-foreground", className)}
+          className={cn(
+            "size-7 shrink-0 text-muted-foreground hover:text-foreground",
+            className,
+          )}
           title="Insert variable"
         >
           <BracketsCurlyIcon className="size-3.5" />
@@ -61,7 +68,9 @@ export function VariablePicker({ variables, onInsert, className }: VariablePicke
                     className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-muted"
                     onClick={() => handleSelectVariable(v.label)}
                   >
-                    <code className="font-mono text-[11px] text-foreground">{v.label}</code>
+                    <code className="font-mono text-[11px] text-foreground">
+                      {v.label}
+                    </code>
                   </button>
                 ))}
               </div>
@@ -73,8 +82,10 @@ export function VariablePicker({ variables, onInsert, className }: VariablePicke
   );
 }
 
-export interface VariableInputProps
-  extends Omit<React.ComponentProps<typeof Input>, "value" | "onChange"> {
+export interface VariableInputProps extends Omit<
+  React.ComponentProps<typeof Input>,
+  "value" | "onChange"
+> {
   value: string;
   onChange: (value: string) => void;
   variables: Variable[];
@@ -95,9 +106,14 @@ export function VariableInput({
   };
 
   const handleInsert = (text: string) => {
-    const el = containerRef.current?.querySelector("input") as HTMLInputElement | null;
+    const el = containerRef.current?.querySelector(
+      "input",
+    ) as HTMLInputElement | null;
     if (!el) return;
-    const { start, end } = selectionRef.current ?? { start: el.selectionStart, end: el.selectionEnd };
+    const { start, end } = selectionRef.current ?? {
+      start: el.selectionStart,
+      end: el.selectionEnd,
+    };
     const next = value.slice(0, start) + text + value.slice(end);
     onChange(next);
     requestAnimationFrame(() => {
@@ -108,14 +124,19 @@ export function VariableInput({
   };
 
   const captureSelection = () => {
-    const el = containerRef.current?.querySelector("input") as HTMLInputElement | null;
+    const el = containerRef.current?.querySelector(
+      "input",
+    ) as HTMLInputElement | null;
     if (el) {
       selectionRef.current = { start: el.selectionStart, end: el.selectionEnd };
     }
   };
 
   return (
-    <div ref={containerRef} className="flex w-full min-w-0 items-center gap-1.5">
+    <div
+      ref={containerRef}
+      className="flex w-full min-w-0 items-center gap-1.5"
+    >
       <Input
         value={value}
         onChange={handleChange}
@@ -131,8 +152,10 @@ export function VariableInput({
   );
 }
 
-export interface VariableTextareaProps
-  extends Omit<React.ComponentProps<typeof Textarea>, "value" | "onChange"> {
+export interface VariableTextareaProps extends Omit<
+  React.ComponentProps<typeof Textarea>,
+  "value" | "onChange"
+> {
   value: string;
   onChange: (value: string) => void;
   variables: Variable[];
@@ -153,9 +176,14 @@ export function VariableTextarea({
   };
 
   const handleInsert = (text: string) => {
-    const el = containerRef.current?.querySelector("textarea") as HTMLTextAreaElement | null;
+    const el = containerRef.current?.querySelector(
+      "textarea",
+    ) as HTMLTextAreaElement | null;
     if (!el) return;
-    const { start, end } = selectionRef.current ?? { start: el.selectionStart, end: el.selectionEnd };
+    const { start, end } = selectionRef.current ?? {
+      start: el.selectionStart,
+      end: el.selectionEnd,
+    };
     const next = value.slice(0, start) + text + value.slice(end);
     onChange(next);
     requestAnimationFrame(() => {
@@ -166,7 +194,9 @@ export function VariableTextarea({
   };
 
   const captureSelection = () => {
-    const el = containerRef.current?.querySelector("textarea") as HTMLTextAreaElement | null;
+    const el = containerRef.current?.querySelector(
+      "textarea",
+    ) as HTMLTextAreaElement | null;
     if (el) {
       selectionRef.current = { start: el.selectionStart, end: el.selectionEnd };
     }

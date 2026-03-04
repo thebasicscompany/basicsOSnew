@@ -23,7 +23,7 @@ function loadRecentItems(): RecentItem[] {
         (x as RecentItem).type !== undefined &&
         typeof (x as RecentItem).id === "number" &&
         typeof (x as RecentItem).name === "string" &&
-        typeof (x as RecentItem).visitedAt === "number"
+        typeof (x as RecentItem).visitedAt === "number",
     );
   } catch {
     return [];

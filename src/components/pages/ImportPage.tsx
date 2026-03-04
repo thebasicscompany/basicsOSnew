@@ -1,4 +1,4 @@
-import { UploadSimpleIcon } from "@phosphor-icons/react"
+import { UploadSimpleIcon } from "@phosphor-icons/react";
 import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { usePageTitle } from "@/contexts/page-header";
@@ -75,7 +75,8 @@ export function ImportPage() {
         <div className="rounded-lg border p-3">
           <p className="text-[12px] font-medium">Expected format</p>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            CSV with headers: First Name, Last Name, Email, Phone, Company, Title
+            CSV with headers: First Name, Last Name, Email, Phone, Company,
+            Title
           </p>
         </div>
       </div>

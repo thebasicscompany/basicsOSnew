@@ -1,4 +1,12 @@
-import { bigserial, bigint, index, pgTable, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import {
+  bigserial,
+  bigint,
+  index,
+  pgTable,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 import { deals } from "./deals";
 import { contacts } from "./contacts";
 import { organizations } from "./organizations";
@@ -17,15 +25,20 @@ export const dealContacts = pgTable(
     organizationId: uuid("organization_id").references(() => organizations.id, {
       onDelete: "cascade",
     }),
-    crmUserId: bigint("crm_user_id", { mode: "number" }).references(() => crmUsers.id, {
-      onDelete: "cascade",
-    }),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    crmUserId: bigint("crm_user_id", { mode: "number" }).references(
+      () => crmUsers.id,
+      {
+        onDelete: "cascade",
+      },
+    ),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
   (t) => [
     uniqueIndex("deal_contacts_unique").on(t.dealId, t.contactId),
     index("deal_contacts_deal_idx").on(t.dealId),
     index("deal_contacts_contact_idx").on(t.contactId),
     index("deal_contacts_org_idx").on(t.organizationId),
-  ]
+  ],
 );

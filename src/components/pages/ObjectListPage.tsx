@@ -123,7 +123,7 @@ export function ObjectListPage() {
     (sort: Omit<ViewSort, "id">) => {
       viewState.addSort(sort.fieldId, sort.direction);
     },
-    [viewState.addSort],
+    [viewState],
   );
 
   const handleAddFilter = useCallback(
@@ -135,7 +135,7 @@ export function ObjectListPage() {
         filter.logicalOp,
       );
     },
-    [viewState.addFilter],
+    [viewState],
   );
 
   const columnItems = useMemo(
@@ -221,13 +221,16 @@ export function ObjectListPage() {
   const total = data?.total ?? 0;
   const hasActiveSorts = viewState.sorts.length > 0;
   const hasActiveFilters = viewState.filters.length > 0;
-  const defaultViewId = views.find((v) => v.isDefault)?.id ?? views[0]?.id ?? "";
+  const defaultViewId =
+    views.find((v) => v.isDefault)?.id ?? views[0]?.id ?? "";
 
   return (
     <>
       {headerActionsPortal}
       <div className="flex min-h-0 flex-1 flex-col gap-3 pt-4">
-        {isDeals && <DealsLayoutToggle layout={layout} onLayoutChange={setLayout} />}
+        {isDeals && (
+          <DealsLayoutToggle layout={layout} onLayoutChange={setLayout} />
+        )}
 
         {views.length > 0 && layout !== "kanban" && (
           <ObjectListViewTabs
@@ -248,7 +251,8 @@ export function ObjectListPage() {
               deleteView
                 .mutateAsync(viewId)
                 .then(() => {
-                  const defaultView = views.find((v) => v.isDefault) ?? views[0];
+                  const defaultView =
+                    views.find((v) => v.isDefault) ?? views[0];
                   if (defaultView && defaultView.id !== viewId) {
                     setActiveView(defaultView.id);
                   }
@@ -258,15 +262,18 @@ export function ObjectListPage() {
           />
         )}
 
-        {layout !== "kanban" && activeView && attributes.length > 0 && (hasActiveSorts || hasActiveFilters) && (
-          <ObjectListSortFilterPills
-            sorts={viewState.sorts}
-            filters={viewState.filters}
-            attrMap={attrMap}
-            onRemoveSort={viewState.removeSort}
-            onRemoveFilter={viewState.removeFilter}
-          />
-        )}
+        {layout !== "kanban" &&
+          activeView &&
+          attributes.length > 0 &&
+          (hasActiveSorts || hasActiveFilters) && (
+            <ObjectListSortFilterPills
+              sorts={viewState.sorts}
+              filters={viewState.filters}
+              attrMap={attrMap}
+              onRemoveSort={viewState.removeSort}
+              onRemoveFilter={viewState.removeFilter}
+            />
+          )}
 
         <div className="flex min-h-0 flex-1 flex-col">
           {isDeals && layout === "kanban" ? (
@@ -310,7 +317,6 @@ export function ObjectListPage() {
         />
 
         <CreateAttributeModal
-          objectSlug={objectSlug}
           resource={objectSlug}
           open={addColumnOpen}
           onOpenChange={setAddColumnOpen}

@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils"
 
 /** Matches Vercel workflow-builder-template AnimatedBorder (running state) */
 export const AnimatedBorder = ({ className }: { className?: string }) => {
@@ -41,7 +41,13 @@ export const AnimatedBorder = ({ className }: { className?: string }) => {
           xmlns="http://www.w3.org/2000/svg"
         >
           <defs>
-            <linearGradient id="workflow-gradient-glow" x1="0%" y1="0%" x2="100%" y2="100%">
+            <linearGradient
+              id="workflow-gradient-glow"
+              x1="0%"
+              y1="0%"
+              x2="100%"
+              y2="100%"
+            >
               <stop offset="0%" stopColor="#60a5fa" />
               <stop offset="50%" stopColor="#3b82f6" />
               <stop offset="100%" stopColor="#60a5fa" />
@@ -67,5 +73,5 @@ export const AnimatedBorder = ({ className }: { className?: string }) => {
         )}
       />
     </>
-  );
-};
+  )
+}

@@ -28,7 +28,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useGateway } from "@/hooks/useGateway";
 import { useMe } from "@/hooks/use-me";
 import { useOrganization } from "@/hooks/use-organization";
-import { useAssignRbacRole, useRbacRoles, useRbacUsers } from "@/hooks/use-rbac";
+import {
+  useAssignRbacRole,
+  useRbacRoles,
+  useRbacUsers,
+} from "@/hooks/use-rbac";
 import { ConnectionsContent } from "@/components/connections";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -96,7 +100,7 @@ export function SettingsPage() {
   const [creatingInvite, setCreatingInvite] = useState(false);
   const [roleDrafts, setRoleDrafts] = useState<Record<number, string>>({});
 
-  // Handle OAuth redirect from /connections?connected=slack (or google)
+  // OAuth callback from /connections?connected=slack
   useEffect(() => {
     const connected = searchParams.get("connected");
     if (connected) {
@@ -117,7 +121,7 @@ export function SettingsPage() {
     if (!organization) return;
     setOrgName(organization.name ?? "");
     setOrgLogoUrl(organization.logo?.src ?? "");
-  }, [organization?.id, organization?.name, organization?.logo?.src]);
+  }, [organization]);
 
   useEffect(() => {
     if (!rbacUsers) return;
@@ -131,7 +135,10 @@ export function SettingsPage() {
 
   const handleSave = useCallback(async () => {
     const trimmed = inputValue.trim();
-    if (!trimmed) { toast.error("Please enter an API key"); return; }
+    if (!trimmed) {
+      toast.error("Please enter an API key");
+      return;
+    }
     if (!isValidApiKey(trimmed)) {
       toast.error("API key must start with bos_live_sk_ or bos_test_sk_");
       return;
@@ -178,22 +185,29 @@ export function SettingsPage() {
       setInviteExpiresAt(json.expiresAt ?? null);
       toast.success("Invite token created");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to create invite");
+      toast.error(
+        err instanceof Error ? err.message : "Failed to create invite",
+      );
     } finally {
       setCreatingInvite(false);
     }
   }, [inviteEmail, inviteExpiresInHours]);
 
-  const signupLink = inviteToken ? `${window.location.origin}/sign-up?invite=${inviteToken}` : "";
+  const signupLink = inviteToken
+    ? `${window.location.origin}/sign-up?invite=${inviteToken}`
+    : "";
 
-  const copyText = useCallback(async (value: string, successMessage: string) => {
-    try {
-      await navigator.clipboard.writeText(value);
-      toast.success(successMessage);
-    } catch {
-      toast.error("Failed to copy");
-    }
-  }, []);
+  const copyText = useCallback(
+    async (value: string, successMessage: string) => {
+      try {
+        await navigator.clipboard.writeText(value);
+        toast.success(successMessage);
+      } catch {
+        toast.error("Failed to copy");
+      }
+    },
+    [],
+  );
 
   const handleSaveOrganization = useCallback(async () => {
     const trimmedName = orgName.trim();
@@ -218,13 +232,16 @@ export function SettingsPage() {
         name?: string;
         logo?: { src: string } | null;
       };
-      if (!res.ok) throw new Error(json.error ?? "Failed to update organization");
+      if (!res.ok)
+        throw new Error(json.error ?? "Failed to update organization");
       setOrgName(json.name ?? trimmedName);
       setOrgLogoUrl(json.logo?.src ?? "");
       await queryClient.invalidateQueries({ queryKey: ["organization"] });
       toast.success("Organization updated");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to update organization");
+      toast.error(
+        err instanceof Error ? err.message : "Failed to update organization",
+      );
     } finally {
       setSavingOrg(false);
     }
@@ -234,10 +251,8 @@ export function SettingsPage() {
   const orgDirty = !!(
     me?.administrator &&
     organization &&
-    (
-      orgName.trim() !== (organization.name ?? "") ||
-      orgLogoUrl.trim() !== (organization.logo?.src ?? "")
-    )
+    (orgName.trim() !== (organization.name ?? "") ||
+      orgLogoUrl.trim() !== (organization.logo?.src ?? ""))
   );
   const hasPendingChanges = apiDirty || orgDirty;
   const configuredApiLabel = apiKey
@@ -256,7 +271,8 @@ export function SettingsPage() {
     <div className="flex h-full flex-col overflow-auto py-5">
       <div className="mb-5">
         <p className="mt-1 text-[12px] text-muted-foreground">
-          Configure workspace preferences, security, organization controls, and integrations.
+          Configure workspace preferences, security, organization controls, and
+          integrations.
         </p>
       </div>
 
@@ -265,11 +281,16 @@ export function SettingsPage() {
           <section id="appearance" className={sectionClass}>
             <div className="mb-4">
               <h2 className="text-[15px] font-semibold">Appearance</h2>
-              <p className="text-[12px] text-muted-foreground">Customize the visual experience for your workspace.</p>
+              <p className="text-[12px] text-muted-foreground">
+                Customize the visual experience for your workspace.
+              </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-[180px_minmax(0,1fr)] sm:items-center">
               <Label className="text-[12px] text-muted-foreground">Theme</Label>
-              <Select value={theme ?? "system"} onValueChange={(v) => setTheme(v)}>
+              <Select
+                value={theme ?? "system"}
+                onValueChange={(v) => setTheme(v)}
+              >
                 <SelectTrigger className="h-9 w-full sm:max-w-[220px]">
                   <SelectValue />
                 </SelectTrigger>
@@ -277,7 +298,11 @@ export function SettingsPage() {
                   {THEME_OPTIONS.map((opt) => {
                     const Icon = opt.icon;
                     return (
-                      <SelectItem key={opt.value} value={opt.value} className="gap-2">
+                      <SelectItem
+                        key={opt.value}
+                        value={opt.value}
+                        className="gap-2"
+                      >
                         <Icon className="size-4" />
                         {opt.label}
                       </SelectItem>
@@ -293,17 +318,28 @@ export function SettingsPage() {
           <section id="api" className={sectionClass}>
             <div className="mb-4">
               <h2 className="text-[15px] font-semibold">API Configuration</h2>
-              <p className="text-[12px] text-muted-foreground">Manage API access used by assistant, voice, and automations.</p>
+              <p className="text-[12px] text-muted-foreground">
+                Manage API access used by assistant, voice, and automations.
+              </p>
             </div>
             <div className="grid gap-3 sm:grid-cols-[180px_minmax(0,1fr)] sm:items-start">
-              <Label htmlFor="api-key" className="pt-2 text-[12px] text-muted-foreground">API key</Label>
+              <Label
+                htmlFor="api-key"
+                className="pt-2 text-[12px] text-muted-foreground"
+              >
+                API key
+              </Label>
               <div className="space-y-2">
                 <div className="flex gap-2">
                   <div className="relative flex-1">
                     <Input
                       id="api-key"
                       type={showPassword ? "text" : "password"}
-                      placeholder={hasKey ? configuredApiLabel : "Paste your bos_live_sk_... key"}
+                      placeholder={
+                        hasKey
+                          ? configuredApiLabel
+                          : "Paste your bos_live_sk_... key"
+                      }
                       value={inputValue}
                       onChange={(e) => setInputValue(e.target.value)}
                       className="h-9 pr-9 text-[13px]"
@@ -317,10 +353,19 @@ export function SettingsPage() {
                       onClick={() => setShowPassword((p) => !p)}
                       aria-label={showPassword ? "Hide key" : "Show key"}
                     >
-                      {showPassword ? <EyeSlashIcon className="size-3.5" /> : <EyeIcon className="size-3.5" />}
+                      {showPassword ? (
+                        <EyeSlashIcon className="size-3.5" />
+                      ) : (
+                        <EyeIcon className="size-3.5" />
+                      )}
                     </Button>
                   </div>
-                  <Button size="sm" className="h-9 text-[13px]" onClick={handleSave} disabled={!inputValue.trim()}>
+                  <Button
+                    size="sm"
+                    className="h-9 text-[13px]"
+                    onClick={handleSave}
+                    disabled={!inputValue.trim()}
+                  >
                     Save
                   </Button>
                 </div>
@@ -329,9 +374,16 @@ export function SettingsPage() {
                     <span className="text-[12px] text-muted-foreground">
                       Configured: {configuredApiLabel}
                     </span>
-                    <Dialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
+                    <Dialog
+                      open={clearDialogOpen}
+                      onOpenChange={setClearDialogOpen}
+                    >
                       <DialogTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-7 text-[12px] text-destructive hover:text-destructive">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-[12px] text-destructive hover:text-destructive"
+                        >
                           Clear
                         </Button>
                       </DialogTrigger>
@@ -339,12 +391,25 @@ export function SettingsPage() {
                         <DialogHeader>
                           <DialogTitle>Clear API key?</DialogTitle>
                           <DialogDescription>
-                            Chat and voice features will stop working until you add a new key.
+                            Chat and voice features will stop working until you
+                            add a new key.
                           </DialogDescription>
                         </DialogHeader>
                         <DialogFooter>
-                          <Button variant="outline" size="sm" onClick={() => setClearDialogOpen(false)}>Cancel</Button>
-                          <Button variant="destructive" size="sm" onClick={handleClear}>Clear key</Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setClearDialogOpen(false)}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={handleClear}
+                          >
+                            Clear key
+                          </Button>
                         </DialogFooter>
                       </DialogContent>
                     </Dialog>
@@ -369,17 +434,29 @@ export function SettingsPage() {
               <section id="organization" className={sectionClass}>
                 <div className="mb-4">
                   <h2 className="text-[15px] font-semibold">Organization</h2>
-                  <p className="text-[12px] text-muted-foreground">Set workspace identity seen by your team.</p>
+                  <p className="text-[12px] text-muted-foreground">
+                    Set workspace identity seen by your team.
+                  </p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-[180px_minmax(0,1fr)]">
-                  <Label htmlFor="org-name" className="pt-2 text-[12px] text-muted-foreground">Organization name</Label>
+                  <Label
+                    htmlFor="org-name"
+                    className="pt-2 text-[12px] text-muted-foreground"
+                  >
+                    Organization name
+                  </Label>
                   <Input
                     id="org-name"
                     value={orgName}
                     onChange={(e) => setOrgName(e.target.value)}
                     className="h-9 text-[13px]"
                   />
-                  <Label htmlFor="org-logo-url" className="pt-2 text-[12px] text-muted-foreground">Logo image URL</Label>
+                  <Label
+                    htmlFor="org-logo-url"
+                    className="pt-2 text-[12px] text-muted-foreground"
+                  >
+                    Logo image URL
+                  </Label>
                   <div className="space-y-2">
                     <Input
                       id="org-logo-url"
@@ -396,13 +473,20 @@ export function SettingsPage() {
                           alt="Organization logo preview"
                           className="size-8 rounded object-cover"
                         />
-                        <p className="text-[12px] text-muted-foreground">Preview</p>
+                        <p className="text-[12px] text-muted-foreground">
+                          Preview
+                        </p>
                       </div>
                     )}
                   </div>
                   <div />
                   <div>
-                    <Button size="sm" className="h-9 text-[13px]" onClick={handleSaveOrganization} disabled={savingOrg}>
+                    <Button
+                      size="sm"
+                      className="h-9 text-[13px]"
+                      onClick={handleSaveOrganization}
+                      disabled={savingOrg}
+                    >
                       {savingOrg ? "Saving..." : "Save organization"}
                     </Button>
                   </div>
@@ -417,10 +501,17 @@ export function SettingsPage() {
               <section id="invites" className={sectionClass}>
                 <div className="mb-4">
                   <h2 className="text-[15px] font-semibold">Team Invites</h2>
-                  <p className="text-[12px] text-muted-foreground">Issue secure invite tokens for onboarding new teammates.</p>
+                  <p className="text-[12px] text-muted-foreground">
+                    Issue secure invite tokens for onboarding new teammates.
+                  </p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-[180px_minmax(0,1fr)]">
-                  <Label htmlFor="invite-email" className="pt-2 text-[12px] text-muted-foreground">Email lock (optional)</Label>
+                  <Label
+                    htmlFor="invite-email"
+                    className="pt-2 text-[12px] text-muted-foreground"
+                  >
+                    Email lock (optional)
+                  </Label>
                   <Input
                     id="invite-email"
                     type="email"
@@ -429,8 +520,13 @@ export function SettingsPage() {
                     onChange={(e) => setInviteEmail(e.target.value)}
                     className="h-9 text-[13px]"
                   />
-                  <Label className="pt-2 text-[12px] text-muted-foreground">Token expiry</Label>
-                  <Select value={inviteExpiresInHours} onValueChange={setInviteExpiresInHours}>
+                  <Label className="pt-2 text-[12px] text-muted-foreground">
+                    Token expiry
+                  </Label>
+                  <Select
+                    value={inviteExpiresInHours}
+                    onValueChange={setInviteExpiresInHours}
+                  >
                     <SelectTrigger className="h-9 w-full sm:max-w-[220px]">
                       <SelectValue />
                     </SelectTrigger>
@@ -443,7 +539,12 @@ export function SettingsPage() {
                   </Select>
                   <div />
                   <div>
-                    <Button size="sm" className="h-9 text-[13px]" onClick={handleCreateInvite} disabled={creatingInvite}>
+                    <Button
+                      size="sm"
+                      className="h-9 text-[13px]"
+                      onClick={handleCreateInvite}
+                      disabled={creatingInvite}
+                    >
                       {creatingInvite ? "Creating..." : "Create invite"}
                     </Button>
                   </div>
@@ -452,28 +553,44 @@ export function SettingsPage() {
                 {inviteToken && (
                   <div className="mt-4 rounded-lg border bg-muted/20 p-3">
                     <div className="space-y-2">
-                      <Label className="text-[12px] text-muted-foreground">Invite code</Label>
+                      <Label className="text-[12px] text-muted-foreground">
+                        Invite code
+                      </Label>
                       <div className="flex gap-2">
-                        <Input readOnly value={inviteToken} className="h-9 text-[12px]" />
+                        <Input
+                          readOnly
+                          value={inviteToken}
+                          className="h-9 text-[12px]"
+                        />
                         <Button
                           variant="outline"
                           size="sm"
                           className="h-9 text-[12px]"
-                          onClick={() => copyText(inviteToken, "Invite code copied")}
+                          onClick={() =>
+                            copyText(inviteToken, "Invite code copied")
+                          }
                         >
                           Copy
                         </Button>
                       </div>
                     </div>
                     <div className="mt-3 space-y-2">
-                      <Label className="text-[12px] text-muted-foreground">Signup link</Label>
+                      <Label className="text-[12px] text-muted-foreground">
+                        Signup link
+                      </Label>
                       <div className="flex gap-2">
-                        <Input readOnly value={signupLink} className="h-9 text-[12px]" />
+                        <Input
+                          readOnly
+                          value={signupLink}
+                          className="h-9 text-[12px]"
+                        />
                         <Button
                           variant="outline"
                           size="sm"
                           className="h-9 text-[12px]"
-                          onClick={() => copyText(signupLink, "Signup link copied")}
+                          onClick={() =>
+                            copyText(signupLink, "Signup link copied")
+                          }
                         >
                           Copy
                         </Button>
@@ -495,25 +612,37 @@ export function SettingsPage() {
               <Separator />
               <section id="roles" className={sectionClass}>
                 <div className="mb-4">
-                  <h2 className="text-[15px] font-semibold">Roles and Access</h2>
-                  <p className="text-[12px] text-muted-foreground">Control who can manage settings and destructive actions.</p>
+                  <h2 className="text-[15px] font-semibold">
+                    Roles and Access
+                  </h2>
+                  <p className="text-[12px] text-muted-foreground">
+                    Control who can manage settings and destructive actions.
+                  </p>
                 </div>
                 <div className="space-y-3">
                   {(rbacUsers ?? []).map((user) => {
-                    const selected = roleDrafts[user.id] ?? user.roles[0]?.key ?? "";
+                    const selected =
+                      roleDrafts[user.id] ?? user.roles[0]?.key ?? "";
                     const isSelf = user.id === me?.id;
                     return (
                       <div key={user.id} className="rounded-lg border p-3">
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                           <div>
-                            <p className="text-[13px] font-medium">{user.firstName} {user.lastName}</p>
-                            <p className="text-[12px] text-muted-foreground">{user.email}</p>
+                            <p className="text-[13px] font-medium">
+                              {user.firstName} {user.lastName}
+                            </p>
+                            <p className="text-[12px] text-muted-foreground">
+                              {user.email}
+                            </p>
                           </div>
                           <div className="flex items-center gap-2">
                             <Select
                               value={selected}
                               onValueChange={(value) =>
-                                setRoleDrafts((prev) => ({ ...prev, [user.id]: value }))
+                                setRoleDrafts((prev) => ({
+                                  ...prev,
+                                  [user.id]: value,
+                                }))
                               }
                               disabled={isSelf || assignRole.isPending}
                             >
@@ -532,13 +661,25 @@ export function SettingsPage() {
                               size="sm"
                               variant="outline"
                               className="h-9 text-[12px]"
-                              disabled={isSelf || assignRole.isPending || !selected || selected === (user.roles[0]?.key ?? "")}
+                              disabled={
+                                isSelf ||
+                                assignRole.isPending ||
+                                !selected ||
+                                selected === (user.roles[0]?.key ?? "")
+                              }
                               onClick={async () => {
                                 try {
-                                  await assignRole.mutateAsync({ crmUserId: user.id, roleKey: selected });
+                                  await assignRole.mutateAsync({
+                                    crmUserId: user.id,
+                                    roleKey: selected,
+                                  });
                                   toast.success("Role updated");
                                 } catch (err) {
-                                  toast.error(err instanceof Error ? err.message : "Failed to update role");
+                                  toast.error(
+                                    err instanceof Error
+                                      ? err.message
+                                      : "Failed to update role",
+                                  );
                                 }
                               }}
                             >
@@ -559,7 +700,9 @@ export function SettingsPage() {
           <section id="connections" className={sectionClass}>
             <div className="mb-4">
               <h2 className="text-[15px] font-semibold">Connections</h2>
-              <p className="text-[12px] text-muted-foreground">Connect Gmail and Slack for automation workflows.</p>
+              <p className="text-[12px] text-muted-foreground">
+                Connect Gmail and Slack for automation workflows.
+              </p>
             </div>
             <ConnectionsContent embeddedInSettings />
           </section>

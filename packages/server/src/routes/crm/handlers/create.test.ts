@@ -16,7 +16,8 @@ vi.mock("../../../lib/automation-engine.js", () => ({
 }));
 
 vi.mock("../../../lib/embeddings.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../../lib/embeddings.js")>();
+  const actual =
+    await importOriginal<typeof import("../../../lib/embeddings.js")>();
   return {
     ...actual,
     upsertEntityEmbedding: vi.fn().mockResolvedValue(undefined),
@@ -24,7 +25,8 @@ vi.mock("../../../lib/embeddings.js", async (importOriginal) => {
 });
 
 vi.mock("../../../lib/api-key-crypto.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../../lib/api-key-crypto.js")>();
+  const actual =
+    await importOriginal<typeof import("../../../lib/api-key-crypto.js")>();
   return {
     ...actual,
     resolveStoredApiKey: vi.fn().mockReturnValue(null),
@@ -39,7 +41,7 @@ async function getPermissionMock() {
 function makeContext(
   params: Record<string, string>,
   payload: Record<string, unknown>,
-  userId = "user-1"
+  userId = "user-1",
 ) {
   return {
     req: {
@@ -94,10 +96,12 @@ describe("createCreateHandler security boundaries", () => {
     const { db } = makeDb({
       crmUser: { id: 11, organizationId: "org-1", userId: "user-1" },
     });
-    const handler = createCreateHandler(db, { BASICOS_API_URL: "http://localhost" } as any);
+    const handler = createCreateHandler(db, {
+      BASICOS_API_URL: "http://localhost",
+    } as any);
     const c = makeContext(
       { resource: "contacts" },
-      { first_name: "Ava", last_name: "Lee" }
+      { first_name: "Ava", last_name: "Lee" },
     );
 
     const res = await handler(c as any);
@@ -112,10 +116,12 @@ describe("createCreateHandler security boundaries", () => {
     const { db } = makeDb({
       crmUser: { id: 11, organizationId: "org-1", userId: "user-1" },
     });
-    const handler = createCreateHandler(db, { BASICOS_API_URL: "http://localhost" } as any);
+    const handler = createCreateHandler(db, {
+      BASICOS_API_URL: "http://localhost",
+    } as any);
     const c = makeContext(
       { resource: "contacts" },
-      { first_name: "Ava", unexpected_field: "x" }
+      { first_name: "Ava", unexpected_field: "x" },
     );
 
     const res = await handler(c as any);
@@ -131,10 +137,12 @@ describe("createCreateHandler security boundaries", () => {
       crmUser: { id: 77, organizationId: "org-secure", userId: "user-1" },
       insertReturning: [{ id: 101, firstName: "Ava" }],
     });
-    const handler = createCreateHandler(db, { BASICOS_API_URL: "http://localhost" } as any);
+    const handler = createCreateHandler(db, {
+      BASICOS_API_URL: "http://localhost",
+    } as any);
     const c = makeContext(
       { resource: "contacts" },
-      { first_name: "Ava", last_name: "Lee" }
+      { first_name: "Ava", last_name: "Lee" },
     );
 
     const res = await handler(c as any);

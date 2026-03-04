@@ -1,11 +1,14 @@
-import { useEffect, useCallback, useRef, useState, useReducer, type MouseEvent } from "react";
+import {
+  useEffect,
+  useCallback,
+  useRef,
+  useState,
+  useReducer,
+  type MouseEvent,
+} from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { XIcon } from "@phosphor-icons/react";
-import type {
-  OverlaySettings,
-  BrandingInfo,
-  NotchInfo,
-} from "../shared-overlay/types";
+import type { OverlaySettings, NotchInfo } from "../shared-overlay/types";
 import { FLASH_SHORT_MS } from "../shared-overlay/constants";
 import { setIgnoreMouse } from "./lib/ipc";
 import { speak, cancel as cancelTTS } from "./lib/tts";
@@ -24,11 +27,13 @@ import { useAIResponse } from "./lib/use-ai-response";
 import { useActivationHandler } from "./lib/use-activation-handler";
 import { useMeetingControls } from "./lib/use-meeting-controls";
 import {
-  SPRING,
+  ACTIVE_HEIGHT,
   CONTENT_ENTER,
   CONTENT_EXIT,
+  SPRING,
   STAGGER_MS,
-  ACTIVE_HEIGHT,
+} from "./lib/pill-constants";
+import {
   Sparkle,
   PencilIcon,
   MicIcon,
@@ -63,7 +68,6 @@ const DEFAULT_SETTINGS: OverlaySettings = {
 
 export const OverlayApp = () => {
   const [config, setConfig] = useState<NotchInfo | null>(null);
-  const [branding, setBranding] = useState<BrandingInfo | null>(null);
   const [pill, dispatch] = useReducer(pillReducer, initialPillContext);
   const [settings, setSettings] = useState<OverlaySettings>(DEFAULT_SETTINGS);
   const [measuredHeight, setMeasuredHeight] = useState(0);
@@ -74,11 +78,11 @@ export const OverlayApp = () => {
   const flash = useFlashMessage();
   const handleRecorderError = useCallback(
     (msg: string) => flash.show(msg, 3000),
-    [flash.show]
+    [flash],
   );
   const meetingRecorder = useMeetingRecorder(
     settings.meeting?.chunkIntervalMs ?? 5000,
-    handleRecorderError
+    handleRecorderError,
   );
   const meetingRecorderRef = useRef(meetingRecorder);
   meetingRecorderRef.current = meetingRecorder;
@@ -153,7 +157,7 @@ export const OverlayApp = () => {
     if (pill.state === "response") {
       dismissTimerRef.current = setTimeout(
         dismiss,
-        settings.behavior.autoDismissMs
+        settings.behavior.autoDismissMs,
       );
     }
     return clearDismissTimer;
@@ -176,9 +180,11 @@ export const OverlayApp = () => {
     if (!api) return;
 
     api.removeAllListeners?.();
-    api.getOverlaySettings?.().then((s) => setSettings(s)).catch(() => {});
+    api
+      .getOverlaySettings?.()
+      .then((s) => setSettings(s))
+      .catch(() => {});
     api.onNotchInfo?.((info: NotchInfo) => setConfig(info));
-    api.onBranding?.((b: BrandingInfo) => setBranding(b));
     api.onSettingsChanged?.((s: OverlaySettings) => setSettings(s));
 
     api.onActivate?.(activation.handleActivate);
@@ -197,6 +203,7 @@ export const OverlayApp = () => {
     return () => {
       api.removeAllListeners?.();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Mount-only: register listeners once; handlers use refs for current state
   }, []);
 
   useEffect(() => {
@@ -269,10 +276,7 @@ export const OverlayApp = () => {
   };
 
   const modeDetail = (): string | null => {
-    if (
-      pill.interactionMode === "continuous" &&
-      speech.transcript
-    ) {
+    if (pill.interactionMode === "continuous" && speech.transcript) {
       const words = speech.transcript.split(/\s+/).length;
       return `${words} word${words === 1 ? "" : "s"}`;
     }
@@ -321,14 +325,11 @@ export const OverlayApp = () => {
     }
   }, [flash]);
 
-  const handleCloseOverlay = useCallback(
-    (e: MouseEvent<HTMLButtonElement>) => {
-      e.stopPropagation();
-      window.electronAPI?.hideOverlay?.();
-      dismissRef.current();
-    },
-    []
-  );
+  const handleCloseOverlay = useCallback((e: MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    window.electronAPI?.hideOverlay?.();
+    dismissRef.current();
+  }, []);
 
   return (
     <div style={{ width: "100%", display: "flex", justifyContent: "center" }}>
@@ -412,7 +413,7 @@ export const OverlayApp = () => {
                 gap: 6,
               }}
             >
-              <CompanyLogo logoUrl={branding?.logoUrl ?? null} />
+              <CompanyLogo />
               {pill.meetingActive && (
                 <>
                   <motion.div

@@ -31,14 +31,15 @@ let state: MeetingState = {
 };
 
 export function createMeetingManager(
-  options: MeetingManagerOptions
+  options: MeetingManagerOptions,
 ): MeetingManager {
   const { onMeetingStart, onMeetingStop } = options;
 
   return {
     async start(apiUrl: string, _token: string): Promise<void> {
+      void apiUrl; // Required by interface, unused in stub
       if (state.active) return;
-      // eslint-disable-next-line no-console
+
       console.warn("Meeting recording requires backend support");
       const meetingId = `stub-${Date.now()}`;
       state = {
@@ -49,7 +50,8 @@ export function createMeetingManager(
       onMeetingStart(meetingId);
     },
 
-    async stop(_apiUrl: string): Promise<void> {
+    async stop(apiUrl: string): Promise<void> {
+      void apiUrl; // Required by interface, unused in stub
       if (!state.active) return;
       const meetingId = state.meetingId;
       state = {

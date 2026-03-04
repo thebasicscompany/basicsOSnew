@@ -1,5 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getList, getOne, create, update, remove, type ListParams } from "@/lib/api/crm";
+import {
+  getList,
+  getOne,
+  create,
+  update,
+  remove,
+  type ListParams,
+} from "@/lib/api/crm";
 import { mapRecords, snakeToCamel, unmapRecord } from "@/lib/crm/field-mapper";
 
 export interface Deal {
@@ -33,7 +40,8 @@ export function useDeals(params: ListParams = {}) {
 export function useDeal(id: number | null) {
   return useQuery({
     queryKey: ["deals", id],
-    queryFn: async () => snakeToCamel(await getOne<Record<string, unknown>>("deals", id!)) as Deal,
+    queryFn: async () =>
+      snakeToCamel(await getOne<Record<string, unknown>>("deals", id!)) as Deal,
     enabled: id != null,
   });
 }
@@ -41,7 +49,8 @@ export function useDeal(id: number | null) {
 export function useCreateDeal() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: Partial<Deal>) => create<Deal>("deals", unmapRecord(data as Record<string, unknown>)),
+    mutationFn: (data: Partial<Deal>) =>
+      create<Deal>("deals", unmapRecord(data as Record<string, unknown>)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["deals"] });
       queryClient.invalidateQueries({ queryKey: ["companies_summary"] });

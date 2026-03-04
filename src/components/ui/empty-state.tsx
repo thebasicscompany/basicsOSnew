@@ -1,15 +1,15 @@
-import type { ComponentProps, ReactNode } from "react";
-import { cn } from "@/lib/utils";
+import type { ComponentProps, ReactNode } from "react"
+import { cn } from "@/lib/utils"
 
 export interface EmptyStateProps extends Omit<ComponentProps<"div">, "title"> {
   /** Icon to display above the title */
-  icon?: ReactNode;
+  icon?: ReactNode
   /** Primary heading */
-  title: string;
+  title: string
   /** Optional description below the title */
-  description?: string;
+  description?: string
   /** Optional action button or link */
-  action?: ReactNode;
+  action?: ReactNode
 }
 
 /**
@@ -36,9 +36,7 @@ export function EmptyState({
       {children ?? (
         <>
           {icon && (
-            <div className="text-muted-foreground [&>svg]:size-10">
-              {icon}
-            </div>
+            <div className="text-muted-foreground [&>svg]:size-10">{icon}</div>
           )}
           <div className="space-y-1">
             <h3 className="text-sm font-medium">{title}</h3>
@@ -50,5 +48,5 @@ export function EmptyState({
         </>
       )}
     </div>
-  );
+  )
 }

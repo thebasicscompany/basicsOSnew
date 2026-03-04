@@ -92,7 +92,7 @@ function formatTitle(columnName: string): string {
 function toNocoDBColumnShape(
   row: SchemaColumnRow,
   tableName: string,
-  order: number
+  order: number,
 ): Record<string, unknown> {
   return {
     id: row.column_name,
@@ -145,10 +145,12 @@ export function createSchemaRoutes(db: Db, auth: BetterAuthInstance) {
       sql`SELECT column_name, data_type, ordinal_position, is_nullable, column_default
           FROM information_schema.columns
           WHERE table_schema = 'public' AND table_name = ${baseTable}
-          ORDER BY ordinal_position`
+          ORDER BY ordinal_position`,
     );
 
-    const raw = Array.isArray(result) ? result : (result as { rows?: unknown[] }).rows ?? [];
+    const raw = Array.isArray(result)
+      ? result
+      : ((result as { rows?: unknown[] }).rows ?? []);
     const rows = raw as SchemaColumnRow[];
 
     const extraCols: SchemaColumnRow[] = [];
@@ -167,7 +169,7 @@ export function createSchemaRoutes(db: Db, auth: BetterAuthInstance) {
           ordinal_position: 1000,
           is_nullable: "YES",
           column_default: null,
-        }
+        },
       );
     }
     if (tableName === "companies_summary") {
@@ -185,13 +187,13 @@ export function createSchemaRoutes(db: Db, auth: BetterAuthInstance) {
           ordinal_position: 1000,
           is_nullable: "YES",
           column_default: null,
-        }
+        },
       );
     }
 
     const allCols = [...rows, ...extraCols];
     const columns = allCols.map((row, idx) =>
-      toNocoDBColumnShape(row, tableName, idx + 1)
+      toNocoDBColumnShape(row, tableName, idx + 1),
     );
 
     const resourceForCustom = baseTable;
@@ -203,11 +205,14 @@ export function createSchemaRoutes(db: Db, auth: BetterAuthInstance) {
           eq(schema.customFieldDefs.resource, resourceForCustom),
           or(
             eq(schema.customFieldDefs.organizationId, orgId),
-            isNull(schema.customFieldDefs.organizationId)
-          )
-        )
+            isNull(schema.customFieldDefs.organizationId),
+          ),
+        ),
       )
-      .orderBy(asc(schema.customFieldDefs.position), asc(schema.customFieldDefs.id));
+      .orderBy(
+        asc(schema.customFieldDefs.position),
+        asc(schema.customFieldDefs.id),
+      );
 
     for (const def of customRows) {
       const uidt = FIELD_TYPE_TO_UIDT[def.fieldType] ?? "SingleLineText";

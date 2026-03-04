@@ -1,4 +1,9 @@
-import { SortAscendingIcon, CaretDownIcon, FunnelIcon, PlusIcon } from "@phosphor-icons/react";
+import {
+  SortAscendingIcon,
+  CaretDownIcon,
+  FunnelIcon,
+  PlusIcon,
+} from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -145,7 +150,10 @@ function TableActionsMenu({
         <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
           Actions
           {actionsCount > 0 && (
-            <Badge variant="secondary" className="ml-0.5 h-4 min-w-4 px-1 text-[10px]">
+            <Badge
+              variant="secondary"
+              className="ml-0.5 h-4 min-w-4 px-1 text-[10px]"
+            >
               {actionsCount}
             </Badge>
           )}
@@ -174,7 +182,10 @@ function TableActionsMenu({
               <SortAscendingIcon className="size-3.5" />
               Sort
               {hasActiveSorts && (
-                <Badge variant="secondary" className="ml-0.5 h-4 min-w-4 px-1 text-[10px]">
+                <Badge
+                  variant="secondary"
+                  className="ml-0.5 h-4 min-w-4 px-1 text-[10px]"
+                >
                   {sorts.length}
                 </Badge>
               )}
@@ -205,7 +216,10 @@ function TableActionsMenu({
               <FunnelIcon className="size-3.5" />
               Filter
               {hasActiveFilters && (
-                <Badge variant="secondary" className="ml-0.5 h-4 min-w-4 px-1 text-[10px]">
+                <Badge
+                  variant="secondary"
+                  className="ml-0.5 h-4 min-w-4 px-1 text-[10px]"
+                >
                   {filters.length}
                 </Badge>
               )}
@@ -216,7 +230,9 @@ function TableActionsMenu({
             visibleCount={columnVisibleCount}
             totalCount={columnItems.length}
             onToggle={(columnId, show) => onUpdateColumn(columnId, { show })}
-            onReorder={(columnId, newOrder) => onUpdateColumn(columnId, { order: newOrder })}
+            onReorder={(columnId, newOrder) =>
+              onUpdateColumn(columnId, { order: newOrder })
+            }
             triggerClassName="w-full justify-between sm:w-auto sm:justify-start"
           />
         </div>

@@ -30,7 +30,7 @@ const noopDetector: HoldKeyDetector = {
 
 export const createHoldKeyDetector = (
   _config: HoldKeyConfig,
-  _callbacks: HoldKeyCallbacks
+  _callbacks: HoldKeyCallbacks,
 ): HoldKeyDetector => {
   return noopDetector;
 };

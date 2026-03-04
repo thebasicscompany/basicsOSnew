@@ -43,7 +43,8 @@ export function createUpdateHandler(db: Db, env: Env) {
     const crmUser = crmUserRows[0];
     const crmUserId = crmUser?.id;
     const orgId = crmUser?.organizationId;
-    if (!crmUserId || !crmUser) return c.json({ error: "User not found in CRM" }, 404);
+    if (!crmUserId || !crmUser)
+      return c.json({ error: "User not found in CRM" }, 404);
     if (!orgId) return c.json({ error: "Organization not found" }, 404);
     const permissions = await getPermissionSetForUser(db, crmUser);
     if (!permissions.has("*") && !permissions.has(PERMISSIONS.recordsWrite)) {
@@ -72,7 +73,10 @@ export function createUpdateHandler(db: Db, env: Env) {
       return c.json({ error: "No writable fields to update" }, 400);
     }
 
-    const table = TABLE_MAP[resource as Exclude<Resource, "companies_summary" | "contacts_summary">];
+    const table =
+      TABLE_MAP[
+        resource as Exclude<Resource, "companies_summary" | "contacts_summary">
+      ];
     if (!table) return c.json({ error: "Unknown resource" }, 404);
 
     const idCol = (table as unknown as { id: typeof schema.contacts.id }).id;
@@ -80,21 +84,44 @@ export function createUpdateHandler(db: Db, env: Env) {
     if (resource === "crm_users") {
       conditions.push(eq(schema.crmUsers.organizationId, orgId));
     } else if (hasOrganizationId(resource)) {
-      conditions.push(eq((table as typeof schema.companies).organizationId, orgId));
+      conditions.push(
+        eq((table as typeof schema.companies).organizationId, orgId),
+      );
     }
-    const [updated] = await db.update(table).set(body).where(and(...conditions)).returning();
+    const [updated] = await db
+      .update(table)
+      .set(body)
+      .where(and(...conditions))
+      .returning();
     if (!updated) return c.json({ error: "Not found" }, 404);
 
     const entityTypeU = getEntityType(resource);
     const apiKeyU = resolveStoredApiKey(crmUserRows[0] ?? {});
     if (entityTypeU && apiKeyU && typeof id === "number") {
-      const chunkText = buildEntityText(entityTypeU, updated as Record<string, unknown>);
-      upsertEntityEmbedding(db, env.BASICOS_API_URL, apiKeyU, crmUserId, entityTypeU, id, chunkText).catch(() => {});
+      const chunkText = buildEntityText(
+        entityTypeU,
+        updated as Record<string, unknown>,
+      );
+      upsertEntityEmbedding(
+        db,
+        env.BASICOS_API_URL,
+        apiKeyU,
+        crmUserId,
+        entityTypeU,
+        id,
+        chunkText,
+      ).catch(() => {});
     }
 
-    const eventResourceU = ["deals", "contacts", "tasks"].includes(resource) ? resource : null;
+    const eventResourceU = ["deals", "contacts", "tasks"].includes(resource)
+      ? resource
+      : null;
     if (eventResourceU) {
-      fireEvent(`${eventResourceU.replace(/s$/, "")}.updated`, updated as Record<string, unknown>, crmUserId).catch(() => {});
+      fireEvent(
+        `${eventResourceU.replace(/s$/, "")}.updated`,
+        updated as Record<string, unknown>,
+        crmUserId,
+      ).catch(() => {});
     }
 
     if (resource === "automation_rules" && typeof id === "number") {

@@ -1,4 +1,4 @@
-import { PlusIcon, XIcon } from "@phosphor-icons/react"
+import { PlusIcon, XIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import type { TypeConfigProps, SelectOption } from "../../types";
 import { Input } from "@/components/ui/input";

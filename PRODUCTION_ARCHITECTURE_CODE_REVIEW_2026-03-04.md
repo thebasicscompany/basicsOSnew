@@ -1,4 +1,4 @@
-﻿# BasicsOS Production Readiness Review
+# BasicsOS Production Readiness Review
 Date: 2026-03-04
 Reviewer: Senior architecture/code review (Codex)
 
@@ -66,7 +66,7 @@ Readiness assessment (today):
   - Add body-size limits at middleware/ingress.
   - Enforce per-field constraints (max message count, max chars, max audio bytes).
 
-### 6. Medium: No graceful shutdown lifecycle for server + automation worker
+### 6. Medium: No graceful shutdown lifecycle for server + automation worker ✅ DONE
 - Evidence:
   - Server starts app and worker but no signal handling/cleanup: [packages/server/src/index.ts:11](/C:/Users/aravb/Desktop/basicsOSnew/packages/server/src/index.ts:11)
   - PgBoss startup exists but no coordinated stop path: [packages/server/src/lib/automation-engine.ts:27](/C:/Users/aravb/Desktop/basicsOSnew/packages/server/src/lib/automation-engine.ts:27)
@@ -74,6 +74,7 @@ Readiness assessment (today):
   - Deploy restarts can drop in-flight work or leave inconsistent run statuses.
 - Recommendation:
   - Add `SIGTERM/SIGINT` handlers to stop intake, drain jobs, close DB/pool cleanly.
+- **Status:** Implemented. SIGTERM/SIGINT handlers in index.ts; `stopAutomationEngine()` drains pg-boss (30s timeout).
 
 ### 7. Medium: Build quality gate is currently red (`lint` fails)
 - Evidence:
@@ -145,8 +146,8 @@ Readiness assessment (today):
 ### Priority decomposition targets
 - Server routes:
   - `packages/server/src/routes/gateway-chat.ts` (split into `schemas`, `tool-defs`, `tool-executors`, `thread-store`, `orchestrator`, `route`).
-  - `packages/server/src/routes/views.ts` (split by subresource: `views`, `columns`, `sorts`, `filters`).
-  - `packages/server/src/routes/auth.ts` (split into `bootstrap`, `profile`, `org`, `invites`, `settings`).
+  - ✅ `packages/server/src/routes/views.ts` – Done. Split into `views/column-routes`, `filter-routes`, `sort-routes`, `view-item-routes`, `object-routes`.
+  - ✅ `packages/server/src/routes/auth.ts` – Done. Split into `auth/init-signup-invite-routes`, `me-settings-routes`, `organization-routes`.
 - Server CRM handlers:
   - Extract shared session/org/permission resolution into one middleware/helper to remove duplication in create/update/list/delete handlers.
   - Extract embedding/event side effects from CRUD handlers into post-write domain services.
@@ -184,7 +185,7 @@ Readiness assessment (today):
 
 ### Strongly recommended before production
 - [ ] Add CI workflows and release pipeline.
-- [ ] Add graceful shutdown for server and pg-boss worker.
+- [x] Add graceful shutdown for server and pg-boss worker.
 - [ ] Add structured logs + metrics + trace correlation.
 - [ ] Expand test suite to include integration/E2E for critical user journeys.
 

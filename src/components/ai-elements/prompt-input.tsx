@@ -1,6 +1,9 @@
 "use client";
 
-import type { ChatStatus, FileUIPart, SourceDocumentUIPart } from "ai";
+import type { FileUIPart, SourceDocumentUIPart } from "ai";
+
+/** Status from useChat (not exported by ai package). */
+type ChatStatus = "submitted" | "streaming" | "ready" | "error";
 import type {
   ChangeEvent,
   ChangeEventHandler,
@@ -14,6 +17,17 @@ import type {
   ReactNode,
   RefObject,
 } from "react";
+import {
+  LocalAttachmentsContext,
+  LocalReferencedSourcesContext,
+  ProviderAttachmentsContext,
+  PromptInputController,
+  useOptionalPromptInputController,
+  usePromptInputAttachments,
+  type AttachmentsContext,
+  type PromptInputControllerProps,
+  type ReferencedSourcesContext,
+} from "./prompt-input-context";
 
 import {
   Command,
@@ -65,24 +79,17 @@ import {
 import { nanoid } from "nanoid";
 import {
   Children,
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 
-// ============================================================================
-// Helpers
-// ============================================================================
-
 const convertBlobUrlToDataUrl = async (url: string): Promise<string | null> => {
   try {
     const response = await fetch(url);
     const blob = await response.blob();
-    // FileReader uses callback-based API, wrapping in Promise is necessary
     // oxlint-disable-next-line eslint-plugin-promise(avoid-new)
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -96,69 +103,6 @@ const convertBlobUrlToDataUrl = async (url: string): Promise<string | null> => {
     return null;
   }
 };
-
-// ============================================================================
-// Provider Context & Types
-// ============================================================================
-
-export interface AttachmentsContext {
-  files: (FileUIPart & { id: string })[];
-  add: (files: File[] | FileList) => void;
-  remove: (id: string) => void;
-  clear: () => void;
-  openFileDialog: () => void;
-  fileInputRef: RefObject<HTMLInputElement | null>;
-}
-
-export interface TextInputContext {
-  value: string;
-  setInput: (v: string) => void;
-  clear: () => void;
-}
-
-export interface PromptInputControllerProps {
-  textInput: TextInputContext;
-  attachments: AttachmentsContext;
-  /** INTERNAL: Allows PromptInput to register its file textInput + "open" callback */
-  __registerFileInput: (
-    ref: RefObject<HTMLInputElement | null>,
-    open: () => void
-  ) => void;
-}
-
-const PromptInputController = createContext<PromptInputControllerProps | null>(
-  null
-);
-const ProviderAttachmentsContext = createContext<AttachmentsContext | null>(
-  null
-);
-
-export const usePromptInputController = () => {
-  const ctx = useContext(PromptInputController);
-  if (!ctx) {
-    throw new Error(
-      "Wrap your component inside <PromptInputProvider> to use usePromptInputController()."
-    );
-  }
-  return ctx;
-};
-
-// Optional variants (do NOT throw). Useful for dual-mode components.
-const useOptionalPromptInputController = () =>
-  useContext(PromptInputController);
-
-export const useProviderAttachments = () => {
-  const ctx = useContext(ProviderAttachmentsContext);
-  if (!ctx) {
-    throw new Error(
-      "Wrap your component inside <PromptInputProvider> to use useProviderAttachments()."
-    );
-  }
-  return ctx;
-};
-
-const useOptionalProviderAttachments = () =>
-  useContext(ProviderAttachmentsContext);
 
 export type PromptInputProviderProps = PropsWithChildren<{
   initialInput?: string;
@@ -239,7 +183,7 @@ export const PromptInputProvider = ({
         }
       }
     },
-    []
+    [],
   );
 
   const openFileDialog = useCallback(() => {
@@ -255,7 +199,7 @@ export const PromptInputProvider = ({
       openFileDialog,
       remove,
     }),
-    [attachmentFiles, add, remove, clear, openFileDialog]
+    [attachmentFiles, add, remove, clear, openFileDialog],
   );
 
   const __registerFileInput = useCallback(
@@ -263,7 +207,7 @@ export const PromptInputProvider = ({
       fileInputRef.current = ref.current;
       openRef.current = open;
     },
-    []
+    [],
   );
 
   const controller = useMemo<PromptInputControllerProps>(
@@ -276,7 +220,7 @@ export const PromptInputProvider = ({
         value: textInput,
       },
     }),
-    [textInput, clearInput, attachments, __registerFileInput]
+    [textInput, clearInput, attachments, __registerFileInput],
   );
 
   return (
@@ -286,49 +230,6 @@ export const PromptInputProvider = ({
       </ProviderAttachmentsContext.Provider>
     </PromptInputController.Provider>
   );
-};
-
-// ============================================================================
-// Component Context & Hooks
-// ============================================================================
-
-const LocalAttachmentsContext = createContext<AttachmentsContext | null>(null);
-
-export const usePromptInputAttachments = () => {
-  // Prefer local context (inside PromptInput) as it has validation, fall back to provider
-  const provider = useOptionalProviderAttachments();
-  const local = useContext(LocalAttachmentsContext);
-  const context = local ?? provider;
-  if (!context) {
-    throw new Error(
-      "usePromptInputAttachments must be used within a PromptInput or PromptInputProvider"
-    );
-  }
-  return context;
-};
-
-// ============================================================================
-// Referenced Sources (Local to PromptInput)
-// ============================================================================
-
-export interface ReferencedSourcesContext {
-  sources: (SourceDocumentUIPart & { id: string })[];
-  add: (sources: SourceDocumentUIPart[] | SourceDocumentUIPart) => void;
-  remove: (id: string) => void;
-  clear: () => void;
-}
-
-export const LocalReferencedSourcesContext =
-  createContext<ReferencedSourcesContext | null>(null);
-
-export const usePromptInputReferencedSources = () => {
-  const ctx = useContext(LocalReferencedSourcesContext);
-  if (!ctx) {
-    throw new Error(
-      "usePromptInputReferencedSources must be used within a LocalReferencedSourcesContext.Provider"
-    );
-  }
-  return ctx;
 };
 
 export type PromptInputActionAddAttachmentsProps = ComponentProps<
@@ -348,7 +249,7 @@ export const PromptInputActionAddAttachments = ({
       e.preventDefault();
       attachments.openFileDialog();
     },
-    [attachments]
+    [attachments],
   );
 
   return (
@@ -384,7 +285,7 @@ export type PromptInputProps = Omit<
   }) => void;
   onSubmit: (
     message: PromptInputMessage,
-    event: FormEvent<HTMLFormElement>
+    event: FormEvent<HTMLFormElement>,
   ) => void | Promise<void>;
 };
 
@@ -449,7 +350,7 @@ export const PromptInput = ({
         return f.type === pattern;
       });
     },
-    [accept]
+    [accept],
   );
 
   const addLocal = useCallback(
@@ -500,7 +401,7 @@ export const PromptInput = ({
         return [...prev, ...next];
       });
     },
-    [matchesAccept, maxFiles, maxFileSize, onError]
+    [matchesAccept, maxFiles, maxFileSize, onError],
   );
 
   const removeLocal = useCallback(
@@ -512,7 +413,7 @@ export const PromptInput = ({
         }
         return prev.filter((file) => file.id !== id);
       }),
-    []
+    [],
   );
 
   // Wrapper that validates files before calling provider's add
@@ -556,7 +457,7 @@ export const PromptInput = ({
         controller?.attachments.add(capped);
       }
     },
-    [matchesAccept, maxFileSize, maxFiles, onError, files.length, controller]
+    [matchesAccept, maxFileSize, maxFiles, onError, files.length, controller],
   );
 
   const clearAttachments = useCallback(
@@ -571,12 +472,12 @@ export const PromptInput = ({
             }
             return [];
           }),
-    [usingProvider, controller]
+    [usingProvider, controller],
   );
 
   const clearReferencedSources = useCallback(
     () => setReferencedSources([]),
-    []
+    [],
   );
 
   const add = usingProvider ? addWithProviderValidation : addLocal;
@@ -598,8 +499,6 @@ export const PromptInput = ({
     controller.__registerFileInput(inputRef, () => inputRef.current?.click());
   }, [usingProvider, controller]);
 
-  // Note: File input cannot be programmatically set for security reasons
-  // The syncHiddenInput prop is no longer functional
   useEffect(() => {
     if (syncHiddenInput && inputRef.current && files.length === 0) {
       inputRef.current.value = "";
@@ -674,8 +573,8 @@ export const PromptInput = ({
         }
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- cleanup only on unmount; filesRef always current
-    [usingProvider]
+
+    [usingProvider],
   );
 
   const handleChange: ChangeEventHandler<HTMLInputElement> = useCallback(
@@ -686,7 +585,7 @@ export const PromptInput = ({
       // Reset input value to allow selecting files that were previously removed
       event.currentTarget.value = "";
     },
-    [add]
+    [add],
   );
 
   const attachmentsCtx = useMemo<AttachmentsContext>(
@@ -698,7 +597,7 @@ export const PromptInput = ({
       openFileDialog,
       remove,
     }),
-    [files, add, remove, clearAttachments, openFileDialog]
+    [files, add, remove, clearAttachments, openFileDialog],
   );
 
   const refsCtx = useMemo<ReferencedSourcesContext>(
@@ -716,7 +615,7 @@ export const PromptInput = ({
       },
       sources: referencedSources,
     }),
-    [referencedSources, clearReferencedSources]
+    [referencedSources, clearReferencedSources],
   );
 
   const handleSubmit: FormEventHandler<HTMLFormElement> = useCallback(
@@ -750,12 +649,11 @@ export const PromptInput = ({
               };
             }
             return item;
-          })
+          }),
         );
 
         const result = onSubmit({ files: convertedFiles, text }, event);
 
-        // Handle both sync and async onSubmit
         if (result instanceof Promise) {
           try {
             await result;
@@ -777,7 +675,7 @@ export const PromptInput = ({
         // Don't clear on error - user may want to retry
       }
     },
-    [usingProvider, controller, files, onSubmit, clear]
+    [usingProvider, controller, files, onSubmit, clear],
   );
 
   // Render with or without local provider
@@ -810,7 +708,6 @@ export const PromptInput = ({
     </LocalReferencedSourcesContext.Provider>
   );
 
-  // Always provide LocalAttachmentsContext so children get validated add function
   return (
     <LocalAttachmentsContext.Provider value={attachmentsCtx}>
       {withReferencedSources}
@@ -864,7 +761,7 @@ export const PromptInputTextarea = ({
         // Check if the submit button is disabled before submitting
         const { form } = e.currentTarget;
         const submitButton = form?.querySelector(
-          'button[type="submit"]'
+          'button[type="submit"]',
         ) as HTMLButtonElement | null;
         if (submitButton?.disabled) {
           return;
@@ -886,7 +783,7 @@ export const PromptInputTextarea = ({
         }
       }
     },
-    [onKeyDown, isComposing, attachments]
+    [onKeyDown, isComposing, attachments],
   );
 
   const handlePaste: ClipboardEventHandler<HTMLTextAreaElement> = useCallback(
@@ -913,7 +810,7 @@ export const PromptInputTextarea = ({
         attachments.add(files);
       }
     },
-    [attachments]
+    [attachments],
   );
 
   const handleCompositionEnd = useCallback(() => setIsComposing(false), []);
@@ -1083,9 +980,6 @@ export const PromptInputActionMenuItem = ({
   <DropdownMenuItem className={cn(className)} {...props} />
 );
 
-// Note: Actions that perform side-effects (like opening a file dialog)
-// are provided in opt-in modules (e.g., prompt-input-attachments).
-
 export type PromptInputSubmitProps = ComponentProps<typeof InputGroupButton> & {
   status?: ChatStatus;
   onStop?: () => void;
@@ -1122,7 +1016,7 @@ export const PromptInputSubmit = ({
       }
       onClick?.(e);
     },
-    [isGenerating, onStop, onClick]
+    [isGenerating, onStop, onClick],
   );
 
   return (
@@ -1158,7 +1052,7 @@ export const PromptInputSelectTrigger = ({
     className={cn(
       "border-none bg-transparent font-medium text-muted-foreground shadow-none transition-colors",
       "hover:bg-accent hover:text-foreground aria-expanded:bg-accent aria-expanded:text-foreground",
-      className
+      className,
     )}
     {...props}
   />
@@ -1208,7 +1102,7 @@ export type PromptInputHoverCardTriggerProps = ComponentProps<
 >;
 
 export const PromptInputHoverCardTrigger = (
-  props: PromptInputHoverCardTriggerProps
+  props: PromptInputHoverCardTriggerProps,
 ) => <HoverCardTrigger {...props} />;
 
 export type PromptInputHoverCardContentProps = ComponentProps<
@@ -1247,7 +1141,7 @@ export const PromptInputTabLabel = ({
   <h3
     className={cn(
       "mb-2 px-3 font-medium text-muted-foreground text-xs",
-      className
+      className,
     )}
     {...props}
   />
@@ -1271,7 +1165,7 @@ export const PromptInputTabItem = ({
   <div
     className={cn(
       "flex items-center gap-2 px-3 py-2 text-xs hover:bg-accent",
-      className
+      className,
     )}
     {...props}
   />

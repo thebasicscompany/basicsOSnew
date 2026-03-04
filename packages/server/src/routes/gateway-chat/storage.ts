@@ -6,7 +6,7 @@ export async function ensureThread(
   db: Db,
   crmUser: typeof schema.crmUsers.$inferSelect,
   threadIdRaw?: string,
-  channelRaw?: string
+  channelRaw?: string,
 ): Promise<string> {
   if (!crmUser.organizationId) throw new Error("Organization not found");
   const channel =
@@ -18,7 +18,10 @@ export async function ensureThread(
       .select({ id: schema.aiThreads.id })
       .from(schema.aiThreads)
       .where(
-        and(eq(schema.aiThreads.id, id), eq(schema.aiThreads.crmUserId, crmUser.id))
+        and(
+          eq(schema.aiThreads.id, id),
+          eq(schema.aiThreads.crmUserId, crmUser.id),
+        ),
       )
       .limit(1);
     if (existing[0]) return id;
@@ -26,7 +29,11 @@ export async function ensureThread(
 
   const [inserted] = await db
     .insert(schema.aiThreads)
-    .values({ crmUserId: crmUser.id, organizationId: crmUser.organizationId, channel })
+    .values({
+      crmUserId: crmUser.id,
+      organizationId: crmUser.organizationId,
+      channel,
+    })
     .returning({ id: schema.aiThreads.id });
 
   if (!inserted) throw new Error("Failed to create thread");
@@ -38,7 +45,7 @@ export async function persistMessage(
   threadId: string,
   role: "user" | "assistant" | "tool",
   content: string,
-  opts?: { toolName?: string; toolArgs?: unknown; toolResult?: unknown }
+  opts?: { toolName?: string; toolArgs?: unknown; toolResult?: unknown },
 ): Promise<void> {
   await db.insert(schema.aiMessages).values({
     threadId,

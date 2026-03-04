@@ -1,4 +1,4 @@
-import { TextAaIcon } from "@phosphor-icons/react"
+import { TextAaIcon } from "@phosphor-icons/react";
 import type { FieldTypeDefinition, CalculationType } from "../../types";
 import { TextCellDisplay } from "./TextCellDisplay";
 import { TextCellEditor } from "./TextCellEditor";

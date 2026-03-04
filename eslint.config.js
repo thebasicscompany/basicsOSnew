@@ -57,5 +57,20 @@ export default tseslint.config(
       "@typescript-eslint/consistent-type-imports": "off",
     },
   },
+  {
+    files: ["**/*.test.ts", "**/*.test.tsx"],
+    rules: {
+      "@typescript-eslint/consistent-type-imports": "off",
+    },
+  },
+  {
+    files: [
+      "src/field-types/**/*.{ts,tsx}",
+      "packages/automations/src/AutomationBuilderContext.tsx",
+    ],
+    rules: {
+      "react-refresh/only-export-components": "off",
+    },
+  },
   storybook.configs["flat/recommended"],
 );

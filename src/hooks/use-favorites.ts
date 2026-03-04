@@ -1,10 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchApi } from "@/lib/api";
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
 export interface RecordFavorite {
   id: number;
   crmUserId: number;
@@ -16,10 +12,6 @@ export interface RecordFavorite {
 interface ToggleFavoriteResponse {
   favorited: boolean;
 }
-
-// ---------------------------------------------------------------------------
-// useFavorites — fetch the current user's favorites
-// ---------------------------------------------------------------------------
 
 /**
  * Fetch all favorites for the current user.
@@ -38,10 +30,6 @@ export function useFavorites(objectSlug?: string) {
     },
   });
 }
-
-// ---------------------------------------------------------------------------
-// useToggleFavorite — add or remove a favorite
-// ---------------------------------------------------------------------------
 
 /**
  * Toggle a record as favorite.
@@ -63,7 +51,6 @@ export function useToggleFavorite() {
         body: JSON.stringify(body),
       }),
     onSuccess: (_, variables) => {
-      // Invalidate the specific object slug query and the "all" query
       qc.invalidateQueries({
         queryKey: ["favorites", variables.objectSlug],
       });
@@ -71,10 +58,6 @@ export function useToggleFavorite() {
     },
   });
 }
-
-// ---------------------------------------------------------------------------
-// useIsFavorite — convenience hook to check if a specific record is favorited
-// ---------------------------------------------------------------------------
 
 /**
  * Check if a specific record is in the user's favorites.

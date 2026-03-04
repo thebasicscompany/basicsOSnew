@@ -25,7 +25,7 @@ export async function executeValidatedTool(
   crmUserId: number,
   organizationId: string,
   toolName: string,
-  rawArgs: Record<string, unknown>
+  rawArgs: Record<string, unknown>,
 ): Promise<unknown> {
   const contactExists = async (contactId: number): Promise<boolean> => {
     const rows = await db
@@ -34,8 +34,8 @@ export async function executeValidatedTool(
       .where(
         and(
           eq(schema.contacts.id, contactId),
-          eq(schema.contacts.organizationId, organizationId)
-        )
+          eq(schema.contacts.organizationId, organizationId),
+        ),
       )
       .limit(1);
     return Boolean(rows[0]);
@@ -43,7 +43,8 @@ export async function executeValidatedTool(
 
   if (toolName === "search_contacts") {
     const parsed = searchContactsSchema.safeParse(rawArgs);
-    if (!parsed.success) return { error: "Invalid arguments", details: parsed.error.flatten() };
+    if (!parsed.success)
+      return { error: "Invalid arguments", details: parsed.error.flatten() };
     const args = parsed.data;
     const query = args.query?.trim() ?? "";
     const conditions = [eq(schema.contacts.organizationId, organizationId)];
@@ -52,8 +53,8 @@ export async function executeValidatedTool(
         or(
           ilike(schema.contacts.firstName, `%${query}%`),
           ilike(schema.contacts.lastName, `%${query}%`),
-          ilike(schema.contacts.email, `%${query}%`)
-        )!
+          ilike(schema.contacts.email, `%${query}%`),
+        )!,
       );
     }
     return db
@@ -65,15 +66,16 @@ export async function executeValidatedTool(
 
   if (toolName === "get_contact") {
     const parsed = getContactSchema.safeParse(rawArgs);
-    if (!parsed.success) return { error: "Invalid arguments", details: parsed.error.flatten() };
+    if (!parsed.success)
+      return { error: "Invalid arguments", details: parsed.error.flatten() };
     const rows = await db
       .select()
       .from(schema.contacts)
       .where(
         and(
           eq(schema.contacts.id, parsed.data.id),
-          eq(schema.contacts.organizationId, organizationId)
-        )
+          eq(schema.contacts.organizationId, organizationId),
+        ),
       )
       .limit(1);
     return rows[0] ?? null;
@@ -81,7 +83,8 @@ export async function executeValidatedTool(
 
   if (toolName === "create_contact") {
     const parsed = createContactSchema.safeParse(rawArgs);
-    if (!parsed.success) return { error: "Invalid arguments", details: parsed.error.flatten() };
+    if (!parsed.success)
+      return { error: "Invalid arguments", details: parsed.error.flatten() };
     const args = parsed.data;
     const [row] = await db
       .insert(schema.contacts)
@@ -100,7 +103,8 @@ export async function executeValidatedTool(
 
   if (toolName === "update_contact") {
     const parsed = updateContactSchema.safeParse(rawArgs);
-    if (!parsed.success) return { error: "Invalid arguments", details: parsed.error.flatten() };
+    if (!parsed.success)
+      return { error: "Invalid arguments", details: parsed.error.flatten() };
     const args = parsed.data;
     const updates: Record<string, unknown> = {};
     if (args.first_name !== undefined) updates.firstName = args.first_name;
@@ -112,7 +116,10 @@ export async function executeValidatedTool(
       .update(schema.contacts)
       .set(updates)
       .where(
-        and(eq(schema.contacts.id, args.id), eq(schema.contacts.organizationId, organizationId))
+        and(
+          eq(schema.contacts.id, args.id),
+          eq(schema.contacts.organizationId, organizationId),
+        ),
       )
       .returning();
     return row ?? { error: "contact not found" };
@@ -120,10 +127,14 @@ export async function executeValidatedTool(
 
   if (toolName === "search_deals") {
     const parsed = searchDealsSchema.safeParse(rawArgs);
-    if (!parsed.success) return { error: "Invalid arguments", details: parsed.error.flatten() };
+    if (!parsed.success)
+      return { error: "Invalid arguments", details: parsed.error.flatten() };
     const args = parsed.data;
     const query = args.query?.trim() ?? "";
-    const conditions = [eq(schema.deals.organizationId, organizationId), isNull(schema.deals.archivedAt)];
+    const conditions = [
+      eq(schema.deals.organizationId, organizationId),
+      isNull(schema.deals.archivedAt),
+    ];
     if (query) conditions.push(ilike(schema.deals.name, `%${query}%`));
     if (args.stage) conditions.push(eq(schema.deals.stage, args.stage));
     return db
@@ -135,7 +146,8 @@ export async function executeValidatedTool(
 
   if (toolName === "get_deal") {
     const parsed = getDealSchema.safeParse(rawArgs);
-    if (!parsed.success) return { error: "Invalid arguments", details: parsed.error.flatten() };
+    if (!parsed.success)
+      return { error: "Invalid arguments", details: parsed.error.flatten() };
     const rows = await db
       .select()
       .from(schema.deals)
@@ -143,8 +155,8 @@ export async function executeValidatedTool(
         and(
           eq(schema.deals.id, parsed.data.id),
           eq(schema.deals.organizationId, organizationId),
-          isNull(schema.deals.archivedAt)
-        )
+          isNull(schema.deals.archivedAt),
+        ),
       )
       .limit(1);
     return rows[0] ?? null;
@@ -152,7 +164,8 @@ export async function executeValidatedTool(
 
   if (toolName === "create_deal") {
     const parsed = createDealSchema.safeParse(rawArgs);
-    if (!parsed.success) return { error: "Invalid arguments", details: parsed.error.flatten() };
+    if (!parsed.success)
+      return { error: "Invalid arguments", details: parsed.error.flatten() };
     const args = parsed.data;
     const [row] = await db
       .insert(schema.deals)
@@ -172,7 +185,8 @@ export async function executeValidatedTool(
 
   if (toolName === "update_deal") {
     const parsed = updateDealSchema.safeParse(rawArgs);
-    if (!parsed.success) return { error: "Invalid arguments", details: parsed.error.flatten() };
+    if (!parsed.success)
+      return { error: "Invalid arguments", details: parsed.error.flatten() };
     const args = parsed.data;
     const updates: Record<string, unknown> = { updatedAt: new Date() };
     if (args.name !== undefined) updates.name = args.name;
@@ -188,8 +202,8 @@ export async function executeValidatedTool(
         and(
           eq(schema.deals.id, args.id),
           eq(schema.deals.organizationId, organizationId),
-          isNull(schema.deals.archivedAt)
-        )
+          isNull(schema.deals.archivedAt),
+        ),
       )
       .returning();
     return row ?? { error: "deal not found" };
@@ -197,7 +211,8 @@ export async function executeValidatedTool(
 
   if (toolName === "search_companies") {
     const parsed = searchCompaniesSchema.safeParse(rawArgs);
-    if (!parsed.success) return { error: "Invalid arguments", details: parsed.error.flatten() };
+    if (!parsed.success)
+      return { error: "Invalid arguments", details: parsed.error.flatten() };
     const args = parsed.data;
     const query = args.query?.trim() ?? "";
     const conditions = [eq(schema.companies.organizationId, organizationId)];
@@ -206,8 +221,8 @@ export async function executeValidatedTool(
         or(
           ilike(schema.companies.name, `%${query}%`),
           ilike(schema.companies.city, `%${query}%`),
-          ilike(schema.companies.sector, `%${query}%`)
-        )!
+          ilike(schema.companies.sector, `%${query}%`),
+        )!,
       );
     }
     return db
@@ -219,7 +234,8 @@ export async function executeValidatedTool(
 
   if (toolName === "create_company") {
     const parsed = createCompanySchema.safeParse(rawArgs);
-    if (!parsed.success) return { error: "Invalid arguments", details: parsed.error.flatten() };
+    if (!parsed.success)
+      return { error: "Invalid arguments", details: parsed.error.flatten() };
     const args = parsed.data;
     const [row] = await db
       .insert(schema.companies)
@@ -237,7 +253,8 @@ export async function executeValidatedTool(
 
   if (toolName === "list_tasks") {
     const parsed = listTasksSchema.safeParse(rawArgs);
-    if (!parsed.success) return { error: "Invalid arguments", details: parsed.error.flatten() };
+    if (!parsed.success)
+      return { error: "Invalid arguments", details: parsed.error.flatten() };
     const args = parsed.data;
     return db
       .select()
@@ -245,8 +262,8 @@ export async function executeValidatedTool(
       .where(
         and(
           eq(schema.tasks.organizationId, organizationId),
-          eq(schema.tasks.contactId, args.contact_id)
-        )
+          eq(schema.tasks.contactId, args.contact_id),
+        ),
       )
       .orderBy(desc(schema.tasks.id))
       .limit(limitFrom(args.limit));
@@ -254,10 +271,12 @@ export async function executeValidatedTool(
 
   if (toolName === "create_task") {
     const parsed = createTaskSchema.safeParse(rawArgs);
-    if (!parsed.success) return { error: "Invalid arguments", details: parsed.error.flatten() };
+    if (!parsed.success)
+      return { error: "Invalid arguments", details: parsed.error.flatten() };
     const args = parsed.data;
 
-    if (!(await contactExists(args.contact_id))) return { error: "contact not found" };
+    if (!(await contactExists(args.contact_id)))
+      return { error: "contact not found" };
 
     let dueDate: Date | null = null;
     if (args.due_date) {
@@ -281,12 +300,16 @@ export async function executeValidatedTool(
 
   if (toolName === "complete_task") {
     const parsed = completeTaskSchema.safeParse(rawArgs);
-    if (!parsed.success) return { error: "Invalid arguments", details: parsed.error.flatten() };
+    if (!parsed.success)
+      return { error: "Invalid arguments", details: parsed.error.flatten() };
     const [row] = await db
       .update(schema.tasks)
       .set({ doneDate: new Date() })
       .where(
-        and(eq(schema.tasks.id, parsed.data.id), eq(schema.tasks.organizationId, organizationId))
+        and(
+          eq(schema.tasks.id, parsed.data.id),
+          eq(schema.tasks.organizationId, organizationId),
+        ),
       )
       .returning();
     return row ?? { error: "task not found" };
@@ -294,7 +317,8 @@ export async function executeValidatedTool(
 
   if (toolName === "list_notes") {
     const parsed = listNotesSchema.safeParse(rawArgs);
-    if (!parsed.success) return { error: "Invalid arguments", details: parsed.error.flatten() };
+    if (!parsed.success)
+      return { error: "Invalid arguments", details: parsed.error.flatten() };
     const args = parsed.data;
     return db
       .select()
@@ -302,8 +326,8 @@ export async function executeValidatedTool(
       .where(
         and(
           eq(schema.contactNotes.organizationId, organizationId),
-          eq(schema.contactNotes.contactId, args.contact_id)
-        )
+          eq(schema.contactNotes.contactId, args.contact_id),
+        ),
       )
       .orderBy(desc(schema.contactNotes.id))
       .limit(limitFrom(args.limit));
@@ -311,9 +335,11 @@ export async function executeValidatedTool(
 
   if (toolName === "create_note") {
     const parsed = createNoteSchema.safeParse(rawArgs);
-    if (!parsed.success) return { error: "Invalid arguments", details: parsed.error.flatten() };
+    if (!parsed.success)
+      return { error: "Invalid arguments", details: parsed.error.flatten() };
     const args = parsed.data;
-    if (!(await contactExists(args.contact_id))) return { error: "contact not found" };
+    if (!(await contactExists(args.contact_id)))
+      return { error: "contact not found" };
 
     const [row] = await db
       .insert(schema.contactNotes)

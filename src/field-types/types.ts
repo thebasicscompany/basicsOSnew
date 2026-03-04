@@ -1,6 +1,6 @@
 import type { ComponentType } from "react";
 
-// --- Prop types for each rendering context ---
+// Prop types per rendering context
 
 export interface CellDisplayProps {
   value: any;
@@ -124,7 +124,7 @@ export interface StatusOption extends SelectOption {
   isTerminal?: boolean;
 }
 
-// --- The main FieldTypeDefinition interface ---
+// FieldTypeDefinition
 
 export interface FieldTypeDefinition {
   key: string;

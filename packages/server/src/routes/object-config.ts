@@ -55,7 +55,10 @@ export function createObjectConfigRoutes(
         .where(
           and(
             objectIds.length > 0
-              ? inArray(schema.objectAttributeOverrides.objectConfigId, objectIds)
+              ? inArray(
+                  schema.objectAttributeOverrides.objectConfigId,
+                  objectIds,
+                )
               : eq(schema.objectAttributeOverrides.objectConfigId, -1),
             or(
               eq(schema.objectAttributeOverrides.organizationId, orgId),
@@ -130,7 +133,10 @@ export function createObjectConfigRoutes(
         .where(
           and(
             eq(schema.recordFavorites.crmUserId, crmUserRow.id),
-            eq(schema.recordFavorites.organizationId, crmUserRow.organizationId),
+            eq(
+              schema.recordFavorites.organizationId,
+              crmUserRow.organizationId,
+            ),
             eq(schema.recordFavorites.objectSlug, body.objectSlug),
             eq(schema.recordFavorites.recordId, body.recordId),
           ),
@@ -246,8 +252,7 @@ export function createObjectConfigRoutes(
       if (body.pluralName !== undefined) updates.pluralName = body.pluralName;
       if (body.icon !== undefined) updates.icon = body.icon;
       if (body.iconColor !== undefined) updates.iconColor = body.iconColor;
-      if (body.tableName !== undefined)
-        updates.tableName = body.tableName;
+      if (body.tableName !== undefined) updates.tableName = body.tableName;
       if (body.type !== undefined) updates.type = body.type;
       if (body.isActive !== undefined) updates.isActive = body.isActive;
       if (body.position !== undefined) updates.position = body.position;
@@ -264,7 +269,11 @@ export function createObjectConfigRoutes(
         .returning();
 
       if (updated) {
-        const authz = await requirePermission(c, db, PERMISSIONS.objectConfigWrite);
+        const authz = await requirePermission(
+          c,
+          db,
+          PERMISSIONS.objectConfigWrite,
+        );
         if (authz.ok) {
           await writeAuditLogSafe(db, {
             crmUserId: authz.crmUser.id,
@@ -346,7 +355,11 @@ export function createObjectConfigRoutes(
           .where(eq(schema.objectAttributeOverrides.id, existing.id))
           .returning();
 
-        const authz = await requirePermission(c, db, PERMISSIONS.objectConfigWrite);
+        const authz = await requirePermission(
+          c,
+          db,
+          PERMISSIONS.objectConfigWrite,
+        );
         if (authz.ok && updated) {
           await writeAuditLogSafe(db, {
             crmUserId: authz.crmUser.id,
@@ -354,7 +367,11 @@ export function createObjectConfigRoutes(
             action: "object_attribute_override.updated",
             entityType: "object_attribute_override",
             entityId: updated.id,
-            metadata: { slug, columnName: body.columnName, updatedFields: Object.keys(updates) },
+            metadata: {
+              slug,
+              columnName: body.columnName,
+              updatedFields: Object.keys(updates),
+            },
           });
         }
 
@@ -375,7 +392,11 @@ export function createObjectConfigRoutes(
           })
           .returning();
 
-        const authz = await requirePermission(c, db, PERMISSIONS.objectConfigWrite);
+        const authz = await requirePermission(
+          c,
+          db,
+          PERMISSIONS.objectConfigWrite,
+        );
         if (authz.ok && created) {
           await writeAuditLogSafe(db, {
             crmUserId: authz.crmUser.id,

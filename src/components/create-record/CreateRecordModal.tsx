@@ -33,10 +33,6 @@ import type { Attribute } from "@/field-types/types";
 import { useCreateRecord } from "@/hooks/use-records";
 import { RecordForm } from "./RecordForm";
 
-// ---------------------------------------------------------------------------
-// Props
-// ---------------------------------------------------------------------------
-
 export interface CreateRecordModalProps {
   objectSlug: string;
   objectName: string;
@@ -46,10 +42,6 @@ export interface CreateRecordModalProps {
   onCreated?: (record: any) => void;
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function buildInitialValues(attributes: Attribute[]): Record<string, any> {
   const values: Record<string, any> = {};
   for (const attr of attributes) {
@@ -58,10 +50,6 @@ function buildInitialValues(attributes: Attribute[]): Record<string, any> {
   }
   return values;
 }
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
 
 export function CreateRecordModal({
   objectSlug,
@@ -80,7 +68,6 @@ export function CreateRecordModal({
   const createRecord = useCreateRecord(objectSlug);
   const formRef = useRef<HTMLDivElement>(null);
 
-  // Reset form when modal opens
   useEffect(() => {
     if (open) {
       setValues(buildInitialValues(attributes));
@@ -88,17 +75,13 @@ export function CreateRecordModal({
     }
   }, [open, attributes]);
 
-  // Visible (form-relevant) attributes
   const visibleAttributes = useMemo(
     () => attributes.filter((a) => !a.isSystem && !a.isHiddenByDefault),
     [attributes],
   );
 
-  // ---- field change handler ------------------------------------------------
-
   const handleChange = useCallback((fieldName: string, value: any) => {
     setValues((prev) => ({ ...prev, [fieldName]: value }));
-    // Clear field error on edit
     setErrors((prev) => {
       if (!prev[fieldName]) return prev;
       const next = { ...prev };
@@ -106,8 +89,6 @@ export function CreateRecordModal({
       return next;
     });
   }, []);
-
-  // ---- validation ----------------------------------------------------------
 
   const validate = useCallback((): boolean => {
     const newErrors: Record<string, string> = {};
@@ -120,7 +101,6 @@ export function CreateRecordModal({
         newErrors[attr.columnName] = result.message ?? "Invalid value";
       }
 
-      // Primary field is required
       if (attr.isPrimary && fieldType.isEmpty(values[attr.columnName])) {
         newErrors[attr.columnName] = `${attr.name} is required`;
       }
@@ -129,8 +109,6 @@ export function CreateRecordModal({
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }, [visibleAttributes, values]);
-
-  // ---- submit --------------------------------------------------------------
 
   const handleSubmit = useCallback(async () => {
     if (!validate()) return;
@@ -147,7 +125,7 @@ export function CreateRecordModal({
         onOpenChange(false);
       }
     } catch {
-      // Mutation error is surfaced via createRecord.error in the UI
+      /* Form submit error handled by createRecord mutation state */
     }
   }, [
     validate,
@@ -158,8 +136,6 @@ export function CreateRecordModal({
     attributes,
     onOpenChange,
   ]);
-
-  // ---- keyboard shortcut: Cmd+Enter to submit ------------------------------
 
   useEffect(() => {
     if (!open) return;
@@ -174,8 +150,6 @@ export function CreateRecordModal({
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [open, handleSubmit]);
-
-  // ---- render --------------------------------------------------------------
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

@@ -38,7 +38,10 @@ export function useGatewayChat() {
         ...init,
         credentials: "include",
       });
-      if (!res.ok && res.headers.get("content-type")?.includes("application/json")) {
+      if (
+        !res.ok &&
+        res.headers.get("content-type")?.includes("application/json")
+      ) {
         const json = (await res.json()) as { error?: string; code?: string };
         const err = new Error(json.error ?? `HTTP ${res.status}`);
         (err as Error & { status?: number; code?: string }).status = res.status;
@@ -47,7 +50,7 @@ export function useGatewayChat() {
       }
       return res;
     },
-    []
+    [],
   );
 
   const handleError = useCallback((error: Error) => {
@@ -73,30 +76,27 @@ export function useGatewayChat() {
     }
   }, []);
 
-  const handleFinish = useCallback(
-    () => {
-      const names = pendingToolsRef.current;
-      if (names.size === 0) {
-        // Fallback: server may mutate several entities via tools; keep UI fresh.
-        queryClient.invalidateQueries({ queryKey: ["contacts_summary"] });
-        queryClient.invalidateQueries({ queryKey: ["deals"] });
-        queryClient.invalidateQueries({ queryKey: ["companies_summary"] });
-        queryClient.invalidateQueries({ queryKey: ["tasks"] });
-        queryClient.invalidateQueries({ queryKey: ["contact_notes"] });
-        return;
-      }
-      for (const name of names) {
-        const keys = TOOL_TO_QUERY_KEYS[name];
-        if (keys) {
-          for (const key of keys) {
-            queryClient.invalidateQueries({ queryKey: [key] });
-          }
+  const handleFinish = useCallback(() => {
+    const names = pendingToolsRef.current;
+    if (names.size === 0) {
+      // Fallback: server may mutate several entities via tools; keep UI fresh.
+      queryClient.invalidateQueries({ queryKey: ["contacts_summary"] });
+      queryClient.invalidateQueries({ queryKey: ["deals"] });
+      queryClient.invalidateQueries({ queryKey: ["companies_summary"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["contact_notes"] });
+      return;
+    }
+    for (const name of names) {
+      const keys = TOOL_TO_QUERY_KEYS[name];
+      if (keys) {
+        for (const key of keys) {
+          queryClient.invalidateQueries({ queryKey: [key] });
         }
       }
-      pendingToolsRef.current = new Set();
-    },
-    [queryClient]
-  );
+    }
+    pendingToolsRef.current = new Set();
+  }, [queryClient]);
 
   return useChat({
     api: `${API_URL}/api/gateway-chat`,
@@ -112,7 +112,7 @@ export function useGatewayChat() {
           toolsUsed
             .split(",")
             .map((name) => name.trim())
-            .filter(Boolean)
+            .filter(Boolean),
         );
       } else {
         pendingToolsRef.current = new Set();

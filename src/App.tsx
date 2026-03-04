@@ -1,4 +1,11 @@
-import { BrowserRouter, Navigate, Route, Routes, useLocation, useSearchParams } from "react-router";
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useSearchParams,
+} from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ErrorBoundary } from "react-error-boundary";
 import { ThemeProvider } from "next-themes";
@@ -55,57 +62,84 @@ const queryClient = new QueryClient({
 function AppRoutes() {
   const location = useLocation();
   return (
-    <ErrorBoundary FallbackComponent={ErrorFallback} resetKeys={[location.pathname]}>
+    <ErrorBoundary
+      FallbackComponent={ErrorFallback}
+      resetKeys={[location.pathname]}
+    >
       <GatewayProvider>
-      <Routes>
-        {/* Public */}
-        <Route path="/" element={<StartPage />} />
-        <Route path="/sign-up" element={<SignupPage />} />
+        <Routes>
+          {/* Public */}
+          <Route path="/" element={<StartPage />} />
+          <Route path="/sign-up" element={<SignupPage />} />
 
-        {/* Protected — all inside AppLayout */}
-        <Route
-          element={
-            <ProtectedRoute>
-              <ObjectRegistryProvider>
-                <>
-                  <AppLayout />
-                  <CommandPalette />
-                </>
-              </ObjectRegistryProvider>
-            </ProtectedRoute>
-          }
-        >
-          <Route path={ROUTES.CRM} element={<DashboardPage />} />
-          <Route path={`${ROUTES.AUTOMATIONS}/*`} element={<AutomationsApp />} />
-          <Route path={ROUTES.VOICE} element={<VoiceApp />} />
-          <Route path={ROUTES.MCP} element={<MCPViewerApp />} />
-          <Route path={ROUTES.CHAT} element={<ChatPage />} />
-          <Route path={ROUTES.PROFILE} element={<ProfilePage />} />
-          <Route path={ROUTES.SETTINGS} element={<SettingsPage />} />
+          {/* Protected — all inside AppLayout */}
           <Route
-            path={ROUTES.CONNECTIONS}
-            element={<RedirectToSettingsConnections />}
-          />
-          <Route path={ROUTES.TASKS} element={<TasksPage />} />
-          <Route path={ROUTES.NOTES} element={<NotesPage />} />
-          <Route path={ROUTES.IMPORT} element={<ImportPage />} />
+            element={
+              <ProtectedRoute>
+                <ObjectRegistryProvider>
+                  <>
+                    <AppLayout />
+                    <CommandPalette />
+                  </>
+                </ObjectRegistryProvider>
+              </ProtectedRoute>
+            }
+          >
+            <Route path={ROUTES.CRM} element={<DashboardPage />} />
+            <Route
+              path={`${ROUTES.AUTOMATIONS}/*`}
+              element={<AutomationsApp />}
+            />
+            <Route path={ROUTES.VOICE} element={<VoiceApp />} />
+            <Route path={ROUTES.MCP} element={<MCPViewerApp />} />
+            <Route path={ROUTES.CHAT} element={<ChatPage />} />
+            <Route path={ROUTES.PROFILE} element={<ProfilePage />} />
+            <Route path={ROUTES.SETTINGS} element={<SettingsPage />} />
+            <Route
+              path={ROUTES.CONNECTIONS}
+              element={<RedirectToSettingsConnections />}
+            />
+            <Route path={ROUTES.TASKS} element={<TasksPage />} />
+            <Route path={ROUTES.NOTES} element={<NotesPage />} />
+            <Route path={ROUTES.IMPORT} element={<ImportPage />} />
 
-          {/* Records (object-registry backed objects) */}
-          <Route path="/objects/:objectSlug" element={<ObjectListPage />} />
-          <Route path="/objects/:objectSlug/:recordId" element={<RecordDetailPage />} />
+            {/* Records (object-registry backed objects) */}
+            <Route path="/objects/:objectSlug" element={<ObjectListPage />} />
+            <Route
+              path="/objects/:objectSlug/:recordId"
+              element={<RecordDetailPage />}
+            />
 
-          {/* Redirects: old CRM routes → new objects routes */}
-          <Route path="/contacts" element={<Navigate to="/objects/contacts" replace />} />
-          <Route path="/contacts/:id" element={<Navigate to="/objects/contacts" replace />} />
-          <Route path="/companies" element={<Navigate to="/objects/companies" replace />} />
-          <Route path="/companies/:id" element={<Navigate to="/objects/companies" replace />} />
-          <Route path="/deals" element={<Navigate to="/objects/deals" replace />} />
-          <Route path="/deals/:id" element={<Navigate to="/objects/deals" replace />} />
+            {/* Redirects: old CRM routes → new objects routes */}
+            <Route
+              path="/contacts"
+              element={<Navigate to="/objects/contacts" replace />}
+            />
+            <Route
+              path="/contacts/:id"
+              element={<Navigate to="/objects/contacts" replace />}
+            />
+            <Route
+              path="/companies"
+              element={<Navigate to="/objects/companies" replace />}
+            />
+            <Route
+              path="/companies/:id"
+              element={<Navigate to="/objects/companies" replace />}
+            />
+            <Route
+              path="/deals"
+              element={<Navigate to="/objects/deals" replace />}
+            />
+            <Route
+              path="/deals/:id"
+              element={<Navigate to="/objects/deals" replace />}
+            />
 
-          {/* Catch-all: redirect to dashboard */}
-          <Route path="*" element={<Navigate to={ROUTES.CRM} replace />} />
-        </Route>
-      </Routes>
+            {/* Catch-all: redirect to dashboard */}
+            <Route path="*" element={<Navigate to={ROUTES.CRM} replace />} />
+          </Route>
+        </Routes>
       </GatewayProvider>
     </ErrorBoundary>
   );

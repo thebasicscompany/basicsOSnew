@@ -22,7 +22,10 @@ export function authMiddleware(auth: AuthWithApi, db: Db) {
   return async (c: Context, next: Next) => {
     let headers = c.req.raw.headers;
     const authHeader = c.req.header("Authorization");
-    if (authHeader?.startsWith("Bearer ") && !c.req.header("Cookie")?.includes("better-auth.session_token")) {
+    if (
+      authHeader?.startsWith("Bearer ") &&
+      !c.req.header("Cookie")?.includes("better-auth.session_token")
+    ) {
       const token = authHeader.slice(7).trim();
       if (token) {
         headers = new Headers(headers);

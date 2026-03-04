@@ -7,10 +7,6 @@ import type {
   ViewFilter,
 } from "@/types/views";
 
-// ---------------------------------------------------------------------------
-// Raw API response shapes
-// ---------------------------------------------------------------------------
-
 interface ViewRaw {
   id: string;
   title: string;
@@ -43,10 +39,6 @@ interface ViewFilterRaw {
   value: unknown;
   logical_op: "and" | "or";
 }
-
-// ---------------------------------------------------------------------------
-// Mappers
-// ---------------------------------------------------------------------------
 
 const VIEW_TYPE_MAP: Record<number, ViewConfig["type"]> = {
   3: "grid",
@@ -96,10 +88,6 @@ function mapViewFilter(raw: ViewFilterRaw): ViewFilter {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Views list
-// ---------------------------------------------------------------------------
-
 /**
  * List all views for an object (by CRM resource name).
  * GET /api/views/:objectSlug
@@ -116,10 +104,6 @@ export function useViewList(resource: string) {
     enabled: !!resource,
   });
 }
-
-// ---------------------------------------------------------------------------
-// View columns
-// ---------------------------------------------------------------------------
 
 /**
  * Get column configuration for a specific view.
@@ -262,10 +246,6 @@ export function useDeleteViewSort(viewId: string) {
   });
 }
 
-// ---------------------------------------------------------------------------
-// View filters
-// ---------------------------------------------------------------------------
-
 /**
  * List filters for a view.
  * GET /api/views/view/:viewId/filters
@@ -335,10 +315,6 @@ export function useDeleteViewFilter(viewId: string) {
   });
 }
 
-// ---------------------------------------------------------------------------
-// View rename and delete
-// ---------------------------------------------------------------------------
-
 /**
  * Rename a view.
  * PATCH /api/views/view/:viewId  body: { title }
@@ -346,19 +322,12 @@ export function useDeleteViewFilter(viewId: string) {
 export function useRenameView(objectSlug: string) {
   const qc = useQueryClient();
 
-  return useMutation<
-    ViewConfig,
-    Error,
-    { viewId: string; title: string }
-  >({
+  return useMutation<ViewConfig, Error, { viewId: string; title: string }>({
     mutationFn: async ({ viewId, title }) => {
-      const raw = await fetchApi<ViewRaw>(
-        `/api/views/view/${viewId}`,
-        {
-          method: "PATCH",
-          body: JSON.stringify({ title }),
-        },
-      );
+      const raw = await fetchApi<ViewRaw>(`/api/views/view/${viewId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ title }),
+      });
       return mapView(raw);
     },
     onSuccess: () => {

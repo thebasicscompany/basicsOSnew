@@ -28,8 +28,8 @@ export function registerObjectViewRoutes(app: Hono, db: Db): void {
         and(
           eq(schema.views.objectSlug, objectSlug),
           eq(schema.views.crmUserId, crmUserId),
-          eq(schema.views.organizationId, organizationId)
-        )
+          eq(schema.views.organizationId, organizationId),
+        ),
       )
       .orderBy(asc(schema.views.displayOrder), asc(schema.views.createdAt));
 
@@ -48,7 +48,12 @@ export function registerObjectViewRoutes(app: Hono, db: Db): void {
         .returning();
       if (inserted) {
         list = [inserted];
-        await seedDefaultViewColumns(db, inserted.id, objectSlug, organizationId);
+        await seedDefaultViewColumns(
+          db,
+          inserted.id,
+          objectSlug,
+          organizationId,
+        );
       }
     } else {
       const defaultView = list.find((v) => v.isDefault) ?? list[0];
@@ -58,7 +63,12 @@ export function registerObjectViewRoutes(app: Hono, db: Db): void {
         .where(eq(schema.viewColumns.viewId, defaultView.id))
         .limit(1);
       if (existingCols.length === 0) {
-        await seedDefaultViewColumns(db, defaultView.id, objectSlug, organizationId);
+        await seedDefaultViewColumns(
+          db,
+          defaultView.id,
+          objectSlug,
+          organizationId,
+        );
       }
     }
 
@@ -101,10 +111,11 @@ export function registerObjectViewRoutes(app: Hono, db: Db): void {
         and(
           eq(schema.views.objectSlug, objectSlug),
           eq(schema.views.crmUserId, crmUserId),
-          eq(schema.views.organizationId, organizationId)
-        )
+          eq(schema.views.organizationId, organizationId),
+        ),
       );
-    const defaultView = existingViews.find((v) => v.isDefault) ?? existingViews[0];
+    const defaultView =
+      existingViews.find((v) => v.isDefault) ?? existingViews[0];
     if (defaultView && defaultView.id !== inserted.id) {
       await copyViewColumns(db, defaultView.id, inserted.id);
     } else {

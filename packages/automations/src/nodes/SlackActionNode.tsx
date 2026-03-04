@@ -1,4 +1,4 @@
-import { ChatCircleIcon } from "@phosphor-icons/react"
+import { ChatCircleIcon } from "@phosphor-icons/react";
 import type { NodeProps } from "@xyflow/react";
 import { CompactAutomationNode } from "./CompactAutomationNode";
 import { useAutomationBuilder } from "../AutomationBuilderContext";
@@ -14,7 +14,11 @@ export function SlackActionNode({
 }: NodeProps<{ type: "action_slack"; data: SlackActionData }>) {
   const { connectedProviders } = useAutomationBuilder();
   const channel = data?.channel?.trim() || "";
-  const display = channel ? (channel.length > 20 ? `${channel.slice(0, 20)}…` : channel) : "Slack Message";
+  const display = channel
+    ? channel.length > 20
+      ? `${channel.slice(0, 20)}…`
+      : channel
+    : "Slack Message";
   const connectionRequired = !connectedProviders.includes("slack");
 
   return (

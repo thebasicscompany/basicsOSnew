@@ -1,11 +1,13 @@
-import { CaretUpDownIcon, DownloadSimpleIcon, GearIcon, IdentificationCardIcon, SignOutIcon } from "@phosphor-icons/react"
-import { Link, useNavigate } from "react-router"
-
 import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar"
+  CaretUpDownIcon,
+  DownloadSimpleIcon,
+  GearIcon,
+  IdentificationCardIcon,
+  SignOutIcon,
+} from "@phosphor-icons/react";
+import { Link, useNavigate } from "react-router";
+
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,40 +16,41 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+} from "@/components/ui/dropdown-menu";
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
-} from "@/components/ui/sidebar"
-import { authClient, useSession } from "@/lib/auth"
-import { ROUTES } from "@basics-os/hub"
+} from "@/components/ui/sidebar";
+import { authClient } from "@/lib/auth-client";
+import { useSession } from "@/lib/auth-hooks";
+import { ROUTES } from "@basics-os/hub";
 
 function getInitials(name: string): string {
-  const parts = name.trim().split(/\s+/)
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
 export function NavUser() {
-  const { isMobile } = useSidebar()
-  const { data: session, isPending } = useSession()
-  const navigate = useNavigate()
+  const { isMobile } = useSidebar();
+  const { data: session, isPending } = useSession();
+  const navigate = useNavigate();
 
-  if (isPending) return null
+  if (isPending) return null;
 
-  const user = session?.user
-  if (!user) return null
+  const user = session?.user;
+  if (!user) return null;
 
-  const name = user.name ?? user.email ?? "IconUser"
-  const email = user.email ?? ""
-  const avatar = user.image ?? ""
-  const initials = getInitials(name)
+  const name = user.name ?? user.email ?? "IconUser";
+  const email = user.email ?? "";
+  const avatar = user.image ?? "";
+  const initials = getInitials(name);
 
   async function handleSignOut() {
-    await authClient.signOut()
-    navigate("/")
+    await authClient.signOut();
+    navigate("/");
   }
 
   return (
@@ -61,7 +64,9 @@ export function NavUser() {
             >
               <Avatar className="h-8 w-8 rounded-lg">
                 <AvatarImage src={avatar} alt={name} />
-                <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
+                <AvatarFallback className="rounded-lg">
+                  {initials}
+                </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{name}</span>
@@ -80,7 +85,9 @@ export function NavUser() {
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
                   <AvatarImage src={avatar} alt={name} />
-                  <AvatarFallback className="rounded-lg">{initials}</AvatarFallback>
+                  <AvatarFallback className="rounded-lg">
+                    {initials}
+                  </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{name}</span>
@@ -118,5 +125,5 @@ export function NavUser() {
         </DropdownMenu>
       </SidebarMenuItem>
     </SidebarMenu>
-  )
+  );
 }

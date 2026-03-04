@@ -1,5 +1,2 @@
 export { canAccess } from "./canAccess";
-export {
-  createRestAuthProvider,
-  createAuthClient,
-} from "./restAuthProvider";
+export { createRestAuthProvider, createAuthClient } from "./restAuthProvider";

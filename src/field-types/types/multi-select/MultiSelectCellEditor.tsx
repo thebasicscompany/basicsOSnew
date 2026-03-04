@@ -1,4 +1,4 @@
-import { CheckIcon } from "@phosphor-icons/react"
+import { CheckIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import type { CellEditorProps, SelectOption } from "../../types";
 import {
@@ -19,8 +19,7 @@ export function MultiSelectCellEditor({
   value,
   config,
   onSave,
-  onCancel,
-}: CellEditorProps) {
+}: Omit<CellEditorProps, "onCancel">) {
   const [open, setOpen] = useState(true);
   const options: SelectOption[] = config.options ?? [];
 

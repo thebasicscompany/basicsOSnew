@@ -24,7 +24,7 @@ export const rbacRoles = pgTable(
       onDelete: "cascade",
     }),
   },
-  (t) => [index("rbac_roles_org_idx").on(t.organizationId)]
+  (t) => [index("rbac_roles_org_idx").on(t.organizationId)],
 );
 
 export const rbacPermissions = pgTable("rbac_permissions", {
@@ -44,7 +44,7 @@ export const rbacRolePermissions = pgTable(
       .notNull()
       .references(() => rbacPermissions.id, { onDelete: "cascade" }),
   },
-  (t) => [unique().on(t.roleId, t.permissionId)]
+  (t) => [unique().on(t.roleId, t.permissionId)],
 );
 
 export const rbacUserRoles = pgTable(
@@ -65,5 +65,5 @@ export const rbacUserRoles = pgTable(
     unique().on(t.crmUserId, t.roleId, t.organizationId),
     index("rbac_user_roles_user_idx").on(t.crmUserId),
     index("rbac_user_roles_org_idx").on(t.organizationId),
-  ]
+  ],
 );

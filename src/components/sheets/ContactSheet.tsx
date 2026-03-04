@@ -1,4 +1,4 @@
-import { TrashIcon } from "@phosphor-icons/react"
+import { TrashIcon } from "@phosphor-icons/react";
 import { useEffect, useState } from "react";
 import {
   Sheet,
@@ -90,7 +90,8 @@ export function ContactSheet({
   };
 
   const displayName = contact
-    ? `${(contact as ContactSummary).firstName ?? ""} ${(contact as ContactSummary).lastName ?? ""}`.trim() || "this contact"
+    ? `${(contact as ContactSummary).firstName ?? ""} ${(contact as ContactSummary).lastName ?? ""}`.trim() ||
+      "this contact"
     : "this contact";
 
   const isPending = createContact.isPending || updateContact.isPending;
@@ -100,7 +101,9 @@ export function ContactSheet({
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent className="w-full max-w-md overflow-y-auto">
           <SheetHeader>
-            <SheetTitle className="text-[15px]">{isEdit ? "Edit Contact" : "New Contact"}</SheetTitle>
+            <SheetTitle className="text-[15px]">
+              {isEdit ? "Edit Contact" : "New Contact"}
+            </SheetTitle>
           </SheetHeader>
 
           <div className="space-y-3 py-3">
@@ -177,10 +180,20 @@ export function ContactSheet({
               </Button>
             )}
             <div className="ml-auto flex gap-2">
-              <Button variant="outline" size="sm" className="h-7 text-[13px]" onClick={() => onOpenChange(false)}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-[13px]"
+                onClick={() => onOpenChange(false)}
+              >
                 Cancel
               </Button>
-              <Button size="sm" className="h-7 text-[13px]" onClick={handleSubmit} disabled={isPending}>
+              <Button
+                size="sm"
+                className="h-7 text-[13px]"
+                onClick={handleSubmit}
+                disabled={isPending}
+              >
                 {isPending ? "Saving…" : isEdit ? "Save" : "Create"}
               </Button>
             </div>
@@ -193,11 +206,17 @@ export function ContactSheet({
           <DialogHeader>
             <DialogTitle>Delete {displayName}?</DialogTitle>
             <DialogDescription>
-              This cannot be undone. All tasks and notes linked to this contact will also be removed.
+              This cannot be undone. All tasks and notes linked to this contact
+              will also be removed.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" size="sm" className="h-7 text-[13px]" onClick={() => setConfirmDeleteOpen(false)}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-[13px]"
+              onClick={() => setConfirmDeleteOpen(false)}
+            >
               Cancel
             </Button>
             <Button

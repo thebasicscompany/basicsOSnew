@@ -15,12 +15,15 @@ import type { PgTableWithColumns } from "drizzle-orm/pg-core";
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2})?/;
 
-export function snakeToCamel(obj: Record<string, unknown>): Record<string, unknown> {
+export function snakeToCamel(
+  obj: Record<string, unknown>,
+): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(obj)) {
     if (v === undefined) continue;
     const camel = k.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
-    result[camel] = typeof v === "string" && ISO_DATE_RE.test(v) ? new Date(v) : v;
+    result[camel] =
+      typeof v === "string" && ISO_DATE_RE.test(v) ? new Date(v) : v;
   }
   return result;
 }
@@ -37,10 +40,11 @@ export interface GenericFilter {
 
 export function buildGenericFilterCondition(
   table: PgTableWithColumns<any>,
-  f: GenericFilter
+  f: GenericFilter,
 ): SQL | null {
   const col = (table as Record<string, unknown>)[snakeToCamelField(f.field)];
-  if (!col || typeof (col as { getSQL: unknown }).getSQL !== "function") return null;
+  if (!col || typeof (col as { getSQL: unknown }).getSQL !== "function")
+    return null;
   const c = col as SQL;
   switch (f.op) {
     case "eq":

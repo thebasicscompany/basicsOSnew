@@ -27,15 +27,19 @@ export const contextEmbeddings = pgTable(
     entityId: bigint("entity_id", { mode: "number" }).notNull(),
     chunkText: text("chunk_text").notNull(),
     embedding: vector("embedding", { dimensions: 3072 }),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
   (t) => [
     uniqueIndex("context_embeddings_crm_user_entity_idx").on(
       t.crmUserId,
       t.entityType,
-      t.entityId
+      t.entityId,
     ),
     index("context_embeddings_org_idx").on(t.organizationId),
-  ]
+  ],
 );

@@ -34,7 +34,7 @@ export function CompactAutomationNode({
       className={cn(
         "flex w-32 flex-col items-center justify-center shadow-none transition-all duration-150 ease-out",
         selected && "border-primary",
-        connectionRequired && "ring-1 ring-amber-500/50"
+        connectionRequired && "ring-1 ring-amber-500/50",
       )}
       handles={handles}
     >

@@ -1,4 +1,4 @@
-import { CircleIcon } from "@phosphor-icons/react"
+import { CircleIcon } from "@phosphor-icons/react";
 import type {
   FieldTypeDefinition,
   CalculationType,

@@ -1,4 +1,4 @@
-import { EnvelopeIcon } from "@phosphor-icons/react"
+import { EnvelopeIcon } from "@phosphor-icons/react";
 import type { NodeProps } from "@xyflow/react";
 import { CompactAutomationNode } from "./CompactAutomationNode";
 
@@ -13,7 +13,11 @@ export function EmailActionNode({
   selected,
 }: NodeProps<{ type: "action_email"; data: EmailActionData }>) {
   const to = data?.to?.trim() || "";
-  const display = to ? (to.length > 20 ? `${to.slice(0, 20)}…` : to) : "Send Email";
+  const display = to
+    ? to.length > 20
+      ? `${to.slice(0, 20)}…`
+      : to
+    : "Send Email";
 
   return (
     <CompactAutomationNode

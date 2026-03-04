@@ -1,14 +1,14 @@
 import * as React from "react";
-import { flexRender, type Header, type HeaderGroup } from "@tanstack/react-table";
+import {
+  flexRender,
+  type Header,
+  type HeaderGroup,
+} from "@tanstack/react-table";
 import {
   SortableContext,
   horizontalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import {
-  TableHeader,
-  TableRow,
-  TableHead,
-} from "@/components/ui/table";
+import { TableHeader, TableRow, TableHead } from "@/components/ui/table";
 import { SortableHeaderCell } from "./SortableHeaderCell";
 import { ColumnResizeHandle } from "./ColumnResizeHandle";
 import type { Attribute } from "@/field-types/types";
@@ -47,7 +47,9 @@ export function DataTableHeader<T extends Record<string, unknown>>({
                 stickyStyle.zIndex = 3;
               }
 
-              const fitContent = (header.column.columnDef.meta as { fitContent?: boolean })?.fitContent;
+              const fitContent = (
+                header.column.columnDef.meta as { fitContent?: boolean }
+              )?.fitContent;
               const sizeStyle = fitContent
                 ? {
                     width: "max-content" as const,

@@ -37,8 +37,12 @@ export type OverlayElectronAPI = {
   showOverlay?: () => Promise<void>;
   hideOverlay?: () => Promise<void>;
   getOverlayStatus?: () => Promise<{ visible: boolean; active: boolean }>;
-  onOverlayStatusChanged?: (cb: (status: { visible: boolean; active: boolean }) => void) => void;
-  onSystemAudioTranscript?: (cb: (s: number | undefined, t: string) => void) => void;
+  onOverlayStatusChanged?: (
+    cb: (status: { visible: boolean; active: boolean }) => void,
+  ) => void;
+  onSystemAudioTranscript?: (
+    cb: (s: number | undefined, t: string) => void,
+  ) => void;
   removeAllListeners?: () => void;
 };
 

@@ -1,4 +1,4 @@
-import { PlayIcon } from "@phosphor-icons/react"
+import { PlayIcon } from "@phosphor-icons/react";
 import type { NodeProps } from "@xyflow/react";
 import { CompactAutomationNode } from "./CompactAutomationNode";
 
@@ -22,10 +22,11 @@ export function TriggerEventNode({
   selected,
 }: NodeProps<{ type: "trigger_event"; data: TriggerEventData }>) {
   const event = data?.event ?? "deal.created";
-  const displayTitle =
-    EVENT_OPTIONS.includes(event as (typeof EVENT_OPTIONS)[number])
-      ? event.replace(".", " ")
-      : "Deal created";
+  const displayTitle = EVENT_OPTIONS.includes(
+    event as (typeof EVENT_OPTIONS)[number],
+  )
+    ? event.replace(".", " ")
+    : "Deal created";
 
   return (
     <CompactAutomationNode

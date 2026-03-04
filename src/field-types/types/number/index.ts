@@ -1,4 +1,4 @@
-import { HashIcon } from "@phosphor-icons/react"
+import { HashIcon } from "@phosphor-icons/react";
 import type { FieldTypeDefinition, CalculationType } from "../../types";
 import { NumberCellDisplay } from "./NumberCellDisplay";
 import { NumberCellEditor } from "./NumberCellEditor";

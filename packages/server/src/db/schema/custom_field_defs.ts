@@ -17,7 +17,9 @@ export const customFieldDefs = pgTable("custom_field_defs", {
   fieldType: varchar("field_type", { length: 32 }).notNull(),
   options: jsonb("options").$type<string[]>(),
   position: smallint("position").notNull().default(0),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
   organizationId: uuid("organization_id").references(() => organizations.id, {
     onDelete: "cascade",
   }),

@@ -2,10 +2,7 @@ import type { ReactNode } from "react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router";
 import { toast } from "sonner";
-import {
-  useObject,
-  useAttributes,
-} from "@/hooks/use-object-registry";
+import { useObject, useAttributes } from "@/hooks/use-object-registry";
 import type { Attribute } from "@/types/objects";
 import {
   useRecord,
@@ -16,7 +13,11 @@ import {
 } from "@/hooks/use-records";
 import { useToggleFavorite, useIsFavorite } from "@/hooks/use-favorites";
 import { useRecentItems, type RecentItem } from "@/hooks/use-recent-items";
-import { usePageTitle, usePageHeaderBreadcrumb, usePageHeaderActions } from "@/contexts/page-header";
+import {
+  usePageTitle,
+  usePageHeaderBreadcrumb,
+  usePageHeaderActions,
+} from "@/contexts/page-header";
 import { RecordDetailBreadcrumb } from "./RecordDetailBreadcrumb";
 import { RecordDetailHeaderActions } from "./RecordDetailHeaderActions";
 import type { ObjectConfig } from "@/types/objects";
@@ -84,7 +85,9 @@ export function useRecordDetail(): UseRecordDetailReturn {
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [showAllFields, setShowAllFields] = useState(false);
   const [activeTab, setActiveTab] = useState(() =>
-    typeof window !== "undefined" && window.location.hash === "#notes" ? "notes" : "overview",
+    typeof window !== "undefined" && window.location.hash === "#notes"
+      ? "notes"
+      : "overview",
   );
 
   useEffect(() => {
@@ -110,7 +113,10 @@ export function useRecordDetail(): UseRecordDetailReturn {
     perPage: 200,
   });
   const listIds = useMemo(
-    () => (listData?.data ?? []).map((r) => (r as Record<string, unknown>).Id as number),
+    () =>
+      (listData?.data ?? []).map(
+        (r) => (r as Record<string, unknown>).Id as number,
+      ),
     [listData],
   );
   const currentIndex = listIds.indexOf(recordId as number);
@@ -152,7 +158,15 @@ export function useRecordDetail(): UseRecordDetailReturn {
     } catch {
       toast.error("Failed to duplicate record");
     }
-  }, [record, obj, primaryAttr, attributes, createRecord, navigate, objectSlug]);
+  }, [
+    record,
+    obj,
+    primaryAttr,
+    attributes,
+    createRecord,
+    navigate,
+    objectSlug,
+  ]);
 
   const breadcrumbForHeader =
     obj && !isPending && !isError && record ? (
@@ -161,9 +175,13 @@ export function useRecordDetail(): UseRecordDetailReturn {
         obj={obj}
         recordName={
           primaryAttr
-            ? (typeof (record as Record<string, unknown>)[primaryAttr.columnName] === "string" &&
-              (record as Record<string, unknown>)[primaryAttr.columnName])
-              ? String((record as Record<string, unknown>)[primaryAttr.columnName])
+            ? typeof (record as Record<string, unknown>)[
+                primaryAttr.columnName
+              ] === "string" &&
+              (record as Record<string, unknown>)[primaryAttr.columnName]
+              ? String(
+                  (record as Record<string, unknown>)[primaryAttr.columnName],
+                )
               : "Unnamed"
             : "\u2026"
         }
@@ -179,8 +197,12 @@ export function useRecordDetail(): UseRecordDetailReturn {
         nextId={nextId}
         isFavorite={isFavorite}
         onBack={() => navigate(`/objects/${objectSlug}`)}
-        onPrev={() => prevId != null && navigate(`/objects/${objectSlug}/${prevId}`)}
-        onNext={() => nextId != null && navigate(`/objects/${objectSlug}/${nextId}`)}
+        onPrev={() =>
+          prevId != null && navigate(`/objects/${objectSlug}/${prevId}`)
+        }
+        onNext={() =>
+          nextId != null && navigate(`/objects/${objectSlug}/${nextId}`)
+        }
         onToggleFavorite={handleToggleFavorite}
         onEdit={() => navigate(`/objects/${objectSlug}/${recordId}`)}
         onDuplicate={handleDuplicate}
@@ -272,7 +294,10 @@ export function useRecordDetail(): UseRecordDetailReturn {
     [attributes],
   );
 
-  const isValueEmpty = useCallback((val: unknown) => val == null || val === "" || val === false, []);
+  const isValueEmpty = useCallback(
+    (val: unknown) => val == null || val === "" || val === false,
+    [],
+  );
 
   const visibleEditableAttributes = useMemo(() => {
     if (showAllFields) return editableAttributes;

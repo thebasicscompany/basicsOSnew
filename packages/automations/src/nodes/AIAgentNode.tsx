@@ -1,4 +1,4 @@
-import { SparkleIcon } from "@phosphor-icons/react"
+import { SparkleIcon } from "@phosphor-icons/react";
 import type { NodeProps } from "@xyflow/react";
 import { CompactAutomationNode } from "./CompactAutomationNode";
 
@@ -14,7 +14,9 @@ export function AIAgentNode({
 }: NodeProps<{ type: "action_ai_agent"; data: AIAgentData }>) {
   const objective = data?.objective?.trim() || "";
   const display =
-    objective.length > 24 ? `${objective.slice(0, 24)}…` : objective || "AI Agent";
+    objective.length > 24
+      ? `${objective.slice(0, 24)}…`
+      : objective || "AI Agent";
 
   return (
     <CompactAutomationNode

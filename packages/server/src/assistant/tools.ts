@@ -90,7 +90,7 @@ export async function executeAssistantToolDrizzle(
   crmUserId: number,
   organizationId: string,
   toolName: string,
-  args: Record<string, unknown>
+  args: Record<string, unknown>,
 ): Promise<string> {
   try {
     if (toolName === "create_task") {
@@ -104,7 +104,12 @@ export async function executeAssistantToolDrizzle(
       const [contact] = await db
         .select({ id: schema.contacts.id })
         .from(schema.contacts)
-        .where(and(eq(schema.contacts.id, contactId), eq(schema.contacts.organizationId, organizationId)))
+        .where(
+          and(
+            eq(schema.contacts.id, contactId),
+            eq(schema.contacts.organizationId, organizationId),
+          ),
+        )
         .limit(1);
       if (!contact) return "Error: Contact not found";
 
@@ -135,7 +140,12 @@ export async function executeAssistantToolDrizzle(
         const [contact] = await db
           .select({ id: schema.contacts.id })
           .from(schema.contacts)
-          .where(and(eq(schema.contacts.id, contactId), eq(schema.contacts.organizationId, organizationId)))
+          .where(
+            and(
+              eq(schema.contacts.id, contactId),
+              eq(schema.contacts.organizationId, organizationId),
+            ),
+          )
           .limit(1);
         if (!contact) return "Error: Contact not found";
 
@@ -159,7 +169,12 @@ export async function executeAssistantToolDrizzle(
         const [deal] = await db
           .select({ id: schema.deals.id })
           .from(schema.deals)
-          .where(and(eq(schema.deals.id, dealId), eq(schema.deals.organizationId, organizationId)))
+          .where(
+            and(
+              eq(schema.deals.id, dealId),
+              eq(schema.deals.organizationId, organizationId),
+            ),
+          )
           .limit(1);
         if (!deal) return "Error: Deal not found";
 
@@ -198,8 +213,8 @@ export async function executeAssistantToolDrizzle(
           and(
             eq(schema.deals.id, dealId),
             eq(schema.deals.organizationId, organizationId),
-            isNull(schema.deals.archivedAt)
-          )
+            isNull(schema.deals.archivedAt),
+          ),
         )
         .returning();
 

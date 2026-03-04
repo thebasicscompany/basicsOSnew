@@ -1,5 +1,5 @@
 // Browser-safe logger for overlay renderer
-
+/* eslint-disable no-console -- logger wrapper; console is intentional */
 export const createOverlayLogger = (tag: string) => {
   const prefix = `[${tag}]`;
   return {

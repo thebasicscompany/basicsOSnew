@@ -1,11 +1,7 @@
 import * as React from "react";
 import { flexRender, type ColumnDef, type Row } from "@tanstack/react-table";
 import { PlusIcon, TableIcon } from "@phosphor-icons/react";
-import {
-  TableBody,
-  TableCell,
-  TableRow,
-} from "@/components/ui/table";
+import { TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -73,11 +69,7 @@ export function DataTableBody<T extends Record<string, unknown>>({
               description="Get started by creating your first record."
               action={
                 onNewRecord ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={onNewRecord}
-                  >
+                  <Button variant="outline" size="sm" onClick={onNewRecord}>
                     <PlusIcon className="size-3.5 mr-1" />
                     New {singularName}
                   </Button>
@@ -95,7 +87,8 @@ export function DataTableBody<T extends Record<string, unknown>>({
                 ? () =>
                     onRowExpand(
                       (row.original as { Id?: number; id?: number }).Id ??
-                        (row.original as { id?: number }).id ?? 0,
+                        (row.original as { id?: number }).id ??
+                        0,
                     )
                 : undefined
             }
@@ -107,8 +100,7 @@ export function DataTableBody<T extends Record<string, unknown>>({
               const rowIndex = row.index;
 
               const isPrimaryAttr =
-                visibleCols.length > 0 &&
-                colId === visibleCols[0].attribute.id;
+                visibleCols.length > 0 && colId === visibleCols[0].attribute.id;
 
               const stickyStyle: React.CSSProperties = {};
               if (isPrimaryAttr) {
@@ -125,7 +117,8 @@ export function DataTableBody<T extends Record<string, unknown>>({
                 (c) => c.attribute.id === colId,
               );
 
-              const fitContent = (colDef.meta as { fitContent?: boolean })?.fitContent;
+              const fitContent = (colDef.meta as { fitContent?: boolean })
+                ?.fitContent;
               const sizeStyle = fitContent
                 ? {
                     width: "max-content" as const,
@@ -144,8 +137,7 @@ export function DataTableBody<T extends Record<string, unknown>>({
                   style={{ ...sizeStyle, ...stickyStyle }}
                   className={cn(
                     isPrimaryAttr && "bg-background",
-                    isSel &&
-                      "ring-2 ring-inset ring-primary/50 bg-primary/5",
+                    isSel && "ring-2 ring-inset ring-primary/50 bg-primary/5",
                   )}
                   onClick={() => {
                     if (matchedCol) {
@@ -158,10 +150,7 @@ export function DataTableBody<T extends Record<string, unknown>>({
                     }
                   }}
                 >
-                  {flexRender(
-                    cell.column.columnDef.cell,
-                    cell.getContext(),
-                  )}
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
                 </TableCell>
               );
             })}

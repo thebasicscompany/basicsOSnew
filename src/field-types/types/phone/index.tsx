@@ -1,4 +1,4 @@
-import { PhoneIcon } from "@phosphor-icons/react"
+import { PhoneIcon } from "@phosphor-icons/react";
 import type { FieldTypeDefinition, CalculationType } from "../../types";
 import { PhoneCellDisplay } from "./PhoneCellDisplay";
 import { PhoneCellEditor } from "./PhoneCellEditor";

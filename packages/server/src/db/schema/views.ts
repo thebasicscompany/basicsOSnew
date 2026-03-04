@@ -36,7 +36,10 @@ export const views = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (t) => [index("views_slug_crm_user").on(t.objectSlug, t.crmUserId), index("views_object_slug_org_idx").on(t.objectSlug, t.organizationId)],
+  (t) => [
+    index("views_slug_crm_user").on(t.objectSlug, t.crmUserId),
+    index("views_object_slug_org_idx").on(t.objectSlug, t.organizationId),
+  ],
 );
 
 export const viewColumns = pgTable(

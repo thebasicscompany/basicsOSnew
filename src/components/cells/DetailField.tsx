@@ -10,20 +10,12 @@ import { cn } from "@/lib/utils";
 import { getFieldType } from "@/field-types";
 import type { Attribute } from "@/field-types/types";
 
-// ---------------------------------------------------------------------------
-// Props
-// ---------------------------------------------------------------------------
-
 export interface DetailFieldProps {
   attribute: Attribute;
   value: any;
   onSave: (value: any) => void;
   isReadOnly?: boolean;
 }
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
 
 export function DetailField({
   attribute,
@@ -37,10 +29,7 @@ export function DetailField({
 
   const isCheckbox = attribute.uiType === "checkbox";
 
-  // Resolve the icon component (if available)
   const IconComponent = fieldType.icon;
-
-  // ---- handlers -----------------------------------------------------------
 
   const handleStartEditing = useCallback(() => {
     if (isReadOnly) return;
@@ -65,7 +54,6 @@ export function DetailField({
     onSave(!value);
   }, [isReadOnly, value, onSave]);
 
-  // Close editor when clicking outside
   useEffect(() => {
     if (!isEditing) return;
 
@@ -81,8 +69,6 @@ export function DetailField({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isEditing, handleCancel]);
-
-  // ---- render -------------------------------------------------------------
 
   const empty = fieldType.isEmpty(value);
 

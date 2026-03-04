@@ -5,7 +5,8 @@ const nullableString = z.string().trim().nullable();
 const nullableNumber = z.number().nullable();
 
 const timestampValue = z.preprocess((value) => {
-  if (value === null || value === undefined || value instanceof Date) return value;
+  if (value === null || value === undefined || value instanceof Date)
+    return value;
   if (typeof value === "string") {
     const parsed = new Date(value);
     if (!Number.isNaN(parsed.getTime())) return parsed;
@@ -146,7 +147,9 @@ const automationRulesWriteSchema = z
   })
   .strict();
 
-const createSchemaByResource: Partial<Record<Resource, z.ZodType<Record<string, unknown>>>> = {
+const createSchemaByResource: Partial<
+  Record<Resource, z.ZodType<Record<string, unknown>>>
+> = {
   contacts: contactsWriteSchema,
   companies: companiesWriteSchema,
   deals: dealsWriteSchema,
@@ -158,7 +161,9 @@ const createSchemaByResource: Partial<Record<Resource, z.ZodType<Record<string, 
   automation_rules: automationRulesWriteSchema,
 };
 
-const updateSchemaByResource: Partial<Record<Resource, z.ZodType<Record<string, unknown>>>> = {
+const updateSchemaByResource: Partial<
+  Record<Resource, z.ZodType<Record<string, unknown>>>
+> = {
   contacts: contactsWriteSchema.partial().strict(),
   companies: companiesWriteSchema.partial().strict(),
   deals: dealsWriteSchema.partial().strict(),
@@ -173,18 +178,28 @@ const updateSchemaByResource: Partial<Record<Resource, z.ZodType<Record<string, 
 export function validateWritePayload(
   resource: Resource,
   mode: "create" | "update",
-  payload: Record<string, unknown>
-): { success: true; data: Record<string, unknown> } | { success: false; error: string } {
-  const schema = (mode === "create" ? createSchemaByResource : updateSchemaByResource)[resource];
+  payload: Record<string, unknown>,
+):
+  | { success: true; data: Record<string, unknown> }
+  | { success: false; error: string } {
+  const schema = (
+    mode === "create" ? createSchemaByResource : updateSchemaByResource
+  )[resource];
   if (!schema) {
-    return { success: false, error: `${mode === "create" ? "Create" : "Update"} not supported for this resource` };
+    return {
+      success: false,
+      error: `${mode === "create" ? "Create" : "Update"} not supported for this resource`,
+    };
   }
 
   const parsed = schema.safeParse(payload);
   if (!parsed.success) {
     const issue = parsed.error.issues[0];
     const path = issue?.path.length ? issue.path.join(".") : "payload";
-    return { success: false, error: `Invalid ${path}: ${issue?.message ?? "validation failed"}` };
+    return {
+      success: false,
+      error: `Invalid ${path}: ${issue?.message ?? "validation failed"}`,
+    };
   }
 
   if (Object.keys(parsed.data).length === 0) {

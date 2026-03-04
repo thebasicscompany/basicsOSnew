@@ -24,37 +24,83 @@ const NODE_TYPE_LABELS: Record<string, string> = {
 function getVariablesForNodeType(
   nodeId: string,
   nodeType: string,
-  label: string
+  label: string,
 ): Variable[] {
   const base: Variable[] = [];
   switch (nodeType) {
     case "trigger_event":
     case "trigger_schedule":
       base.push(
-        { name: "trigger_data", label: "{{trigger_data}}", sourceNodeId: nodeId, sourceNodeType: nodeType, sourceLabel: label },
-        { name: "trigger_data.*", label: "{{trigger_data.*}}", sourceNodeId: nodeId, sourceNodeType: nodeType, sourceLabel: label }
+        {
+          name: "trigger_data",
+          label: "{{trigger_data}}",
+          sourceNodeId: nodeId,
+          sourceNodeType: nodeType,
+          sourceLabel: label,
+        },
+        {
+          name: "trigger_data.*",
+          label: "{{trigger_data.*}}",
+          sourceNodeId: nodeId,
+          sourceNodeType: nodeType,
+          sourceLabel: label,
+        },
       );
       break;
     case "action_ai":
-      base.push({ name: "ai_result", label: "{{ai_result}}", sourceNodeId: nodeId, sourceNodeType: nodeType, sourceLabel: label });
+      base.push({
+        name: "ai_result",
+        label: "{{ai_result}}",
+        sourceNodeId: nodeId,
+        sourceNodeType: nodeType,
+        sourceLabel: label,
+      });
       break;
     case "action_web_search":
-      base.push({ name: "web_results", label: "{{web_results}}", sourceNodeId: nodeId, sourceNodeType: nodeType, sourceLabel: label });
+      base.push({
+        name: "web_results",
+        label: "{{web_results}}",
+        sourceNodeId: nodeId,
+        sourceNodeType: nodeType,
+        sourceLabel: label,
+      });
       break;
     case "action_crm":
-      base.push({ name: "crm_result", label: "{{crm_result}}", sourceNodeId: nodeId, sourceNodeType: nodeType, sourceLabel: label });
+      base.push({
+        name: "crm_result",
+        label: "{{crm_result}}",
+        sourceNodeId: nodeId,
+        sourceNodeType: nodeType,
+        sourceLabel: label,
+      });
       break;
     case "action_gmail_read":
-      base.push({ name: "gmail_messages", label: "{{gmail_messages}}", sourceNodeId: nodeId, sourceNodeType: nodeType, sourceLabel: label });
+      base.push({
+        name: "gmail_messages",
+        label: "{{gmail_messages}}",
+        sourceNodeId: nodeId,
+        sourceNodeType: nodeType,
+        sourceLabel: label,
+      });
       break;
     case "action_ai_agent":
-      base.push({ name: "ai_agent_result", label: "{{ai_agent_result}}", sourceNodeId: nodeId, sourceNodeType: nodeType, sourceLabel: label });
+      base.push({
+        name: "ai_agent_result",
+        label: "{{ai_agent_result}}",
+        sourceNodeId: nodeId,
+        sourceNodeType: nodeType,
+        sourceLabel: label,
+      });
       break;
   }
   return base;
 }
 
-function getAncestorOrder(nodeId: string, nodes: WorkflowNode[], edges: Edge[]): string[] {
+function getAncestorOrder(
+  nodeId: string,
+  nodes: WorkflowNode[],
+  edges: Edge[],
+): string[] {
   const order = topologicalSort(
     nodes.map((n) => n.id),
     edges,
@@ -69,7 +115,7 @@ export function useAvailableVariables(
   nodeId: string | null,
   nodes: WorkflowNode[],
   edges: Edge[],
-  nodeTypeLabels?: Record<string, string>
+  nodeTypeLabels?: Record<string, string>,
 ): Variable[] {
   return useMemo(() => {
     if (!nodeId || nodes.length === 0) return [];

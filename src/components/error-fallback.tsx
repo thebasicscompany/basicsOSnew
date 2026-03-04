@@ -1,4 +1,4 @@
-import { WarningCircleIcon, ArrowClockwiseIcon } from "@phosphor-icons/react"
+import { WarningCircleIcon, ArrowClockwiseIcon } from "@phosphor-icons/react";
 import type { FallbackProps } from "react-error-boundary";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -22,7 +22,10 @@ export function ErrorFallback({ error, resetErrorBoundary }: FallbackProps) {
   const message = getErrorMessage(error);
 
   return (
-    <div className="flex flex-col items-center gap-6 p-8 max-w-xl mx-auto" role="alert">
+    <div
+      className="flex flex-col items-center gap-6 p-8 max-w-xl mx-auto"
+      role="alert"
+    >
       <Alert variant="destructive" className="w-full">
         <WarningCircleIcon className="h-4 w-4" />
         <AlertTitle>Something went wrong</AlertTitle>

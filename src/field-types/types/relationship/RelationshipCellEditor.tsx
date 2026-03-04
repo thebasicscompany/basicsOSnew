@@ -1,4 +1,4 @@
-import { ArrowSquareUpRightIcon, CheckIcon } from "@phosphor-icons/react"
+import { ArrowSquareUpRightIcon, CheckIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import type { CellEditorProps } from "../../types";
 import {

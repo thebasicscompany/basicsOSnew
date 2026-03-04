@@ -10,7 +10,11 @@ import { PERMISSIONS, requirePermission } from "../lib/rbac.js";
 
 type BetterAuthInstance = ReturnType<typeof createAuth>;
 
-export function createAutomationRunsRoutes(db: Db, auth: BetterAuthInstance, _env: Env) {
+export function createAutomationRunsRoutes(
+  db: Db,
+  auth: BetterAuthInstance,
+  _env: Env,
+) {
   const app = new Hono();
 
   app.use("*", authMiddleware(auth, db));
@@ -22,7 +26,8 @@ export function createAutomationRunsRoutes(db: Db, auth: BetterAuthInstance, _en
 
     const rawBody = await c.req.json().catch(() => null);
     const ruleId = (rawBody as { ruleId?: unknown } | null)?.ruleId;
-    if (typeof ruleId !== "number") return c.json({ error: "ruleId required" }, 400);
+    if (typeof ruleId !== "number")
+      return c.json({ error: "ruleId required" }, 400);
 
     const session = c.get("session") as { user?: { id: string } };
     const [crmUserRow] = await db
@@ -35,7 +40,12 @@ export function createAutomationRunsRoutes(db: Db, auth: BetterAuthInstance, _en
     const [rule] = await db
       .select()
       .from(schema.automationRules)
-      .where(and(eq(schema.automationRules.id, ruleId), eq(schema.automationRules.crmUserId, crmUserRow.id)))
+      .where(
+        and(
+          eq(schema.automationRules.id, ruleId),
+          eq(schema.automationRules.crmUserId, crmUserRow.id),
+        ),
+      )
       .limit(1);
     if (!rule) return c.json({ error: "Rule not found" }, 404);
 
@@ -50,7 +60,8 @@ export function createAutomationRunsRoutes(db: Db, auth: BetterAuthInstance, _en
     if (!authz.ok) return authz.response;
 
     const ruleIdParam = c.req.query("ruleId");
-    if (!ruleIdParam) return c.json({ error: "ruleId query param required" }, 400);
+    if (!ruleIdParam)
+      return c.json({ error: "ruleId query param required" }, 400);
 
     const ruleId = parseInt(ruleIdParam, 10);
     if (isNaN(ruleId)) return c.json({ error: "Invalid ruleId" }, 400);
@@ -67,12 +78,19 @@ export function createAutomationRunsRoutes(db: Db, auth: BetterAuthInstance, _en
     const [rule] = await db
       .select()
       .from(schema.automationRules)
-      .where(and(eq(schema.automationRules.id, ruleId), eq(schema.automationRules.crmUserId, crmUserRow.id)))
+      .where(
+        and(
+          eq(schema.automationRules.id, ruleId),
+          eq(schema.automationRules.crmUserId, crmUserRow.id),
+        ),
+      )
       .limit(1);
     if (!rule) return c.json({ error: "Rule not found" }, 404);
 
     const limitParam = c.req.query("limit");
-    const limit = limitParam ? Math.min(parseInt(limitParam, 10) || 20, 100) : 20;
+    const limit = limitParam
+      ? Math.min(parseInt(limitParam, 10) || 20, 100)
+      : 20;
 
     const runs = await db
       .select()

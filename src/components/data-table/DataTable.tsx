@@ -7,15 +7,7 @@ import { DataTableBody } from "./DataTableBody";
 import { DataTablePagination } from "./DataTablePagination";
 import type { DataTableProps } from "./useDataTable";
 
-// ---------------------------------------------------------------------------
-// Types (re-export from hook)
-// ---------------------------------------------------------------------------
-
 export type { DataTableProps } from "./useDataTable";
-
-// ---------------------------------------------------------------------------
-// DataTable Component
-// ---------------------------------------------------------------------------
 
 export function DataTable(props: DataTableProps) {
   const {

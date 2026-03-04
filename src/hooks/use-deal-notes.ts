@@ -27,7 +27,10 @@ export function useCreateDealNote() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: { dealId: number; text: string }) =>
-      create<DealNote>("deal_notes", { ...data, date: new Date().toISOString() }),
+      create<DealNote>("deal_notes", {
+        ...data,
+        date: new Date().toISOString(),
+      }),
     onSuccess: (_, { dealId }) => {
       queryClient.invalidateQueries({ queryKey: ["deal_notes", dealId] });
     },
@@ -40,7 +43,9 @@ export function useDeleteDealNote() {
     mutationFn: ({ id, dealId }: { id: number; dealId: number }) =>
       remove<DealNote>("deal_notes", id).then((r) => ({ ...r, dealId })),
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["deal_notes", (data as any).dealId] });
+      queryClient.invalidateQueries({
+        queryKey: ["deal_notes", (data as { dealId: number }).dealId],
+      });
     },
   });
 }

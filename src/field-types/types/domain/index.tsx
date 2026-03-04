@@ -1,4 +1,4 @@
-import { GlobeIcon } from "@phosphor-icons/react"
+import { GlobeIcon } from "@phosphor-icons/react";
 import type { FieldTypeDefinition, CalculationType } from "../../types";
 import { DomainCellDisplay } from "./DomainCellDisplay";
 import { DomainCellEditor } from "./DomainCellEditor";

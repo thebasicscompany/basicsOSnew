@@ -9,7 +9,7 @@ import {
   useInternalNode,
 } from "@xyflow/react";
 
-const Temporary = ({
+export const WorkflowEdgeTemporary = ({
   id,
   sourceX,
   sourceY,
@@ -43,11 +43,11 @@ const Temporary = ({
 
 const getHandleCoordsByPosition = (
   node: InternalNode<Node>,
-  handlePosition: Position
+  handlePosition: Position,
 ) => {
   const handleType = handlePosition === Position.Left ? "target" : "source";
   const handle = node.internals.handleBounds?.[handleType]?.find(
-    (h) => h.position === handlePosition
+    (h) => h.position === handlePosition,
   );
   if (!handle) return [0, 0] as const;
 
@@ -76,7 +76,7 @@ const getHandleCoordsByPosition = (
 
 const getEdgeParams = (
   source: InternalNode<Node>,
-  target: InternalNode<Node>
+  target: InternalNode<Node>,
 ) => {
   const sourcePos = Position.Right;
   const [sx, sy] = getHandleCoordsByPosition(source, sourcePos);
@@ -85,14 +85,20 @@ const getEdgeParams = (
   return { sx, sy, tx, ty, sourcePos, targetPos };
 };
 
-const Animated = ({ id, source, target, style, selected }: EdgeProps) => {
+export const WorkflowEdgeAnimated = ({
+  id,
+  source,
+  target,
+  style,
+  selected,
+}: EdgeProps) => {
   const sourceNode = useInternalNode(source);
   const targetNode = useInternalNode(target);
   if (!(sourceNode && targetNode)) return null;
 
   const { sx, sy, tx, ty, sourcePos, targetPos } = getEdgeParams(
     sourceNode,
-    targetNode
+    targetNode,
   );
   const [edgePath] = getBezierPath({
     sourceX: sx,
@@ -116,9 +122,4 @@ const Animated = ({ id, source, target, style, selected }: EdgeProps) => {
       }}
     />
   );
-};
-
-export const WorkflowEdge = {
-  Temporary,
-  Animated,
 };

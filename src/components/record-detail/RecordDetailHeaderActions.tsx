@@ -86,7 +86,9 @@ export function RecordDetailHeaderActions({
         <StarIcon
           className={cn(
             "h-4 w-4",
-            isFavorite ? "fill-amber-400 text-amber-400" : "text-muted-foreground",
+            isFavorite
+              ? "fill-amber-400 text-amber-400"
+              : "text-muted-foreground",
           )}
         />
       </Button>

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Navigate } from "react-router";
-import { authClient } from "@/lib/auth";
+import { authClient } from "@/lib/auth-client";
 import { LoginPage } from "./login-page";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "";
@@ -17,7 +17,9 @@ export function StartPage() {
   const { data: isInitialized, isPending: initPending } = useQuery({
     queryKey: ["init"],
     queryFn: async () => {
-      const res = await fetch(`${API_URL}/api/init`, { credentials: "include" });
+      const res = await fetch(`${API_URL}/api/init`, {
+        credentials: "include",
+      });
       const json = (await res.json()) as { initialized: boolean };
       return json.initialized;
     },

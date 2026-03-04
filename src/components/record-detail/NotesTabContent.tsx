@@ -4,8 +4,16 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { TrashIcon } from "@phosphor-icons/react";
-import { useDealNotes, useCreateDealNote, useDeleteDealNote } from "@/hooks/use-deal-notes";
-import { useContactNotes, useCreateContactNote, useDeleteContactNote } from "@/hooks/use-contact-notes";
+import {
+  useDealNotes,
+  useCreateDealNote,
+  useDeleteDealNote,
+} from "@/hooks/use-deal-notes";
+import {
+  useContactNotes,
+  useCreateContactNote,
+  useDeleteContactNote,
+} from "@/hooks/use-contact-notes";
 
 export function NotesTabContent({
   objectSlug,
@@ -23,9 +31,8 @@ export function NotesTabContent({
   const createDealNote = useCreateDealNote();
   const deleteDealNote = useDeleteDealNote();
 
-  const { data: contactNotesData, isPending: contactNotesPending } = useContactNotes(
-    isContact ? recordId : null,
-  );
+  const { data: contactNotesData, isPending: contactNotesPending } =
+    useContactNotes(isContact ? recordId : null);
   const createContactNote = useCreateContactNote();
   const deleteContactNote = useDeleteContactNote();
 
@@ -59,7 +66,14 @@ export function NotesTabContent({
         },
       );
     }
-  }, [newNoteText, isDeal, isContact, recordId, createDealNote, createContactNote]);
+  }, [
+    newNoteText,
+    isDeal,
+    isContact,
+    recordId,
+    createDealNote,
+    createContactNote,
+  ]);
 
   const handleDeleteNote = useCallback(
     (id: number, parentId: number) => {
@@ -120,7 +134,10 @@ export function NotesTabContent({
           {notes.map((note) => {
             const n = note as unknown as Record<string, unknown>;
             const id = (n.id ?? n.Id) as number;
-            const parentId = (n.dealId ?? n.deal_id ?? n.contactId ?? n.contact_id) as number;
+            const parentId = (n.dealId ??
+              n.deal_id ??
+              n.contactId ??
+              n.contact_id) as number;
             const text = (n.text ?? "") as string;
             const date = (n.date ?? n.Date) as string;
             return (
@@ -129,7 +146,9 @@ export function NotesTabContent({
                 className="flex items-start justify-between gap-3 rounded-lg border p-3"
               >
                 <div className="min-w-0 flex-1 space-y-1">
-                  <p className="text-sm whitespace-pre-wrap break-words">{text || "(empty)"}</p>
+                  <p className="text-sm whitespace-pre-wrap break-words">
+                    {text || "(empty)"}
+                  </p>
                   <p className="text-xs text-muted-foreground">
                     {new Date(date).toLocaleString()}
                   </p>

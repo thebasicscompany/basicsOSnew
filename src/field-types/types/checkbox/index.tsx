@@ -1,4 +1,4 @@
-import { CheckSquareIcon } from "@phosphor-icons/react"
+import { CheckSquareIcon } from "@phosphor-icons/react";
 import type { FieldTypeDefinition, CalculationType } from "../../types";
 import { CheckboxCellDisplay } from "./CheckboxCellDisplay";
 import { CheckboxCellEditor } from "./CheckboxCellEditor";

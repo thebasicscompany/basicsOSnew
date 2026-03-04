@@ -19,7 +19,7 @@ const overlayAPI = {
       notchHeight: number;
       menuBarHeight?: number;
       windowWidth: number;
-    }) => void
+    }) => void,
   ) => {
     ipcRenderer.on("notch-info", (_e, info) => cb(info));
   },
@@ -34,8 +34,7 @@ const overlayAPI = {
     ipcRenderer.send("set-ignore-mouse", ignore),
   navigateMain: (path: string) => ipcRenderer.send("navigate-main", path),
   injectText: (text: string) => ipcRenderer.invoke("inject-text", text),
-  getApiUrl: () =>
-    ipcRenderer.invoke("get-api-url") as Promise<string>,
+  getApiUrl: () => ipcRenderer.invoke("get-api-url") as Promise<string>,
   proxyOverlayRequest: (req: {
     path: string;
     method?: string;
@@ -88,19 +87,19 @@ const overlayAPI = {
       active: boolean;
     }>,
   onOverlayStatusChanged: (
-    cb: (status: { visible: boolean; active: boolean }) => void
+    cb: (status: { visible: boolean; active: boolean }) => void,
   ) => {
     ipcRenderer.on(
       "overlay-visibility-changed",
-      (_e, status: { visible: boolean; active: boolean }) => cb(status)
+      (_e, status: { visible: boolean; active: boolean }) => cb(status),
     );
   },
   onSystemAudioTranscript: (
-    cb: (speaker: number | undefined, text: string) => void
+    cb: (speaker: number | undefined, text: string) => void,
   ) => {
     ipcRenderer.on(
       "system-audio-transcript",
-      (_e, speaker: number | undefined, text: string) => cb(speaker, text)
+      (_e, speaker: number | undefined, text: string) => cb(speaker, text),
     );
   },
   removeAllListeners: () => {
@@ -128,5 +127,6 @@ if (process.contextIsolated) {
   contextBridge.exposeInMainWorld("electronAPI", overlayAPI);
 } else {
   (window as unknown as { electron: typeof toolkitAPI }).electron = toolkitAPI;
-  (window as unknown as { electronAPI: typeof overlayAPI }).electronAPI = overlayAPI;
+  (window as unknown as { electronAPI: typeof overlayAPI }).electronAPI =
+    overlayAPI;
 }

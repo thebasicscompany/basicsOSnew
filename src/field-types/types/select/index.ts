@@ -1,4 +1,4 @@
-import { CaretDownIcon } from "@phosphor-icons/react"
+import { CaretDownIcon } from "@phosphor-icons/react";
 import type {
   FieldTypeDefinition,
   CalculationType,

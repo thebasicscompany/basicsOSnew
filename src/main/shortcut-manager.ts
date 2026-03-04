@@ -16,7 +16,7 @@ export type ShortcutManager = {
 const createDoubleTapDetector = (
   doubleTapMs: number,
   onSingle: () => void,
-  onDouble: () => void
+  onDouble: () => void,
 ): (() => void) => {
   let lastTap = 0;
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -41,7 +41,7 @@ const createDoubleTapDetector = (
 };
 
 export const createShortcutManager = (
-  callbacks: ShortcutCallbacks
+  callbacks: ShortcutCallbacks,
 ): ShortcutManager => {
   const registerAll = (assistantKey: string, doubleTapMs: number): void => {
     unregisterAll();
@@ -49,7 +49,7 @@ export const createShortcutManager = (
     const handleAssistant = createDoubleTapDetector(
       doubleTapMs,
       () => callbacks.onAssistantPress(),
-      () => callbacks.onAssistantDoubleTap()
+      () => callbacks.onAssistantDoubleTap(),
     );
 
     const ok = globalShortcut.register(assistantKey, handleAssistant);

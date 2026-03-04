@@ -1,4 +1,4 @@
-import { ClockIcon } from "@phosphor-icons/react"
+import { ClockIcon } from "@phosphor-icons/react";
 import type { NodeProps } from "@xyflow/react";
 import { CompactAutomationNode } from "./CompactAutomationNode";
 
@@ -11,7 +11,8 @@ export function TriggerScheduleNode({
   data,
   selected,
 }: NodeProps<{ type: "trigger_schedule"; data: TriggerScheduleData }>) {
-  const label = data?.label?.trim() || (data?.cron ? `Cron: ${data.cron}` : "Schedule");
+  const label =
+    data?.label?.trim() || (data?.cron ? `Cron: ${data.cron}` : "Schedule");
 
   return (
     <CompactAutomationNode

@@ -1,4 +1,4 @@
-import { CheckIcon } from "@phosphor-icons/react"
+import { CheckIcon } from "@phosphor-icons/react";
 import type { CellDisplayProps } from "../../types";
 import { cn } from "@/lib/utils";
 

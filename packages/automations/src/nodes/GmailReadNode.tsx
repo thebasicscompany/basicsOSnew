@@ -1,4 +1,4 @@
-import { TrayIcon } from "@phosphor-icons/react"
+import { TrayIcon } from "@phosphor-icons/react";
 import type { NodeProps } from "@xyflow/react";
 import { CompactAutomationNode } from "./CompactAutomationNode";
 import { useAutomationBuilder } from "../AutomationBuilderContext";

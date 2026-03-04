@@ -32,20 +32,28 @@ export const contacts = pgTable(
     hasNewsletter: boolean("has_newsletter"),
     status: varchar("status", { length: 64 }),
     tags: jsonb("tags").$type<number[]>(),
-    companyId: bigint("company_id", { mode: "number" }).references(() => companies.id, {
-      onDelete: "cascade",
-    }),
-    crmUserId: bigint("crm_user_id", { mode: "number" }).references(() => crmUsers.id),
+    companyId: bigint("company_id", { mode: "number" }).references(
+      () => companies.id,
+      {
+        onDelete: "cascade",
+      },
+    ),
+    crmUserId: bigint("crm_user_id", { mode: "number" }).references(
+      () => crmUsers.id,
+    ),
     organizationId: uuid("organization_id").references(() => organizations.id, {
       onDelete: "cascade",
     }),
     linkedinUrl: varchar("linkedin_url", { length: 512 }),
-    customFields: jsonb("custom_fields").$type<Record<string, unknown>>().default({}).notNull(),
+    customFields: jsonb("custom_fields")
+      .$type<Record<string, unknown>>()
+      .default({})
+      .notNull(),
   },
   (t) => [
     index("contacts_crm_user_id_idx").on(t.crmUserId),
     index("contacts_org_idx").on(t.organizationId),
     index("contacts_company_id_idx").on(t.companyId),
     index("contacts_status_idx").on(t.status),
-  ]
+  ],
 );

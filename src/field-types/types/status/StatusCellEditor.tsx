@@ -1,4 +1,4 @@
-import { CheckIcon } from "@phosphor-icons/react"
+import { CheckIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import type { CellEditorProps, StatusOption } from "../../types";
 import {

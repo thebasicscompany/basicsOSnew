@@ -7,6 +7,11 @@ import { cn } from "@/lib/utils";
 import { CaretDownIcon, DownloadSimpleIcon } from "@phosphor-icons/react";
 import { useCallback } from "react";
 import { StickToBottom, useStickToBottomContext } from "use-stick-to-bottom";
+import {
+  defaultFormatMessage,
+  messagesToMarkdown,
+  type ConversationMessage,
+} from "./conversation-utils";
 
 export type ConversationProps = ComponentProps<typeof StickToBottom>;
 
@@ -51,7 +56,7 @@ export const ConversationEmptyState = ({
   <div
     className={cn(
       "flex size-full flex-col items-center justify-center gap-3 p-8 text-center",
-      className
+      className,
     )}
     {...props}
   >
@@ -86,7 +91,7 @@ export const ConversationScrollButton = ({
       <Button
         className={cn(
           "absolute bottom-4 left-[50%] translate-x-[-50%] rounded-full dark:bg-background dark:hover:bg-muted",
-          className
+          className,
         )}
         onClick={handleScrollToBottom}
         size="icon"
@@ -100,11 +105,6 @@ export const ConversationScrollButton = ({
   );
 };
 
-export interface ConversationMessage {
-  role: "user" | "assistant" | "system" | "data" | "tool";
-  content: string;
-}
-
 export type ConversationDownloadProps = Omit<
   ComponentProps<typeof Button>,
   "onClick"
@@ -113,20 +113,6 @@ export type ConversationDownloadProps = Omit<
   filename?: string;
   formatMessage?: (message: ConversationMessage, index: number) => string;
 };
-
-const defaultFormatMessage = (message: ConversationMessage): string => {
-  const roleLabel =
-    message.role.charAt(0).toUpperCase() + message.role.slice(1);
-  return `**${roleLabel}:** ${message.content}`;
-};
-
-export const messagesToMarkdown = (
-  messages: ConversationMessage[],
-  formatMessage: (
-    message: ConversationMessage,
-    index: number
-  ) => string = defaultFormatMessage
-): string => messages.map((msg, i) => formatMessage(msg, i)).join("\n\n");
 
 export const ConversationDownload = ({
   messages,
@@ -153,7 +139,7 @@ export const ConversationDownload = ({
     <Button
       className={cn(
         "absolute top-4 right-4 rounded-full dark:bg-background dark:hover:bg-muted",
-        className
+        className,
       )}
       onClick={handleDownload}
       size="icon"

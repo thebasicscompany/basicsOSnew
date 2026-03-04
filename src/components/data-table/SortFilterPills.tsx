@@ -72,12 +72,18 @@ export function SortFilterPills({
             className="gap-1 pl-2 pr-1 py-0.5 text-xs font-normal"
           >
             {idx > 0 && (
-              <span className="mr-0.5 text-muted-foreground">{filter.logicalOp}</span>
+              <span className="mr-0.5 text-muted-foreground">
+                {filter.logicalOp}
+              </span>
             )}
             <FunnelIcon className="size-3 text-muted-foreground" />
             <span className="max-w-28 truncate">{attrName}</span>
             <span className="text-muted-foreground">{filter.operator}</span>
-            {valueLabel && <span className="max-w-36 truncate font-medium">{valueLabel}</span>}
+            {valueLabel && (
+              <span className="max-w-36 truncate font-medium">
+                {valueLabel}
+              </span>
+            )}
             <button
               type="button"
               className="ml-0.5 rounded-sm p-0.5 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"

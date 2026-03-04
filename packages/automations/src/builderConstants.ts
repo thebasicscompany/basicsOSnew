@@ -1,5 +1,5 @@
 import type { Node } from "@xyflow/react";
-import { WorkflowEdge } from "basics-os/src/components/ai-elements/edge";
+import { WorkflowEdgeAnimated } from "basics-os/src/components/ai-elements/edge";
 import {
   BlankTriggerNode,
   BlankActionNode,
@@ -36,4 +36,4 @@ export function newId() {
   return crypto.randomUUID().slice(0, 8);
 }
 
-export const edgeTypes = { animated: WorkflowEdge.Animated };
+export const edgeTypes = { animated: WorkflowEdgeAnimated };

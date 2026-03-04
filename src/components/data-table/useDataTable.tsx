@@ -18,10 +18,7 @@ import type { Attribute } from "@/field-types/types";
 import type { ViewColumn, ViewSort } from "@/types/views";
 import { PlusIcon } from "@phosphor-icons/react";
 import { Cell } from "@/components/cells";
-import {
-  getVisibleAttributes,
-  parseWidth,
-} from "./utils";
+import { getVisibleAttributes, parseWidth } from "./utils";
 
 export interface DataTableProps {
   objectSlug: string;
@@ -74,17 +71,17 @@ export function useDataTable(props: DataTableProps) {
     null,
   );
 
-  const [columnWidths, setColumnWidths] = React.useState<Record<string, number>>(
-    () => {
-      const widths: Record<string, number> = {};
-      for (const vc of viewColumns) {
-        if (vc.width != null && vc.width !== "") {
-          widths[vc.fieldId] = parseWidth(vc.width);
-        }
+  const [columnWidths, setColumnWidths] = React.useState<
+    Record<string, number>
+  >(() => {
+    const widths: Record<string, number> = {};
+    for (const vc of viewColumns) {
+      if (vc.width != null && vc.width !== "") {
+        widths[vc.fieldId] = parseWidth(vc.width);
       }
-      return widths;
-    },
-  );
+    }
+    return widths;
+  });
 
   React.useEffect(() => {
     setColumnWidths((prev) => {
@@ -136,7 +133,10 @@ export function useDataTable(props: DataTableProps) {
         header: () => (
           <div className="flex items-center gap-1.5 text-xs font-medium truncate">
             <span className="text-muted-foreground">
-              {attribute.icon ?? (fieldType.icon ? <fieldType.icon className="size-3.5" /> : null)}
+              {attribute.icon ??
+                (fieldType.icon ? (
+                  <fieldType.icon className="size-3.5" />
+                ) : null)}
             </span>
             <span className="truncate">
               {viewColumn.title || attribute.name}
@@ -183,7 +183,8 @@ export function useDataTable(props: DataTableProps) {
         enableResizing: false,
         header: () => (
           <span className="text-xs text-muted-foreground">
-            +{hiddenEmptyCount} empty {hiddenEmptyCount === 1 ? "column" : "columns"}
+            +{hiddenEmptyCount} empty{" "}
+            {hiddenEmptyCount === 1 ? "column" : "columns"}
           </span>
         ),
         cell: () => null,
@@ -216,7 +217,12 @@ export function useDataTable(props: DataTableProps) {
     columns,
     getCoreRowModel: getCoreRowModel(),
     columnResizeMode: "onChange" as ColumnResizeMode,
-    getRowId: (row) => String((row as { Id?: number; id?: number }).Id ?? (row as { id?: number }).id ?? Math.random()),
+    getRowId: (row) =>
+      String(
+        (row as { Id?: number; id?: number }).Id ??
+          (row as { id?: number }).id ??
+          Math.random(),
+      ),
     manualPagination: true,
     pageCount: Math.ceil(total / pagination.perPage),
   });
@@ -293,7 +299,10 @@ export function useDataTable(props: DataTableProps) {
     (rowIndex: number, colId: string, attribute: Attribute) => {
       if (attribute.uiType === "Checkbox") return;
 
-      if (selectedCell?.rowIndex === rowIndex && selectedCell?.colId === colId) {
+      if (
+        selectedCell?.rowIndex === rowIndex &&
+        selectedCell?.colId === colId
+      ) {
         setEditingCell({ rowIndex, colId });
       } else {
         setSelectedCell({ rowIndex, colId });
@@ -313,7 +322,9 @@ export function useDataTable(props: DataTableProps) {
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 5 },
+    }),
     useSensor(KeyboardSensor),
   );
 

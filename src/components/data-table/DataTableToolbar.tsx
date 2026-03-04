@@ -1,4 +1,9 @@
-import { SortAscendingIcon, ColumnsIcon, FunnelIcon, DotsThreeVerticalIcon } from "@phosphor-icons/react"
+import {
+  SortAscendingIcon,
+  ColumnsIcon,
+  FunnelIcon,
+  DotsThreeVerticalIcon,
+} from "@phosphor-icons/react";
 import * as React from "react";
 import {
   DndContext,
@@ -29,13 +34,12 @@ import { getFieldType } from "@/field-types";
 import type { Attribute } from "@/field-types/types";
 import type { ViewSort, ViewFilter, ViewColumn } from "@/types/views";
 import { cn } from "@/lib/utils";
+import { buildColumnItems, type ColumnItem } from "./column-items";
 import { SortPopover } from "./SortPopover";
 import { FilterPopover } from "./FilterPopover";
 import { SortFilterPills } from "./SortFilterPills";
 
 export interface DataTableToolbarProps {
-  objectSlug: string;
-  singularName: string;
   sorts: ViewSort[];
   filters: ViewFilter[];
   attributes: Attribute[];
@@ -48,17 +52,12 @@ export interface DataTableToolbarProps {
   onAddFilter: (filter: Omit<ViewFilter, "id">) => void;
   onRemoveFilter: (filterId: string) => void;
   onUpdateFilter?: (filterId: string, updates: Partial<ViewFilter>) => void;
-  onNewRecord?: () => void;
   isDirty?: boolean;
   onSave?: () => void;
   onDiscard?: () => void;
-  selectedCount?: number;
-  onBulkDelete?: () => void;
 }
 
 export function DataTableToolbar({
-  objectSlug,
-  singularName,
   sorts,
   filters,
   attributes,
@@ -71,17 +70,14 @@ export function DataTableToolbar({
   onAddFilter,
   onRemoveFilter,
   onUpdateFilter,
-  onNewRecord,
   isDirty = false,
   onSave,
   onDiscard,
-  selectedCount = 0,
-  onBulkDelete,
 }: DataTableToolbarProps) {
   const hasActiveSorts = sorts.length > 0;
   const hasActiveFilters = filters.length > 0;
 
-  // Build a name map for display
+  // name -> label for pills
   const attrMap = React.useMemo(
     () => new Map(attributes.map((a) => [a.id, a])),
     [attributes],
@@ -172,7 +168,6 @@ export function DataTableToolbar({
             </Button>
           </div>
         )}
-
       </div>
 
       {/* Row 2: Active sort/filter pills */}
@@ -188,45 +183,6 @@ export function DataTableToolbar({
       )}
     </div>
   );
-}
-
-// ---------------------------------------------------------------------------
-// Columns Popover — full attribute list with drag-to-reorder and toggles
-// ---------------------------------------------------------------------------
-
-export interface ColumnItem {
-  vc: ViewColumn;
-  attr: Attribute;
-}
-
-export function buildColumnItems(
-  viewColumns: ViewColumn[] | undefined,
-  attributes: Attribute[],
-): ColumnItem[] {
-  if (!viewColumns?.length) return [];
-  const attrMap = new Map(attributes.map((a) => [a.id, a]));
-  const vcMap = new Map(viewColumns.map((vc) => [vc.fieldId, vc]));
-  const matched: ColumnItem[] = [];
-  const sortedVcs = [...viewColumns].sort((a, b) => a.order - b.order);
-  for (const vc of sortedVcs) {
-    const attr = attrMap.get(vc.fieldId);
-    if (attr) matched.push({ vc, attr });
-  }
-  for (const attr of attributes) {
-    if (!vcMap.has(attr.id)) {
-      matched.push({
-        vc: {
-          id: `virtual-${attr.id}`,
-          fieldId: attr.id,
-          title: attr.name,
-          show: false,
-          order: matched.length,
-        },
-        attr,
-      });
-    }
-  }
-  return matched;
 }
 
 export function ColumnsPopover({
@@ -260,7 +216,6 @@ export function ColumnsPopover({
       const newIndex = itemIds.indexOf(String(over.id));
       if (oldIndex === -1 || newIndex === -1) return;
 
-      // Reorder: update every affected item's order
       const reordered = arrayMove(items, oldIndex, newIndex);
       reordered.forEach((item, idx) => {
         if (item.vc.order !== idx) {

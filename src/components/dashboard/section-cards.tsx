@@ -1,4 +1,9 @@
-import { UsersIcon, BuildingIcon, HandshakeIcon, CurrencyDollarIcon } from "@phosphor-icons/react";
+import {
+  UsersIcon,
+  BuildingIcon,
+  HandshakeIcon,
+  CurrencyDollarIcon,
+} from "@phosphor-icons/react";
 import { useRecords } from "@/hooks/use-records";
 
 function formatCurrency(n: number) {
@@ -40,10 +45,10 @@ export function SectionCards() {
     "companies",
     { page: 1, perPage: 1 },
   );
-  const { data: deals, isPending: dealsPending } = useRecords(
-    "deals",
-    { page: 1, perPage: 200 },
-  );
+  const { data: deals, isPending: dealsPending } = useRecords("deals", {
+    page: 1,
+    perPage: 200,
+  });
 
   const dealsData = (deals?.data ?? []) as Record<string, any>[];
   const pipelineValue = dealsData.reduce(

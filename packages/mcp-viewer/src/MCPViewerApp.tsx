@@ -1,4 +1,9 @@
-import { Card, CardContent, CardHeader, CardTitle } from "basics-os/src/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "basics-os/src/components/ui/card";
 
 export function MCPViewerApp() {
   return (
@@ -8,7 +13,8 @@ export function MCPViewerApp() {
       </CardHeader>
       <CardContent>
         <p className="text-muted-foreground">
-          Custom MCP viewer coming soon. Connect to MCP servers and view tools and responses.
+          Custom MCP viewer coming soon. Connect to MCP servers and view tools
+          and responses.
         </p>
       </CardContent>
     </Card>

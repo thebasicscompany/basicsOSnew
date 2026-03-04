@@ -10,7 +10,11 @@ import {
   NotePencilIcon,
 } from "@phosphor-icons/react";
 
-export type NavItem = { title: string; path: string; icon: ComponentType<{ className?: string }> };
+export type NavItem = {
+  title: string;
+  path: string;
+  icon: ComponentType<{ className?: string }>;
+};
 export type NavGroupConfig = { label: string; items: NavItem[] };
 
 export const SIDEBAR_NAV_APPS: NavGroupConfig = {

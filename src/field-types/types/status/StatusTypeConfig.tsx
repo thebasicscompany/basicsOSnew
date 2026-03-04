@@ -1,4 +1,4 @@
-import { DotsThreeVerticalIcon, PlusIcon, XIcon } from "@phosphor-icons/react"
+import { DotsThreeVerticalIcon, PlusIcon, XIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import type { TypeConfigProps, StatusOption } from "../../types";
 import { Input } from "@/components/ui/input";

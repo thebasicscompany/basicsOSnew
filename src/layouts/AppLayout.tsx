@@ -1,8 +1,12 @@
-import { Outlet, useLocation } from "react-router"
-import { ErrorBoundary } from "react-error-boundary"
-import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
-import { Separator } from "@/components/ui/separator"
-import { AppSidebar } from "@/components/app-sidebar"
+import { Outlet, useLocation } from "react-router";
+import { ErrorBoundary } from "react-error-boundary";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
+import { AppSidebar } from "@/components/app-sidebar";
 import {
   PageHeaderProvider,
   usePageHeaderTitle,
@@ -10,17 +14,20 @@ import {
   useRegisterBreadcrumbContainer,
   useRegisterTitleSlotContainer,
   useTitleSlotInUse,
-} from "@/contexts/page-header"
+} from "@/contexts/page-header";
 
 function PageErrorFallback({
   error,
   resetErrorBoundary,
 }: {
-  error: Error
-  resetErrorBoundary: () => void
+  error: Error;
+  resetErrorBoundary: () => void;
 }) {
   return (
-    <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6" role="alert">
+    <div
+      className="rounded-lg border border-destructive/50 bg-destructive/10 p-6"
+      role="alert"
+    >
       <p className="font-medium text-destructive">Something went wrong</p>
       <p className="mt-1 text-sm text-muted-foreground">{error.message}</p>
       <button
@@ -31,15 +38,15 @@ function PageErrorFallback({
         Try again
       </button>
     </div>
-  )
+  );
 }
 
 function LayoutHeader() {
-  const title = usePageHeaderTitle()
-  const titleSlotInUse = useTitleSlotInUse()
-  const registerActionsContainer = useRegisterActionsContainer()
-  const registerBreadcrumbContainer = useRegisterBreadcrumbContainer()
-  const registerTitleSlotContainer = useRegisterTitleSlotContainer()
+  const title = usePageHeaderTitle();
+  const titleSlotInUse = useTitleSlotInUse();
+  const registerActionsContainer = useRegisterActionsContainer();
+  const registerBreadcrumbContainer = useRegisterBreadcrumbContainer();
+  const registerTitleSlotContainer = useRegisterTitleSlotContainer();
   return (
     <header className="flex h-16 shrink-0 items-center justify-between gap-2 px-4 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
       <div className="flex min-w-0 flex-1 items-center gap-2">
@@ -54,7 +61,11 @@ function LayoutHeader() {
             className="min-w-0 shrink-0 overflow-hidden [&>*]:truncate"
           />
         ) : (
-          title && <span className="truncate text-sm font-medium shrink-0">{title}</span>
+          title && (
+            <span className="truncate text-sm font-medium shrink-0">
+              {title}
+            </span>
+          )
         )}
         {/* Breadcrumb portal — RecordDetailPage renders here */}
         <div
@@ -63,31 +74,41 @@ function LayoutHeader() {
         />
       </div>
       {/* Portal mount point — page components render their header actions here */}
-      <div ref={registerActionsContainer} className="flex shrink-0 items-center gap-2" />
+      <div
+        ref={registerActionsContainer}
+        className="flex shrink-0 items-center gap-2"
+      />
     </header>
-  )
+  );
 }
 
 function LayoutContent() {
-  const location = useLocation()
-  const isBuilder = /^\/automations\/(create|\d+)/.test(location.pathname)
+  const location = useLocation();
+  const isBuilder = /^\/automations\/(create|\d+)/.test(location.pathname);
   return (
     <div className="flex flex-1 min-h-0 flex-col">
       <div
-        className={isBuilder ? "flex w-full flex-1 flex-col min-h-0 pl-0 pr-4" : "flex w-full flex-1 flex-col px-4 min-h-0"}
+        className={
+          isBuilder
+            ? "flex w-full flex-1 flex-col min-h-0 pl-0 pr-4"
+            : "flex w-full flex-1 flex-col px-4 min-h-0"
+        }
         id="main-content"
       >
         <ErrorBoundary
           key={location.pathname}
           fallbackRender={({ error, resetErrorBoundary }) => (
-            <PageErrorFallback error={error} resetErrorBoundary={resetErrorBoundary} />
+            <PageErrorFallback
+              error={error}
+              resetErrorBoundary={resetErrorBoundary}
+            />
           )}
         >
           <Outlet />
         </ErrorBoundary>
       </div>
     </div>
-  )
+  );
 }
 
 export function AppLayout() {
@@ -101,5 +122,5 @@ export function AppLayout() {
         </PageHeaderProvider>
       </SidebarInset>
     </SidebarProvider>
-  )
+  );
 }

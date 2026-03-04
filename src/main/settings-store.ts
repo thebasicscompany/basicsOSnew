@@ -50,7 +50,7 @@ export const getOverlaySettings = (): OverlaySettings => {
 };
 
 export const setOverlaySettings = (
-  partial: Partial<OverlaySettings>
+  partial: Partial<OverlaySettings>,
 ): OverlaySettings => {
   const current = getOverlaySettings();
   const merged: OverlaySettings = {
@@ -63,7 +63,7 @@ export const setOverlaySettings = (
     fs.writeFileSync(
       getSettingsPath(),
       JSON.stringify(merged, null, 2),
-      "utf8"
+      "utf8",
     );
   } catch (err) {
     log.error("Failed to write settings:", err);

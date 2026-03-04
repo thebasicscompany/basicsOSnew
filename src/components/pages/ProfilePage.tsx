@@ -1,10 +1,15 @@
 "use client";
 
-import { SignOutIcon, PencilSimpleIcon, CheckIcon, XIcon } from "@phosphor-icons/react";
+import {
+  SignOutIcon,
+  PencilSimpleIcon,
+  CheckIcon,
+  XIcon,
+} from "@phosphor-icons/react";
 import { useState, useCallback } from "react";
 import { useNavigate } from "react-router";
 import { useMe } from "@/hooks/use-me";
-import { authClient } from "@/lib/auth";
+import { authClient } from "@/lib/auth-client";
 import { fetchApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,11 +40,14 @@ export function ProfilePage() {
       }),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["me"] });
-      authClient.updateUser({ name: `${variables.firstName} ${variables.lastName}` }).catch(() => {});
+      authClient
+        .updateUser({ name: `${variables.firstName} ${variables.lastName}` })
+        .catch(() => {});
       toast.success("Profile updated");
       setEditingName(false);
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Failed to update"),
+    onError: (err) =>
+      toast.error(err instanceof Error ? err.message : "Failed to update"),
   });
 
   const handleStartEdit = useCallback(() => {
@@ -94,7 +102,9 @@ export function ProfilePage() {
 
   return (
     <div className="flex h-full flex-col overflow-auto py-4">
-      <p className="mb-4 text-[12px] text-muted-foreground">Your account details</p>
+      <p className="mb-4 text-[12px] text-muted-foreground">
+        Your account details
+      </p>
 
       <div className="max-w-sm space-y-4">
         {isPending ? (
@@ -110,7 +120,12 @@ export function ProfilePage() {
         ) : isError ? (
           <div className="flex items-center gap-3 text-[13px] text-destructive">
             Failed to load profile.
-            <Button variant="outline" size="sm" className="h-7 text-[13px]" onClick={() => refetch()}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-[13px]"
+              onClick={() => refetch()}
+            >
               Retry
             </Button>
           </div>
@@ -120,14 +135,21 @@ export function ProfilePage() {
             <div className="rounded-lg border p-4">
               <div className="flex items-start gap-3">
                 <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-                  {me.fullName?.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() || "?"}
+                  {me.fullName
+                    ?.split(" ")
+                    .map((n: string) => n[0])
+                    .join("")
+                    .slice(0, 2)
+                    .toUpperCase() || "?"}
                 </div>
                 <div className="min-w-0 flex-1">
                   {editingName ? (
                     <div className="space-y-2">
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <Label htmlFor="firstName" className="text-[11px]">First name</Label>
+                          <Label htmlFor="firstName" className="text-[11px]">
+                            First name
+                          </Label>
                           <Input
                             id="firstName"
                             value={firstName}
@@ -137,7 +159,9 @@ export function ProfilePage() {
                           />
                         </div>
                         <div>
-                          <Label htmlFor="lastName" className="text-[11px]">Last name</Label>
+                          <Label htmlFor="lastName" className="text-[11px]">
+                            Last name
+                          </Label>
                           <Input
                             id="lastName"
                             value={lastName}
@@ -172,10 +196,14 @@ export function ProfilePage() {
                       <div>
                         <p className="text-[13px] font-medium">{me.fullName}</p>
                         {me.email && (
-                          <p className="text-[11px] text-muted-foreground">{me.email}</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {me.email}
+                          </p>
                         )}
                         {me.administrator && (
-                          <p className="text-[11px] text-muted-foreground">Administrator</p>
+                          <p className="text-[11px] text-muted-foreground">
+                            Administrator
+                          </p>
                         )}
                       </div>
                       <Button
@@ -202,7 +230,9 @@ export function ProfilePage() {
               {changePasswordOpen ? (
                 <div className="mt-3 space-y-2">
                   <div>
-                    <Label htmlFor="currentPassword" className="text-[11px]">Current password</Label>
+                    <Label htmlFor="currentPassword" className="text-[11px]">
+                      Current password
+                    </Label>
                     <Input
                       id="currentPassword"
                       type="password"
@@ -213,7 +243,9 @@ export function ProfilePage() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="newPassword" className="text-[11px]">New password</Label>
+                    <Label htmlFor="newPassword" className="text-[11px]">
+                      New password
+                    </Label>
                     <Input
                       id="newPassword"
                       type="password"
@@ -224,7 +256,9 @@ export function ProfilePage() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="confirmPassword" className="text-[11px]">Confirm new password</Label>
+                    <Label htmlFor="confirmPassword" className="text-[11px]">
+                      Confirm new password
+                    </Label>
                     <Input
                       id="confirmPassword"
                       type="password"
@@ -235,7 +269,11 @@ export function ProfilePage() {
                     />
                   </div>
                   <div className="flex gap-1.5">
-                    <Button size="sm" className="h-6 text-[12px]" onClick={handleChangePassword}>
+                    <Button
+                      size="sm"
+                      className="h-6 text-[12px]"
+                      onClick={handleChangePassword}
+                    >
                       Update password
                     </Button>
                     <Button

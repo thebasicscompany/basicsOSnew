@@ -27,7 +27,10 @@ export function useCreateContactNote() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: { contactId: number; text: string }) =>
-      create<ContactNote>("contact_notes", { ...data, date: new Date().toISOString() }),
+      create<ContactNote>("contact_notes", {
+        ...data,
+        date: new Date().toISOString(),
+      }),
     onSuccess: (_, { contactId }) => {
       queryClient.invalidateQueries({ queryKey: ["contact_notes", contactId] });
     },
@@ -38,9 +41,14 @@ export function useDeleteContactNote() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, contactId }: { id: number; contactId: number }) =>
-      remove<ContactNote>("contact_notes", id).then((r) => ({ ...r, contactId })),
+      remove<ContactNote>("contact_notes", id).then((r) => ({
+        ...r,
+        contactId,
+      })),
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["contact_notes", (data as any).contactId] });
+      queryClient.invalidateQueries({
+        queryKey: ["contact_notes", (data as { contactId: number }).contactId],
+      });
     },
   });
 }

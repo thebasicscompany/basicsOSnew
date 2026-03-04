@@ -27,7 +27,6 @@ export function RecordDetailPage() {
     setConfirmDeleteOpen,
     showAllFields,
     setShowAllFields,
-    editableAttributes,
     visibleEditableAttributes,
     systemAttributes,
     hiddenCount,
@@ -107,7 +106,8 @@ export function RecordDetailPage() {
                     className="h-7 text-xs text-muted-foreground -ml-1"
                     onClick={() => setShowAllFields(true)}
                   >
-                    Show {hiddenCount} empty {hiddenCount === 1 ? "field" : "fields"}
+                    Show {hiddenCount} empty{" "}
+                    {hiddenCount === 1 ? "field" : "fields"}
                   </Button>
                 )}
                 {showAllFields && emptyFieldsCount > 0 && (

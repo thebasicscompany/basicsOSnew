@@ -19,7 +19,8 @@ vi.mock("../../../lib/automation-engine.js", () => ({
 }));
 
 vi.mock("../../../lib/embeddings.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../../lib/embeddings.js")>();
+  const actual =
+    await importOriginal<typeof import("../../../lib/embeddings.js")>();
   return {
     ...actual,
     deleteEntityEmbedding: vi.fn().mockResolvedValue(undefined),
@@ -33,7 +34,7 @@ async function getPermissionMock() {
 
 function makeContext(
   params: Record<string, string>,
-  userId = "user-1"
+  userId = "user-1",
 ): {
   req: { param: (key: string) => string };
   get: (key: string) => unknown;

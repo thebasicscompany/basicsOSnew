@@ -22,21 +22,13 @@ import type {
   ViewState,
 } from "@/types/views";
 
-// ---------------------------------------------------------------------------
-// NocoDB raw view creation response
-// ---------------------------------------------------------------------------
-
-interface NocoViewCreateRaw {
+interface CreateViewApiResponse {
   id: string;
   title: string;
   type: number;
   order: number;
   is_default: boolean;
 }
-
-// ---------------------------------------------------------------------------
-// useViews — view list + active view selection (URL-synced)
-// ---------------------------------------------------------------------------
 
 interface UseViewsReturn {
   views: ViewConfig[];
@@ -79,7 +71,6 @@ export function useViews(objectSlug: string): UseViewsReturn {
       const found = views.find((v) => v.id === activeViewId);
       if (found) return found;
     }
-    // Fall back to default view, or first view
     return views.find((v) => v.isDefault) ?? views[0];
   }, [views, activeViewId]);
 
@@ -102,13 +93,16 @@ export function useViews(objectSlug: string): UseViewsReturn {
     { title: string; type?: ViewConfig["type"] }
   >({
     mutationFn: async ({ title, type = "grid" }) => {
-      const raw = await fetchApi<NocoViewCreateRaw>(`/api/views/${objectSlug}`, {
-        method: "POST",
-        body: JSON.stringify({
-          title,
-          type: VIEW_TYPE_TO_NOCO[type] ?? 3,
-        }),
-      });
+      const raw = await fetchApi<CreateViewApiResponse>(
+        `/api/views/${objectSlug}`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            title,
+            type: VIEW_TYPE_TO_NOCO[type] ?? 3,
+          }),
+        },
+      );
       return {
         id: raw.id,
         title: raw.title,
@@ -131,10 +125,6 @@ export function useViews(objectSlug: string): UseViewsReturn {
     error: error as Error | null,
   };
 }
-
-// ---------------------------------------------------------------------------
-// View state reducer (tracks dirty state for columns, sorts, filters)
-// ---------------------------------------------------------------------------
 
 type ViewStateAction =
   | { type: "SET_COLUMNS"; columns: ViewColumn[] }
@@ -200,10 +190,6 @@ function viewStateReducer(
   }
 }
 
-// ---------------------------------------------------------------------------
-// useViewState — full view state management with dirty tracking
-// ---------------------------------------------------------------------------
-
 interface UseViewStateReturn {
   columns: ViewColumn[];
   sorts: ViewSort[];
@@ -227,13 +213,12 @@ interface UseViewStateReturn {
   removeFilter: (filterId: string) => void;
 }
 
-// Stable empty arrays to avoid re-render loops when data is undefined
+// shared refs to avoid effect churn
 const EMPTY_COLUMNS: ViewColumn[] = [];
 const EMPTY_SORTS: ViewSort[] = [];
 const EMPTY_FILTERS: ViewFilter[] = [];
 
 export function useViewState(viewId: string): UseViewStateReturn {
-  // Fetch server state
   const { data: serverColumns = EMPTY_COLUMNS, isLoading: columnsLoading } =
     useViewColumns(viewId);
   const { data: serverSorts = EMPTY_SORTS, isLoading: sortsLoading } =
@@ -243,7 +228,6 @@ export function useViewState(viewId: string): UseViewStateReturn {
 
   const isLoading = columnsLoading || sortsLoading || filtersLoading;
 
-  // Local state with dirty tracking
   const [localState, dispatch] = useReducer(viewStateReducer, {
     columns: [],
     sorts: [],
@@ -251,17 +235,14 @@ export function useViewState(viewId: string): UseViewStateReturn {
     isDirty: false,
   });
 
-  // Track isDirty via ref to avoid re-triggering effects
   const isDirtyRef = useRef(localState.isDirty);
   isDirtyRef.current = localState.isDirty;
 
-  // Reset dirty state when switching views so new view's server data can sync
   useEffect(() => {
     isDirtyRef.current = false;
     dispatch({ type: "MARK_CLEAN" });
   }, [viewId]);
 
-  // Sync server data into local state when it arrives (only when not dirty)
   useEffect(() => {
     if (!isDirtyRef.current && serverColumns.length > 0) {
       dispatch({ type: "SET_COLUMNS", columns: serverColumns });
@@ -280,7 +261,6 @@ export function useViewState(viewId: string): UseViewStateReturn {
     }
   }, [serverFilters]);
 
-  // Mutations
   const updateColumnMutation = useUpdateViewColumn(viewId);
   const createColumnMutation = useCreateViewColumn(viewId);
   const createSortMutation = useCreateViewSort(viewId);
@@ -288,16 +268,12 @@ export function useViewState(viewId: string): UseViewStateReturn {
   const createFilterMutation = useCreateViewFilter(viewId);
   const deleteFilterMutation = useDeleteViewFilter(viewId);
 
-  // Update column: for virtual columns (id starts with "virtual-") with show:true, create via API
   const updateColumn = useCallback(
     (
       columnId: string,
       updates: Partial<Pick<ViewColumn, "show" | "order" | "width">>,
     ) => {
-      if (
-        columnId.startsWith("virtual-") &&
-        updates.show === true
-      ) {
+      if (columnId.startsWith("virtual-") && updates.show === true) {
         const fieldId = columnId.replace(/^virtual-/, "");
         void createColumnMutation.mutateAsync({
           fk_column_id: fieldId,
@@ -351,9 +327,7 @@ export function useViewState(viewId: string): UseViewStateReturn {
     dispatch({ type: "REMOVE_FILTER", filterId });
   }, []);
 
-  // Save — persist all dirty changes
   const save = useCallback(async () => {
-    // Persist column updates
     const columnPromises = localState.columns.map((col) => {
       const serverCol = serverColumns.find((s) => s.id === col.id);
       if (!serverCol) return Promise.resolve();
@@ -371,7 +345,6 @@ export function useViewState(viewId: string): UseViewStateReturn {
       });
     });
 
-    // Persist new sorts (temp IDs) and delete removed sorts
     const sortPromises: Promise<unknown>[] = [];
     const serverSortIds = new Set(serverSorts.map((s) => s.id));
     const localSortIds = new Set(localState.sorts.map((s) => s.id));
@@ -388,7 +361,6 @@ export function useViewState(viewId: string): UseViewStateReturn {
       }
     }
 
-    // Delete sorts that were removed locally
     for (const serverSort of serverSorts) {
       if (!localSortIds.has(serverSort.id)) {
         sortPromises.push(deleteSortMutation.mutateAsync(serverSort.id));

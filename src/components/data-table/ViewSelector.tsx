@@ -1,4 +1,9 @@
-import { SquaresFourIcon, ListIcon, PlusIcon, XIcon } from "@phosphor-icons/react"
+import {
+  SquaresFourIcon,
+  ListIcon,
+  PlusIcon,
+  XIcon,
+} from "@phosphor-icons/react";
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -75,9 +80,7 @@ export function ViewSelector({
             key={view.id}
             className={cn(
               "group/view flex items-center gap-1 border-b-2 transition-colors",
-              isActive
-                ? "border-primary"
-                : "border-transparent",
+              isActive ? "border-primary" : "border-transparent",
             )}
           >
             {isEditing ? (

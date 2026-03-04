@@ -1,4 +1,4 @@
-import { useRoutes, Navigate } from "react-router";
+import { useRoutes } from "react-router";
 import { AutomationListPage } from "./AutomationListPage";
 import { AutomationBuilderPage } from "./AutomationBuilderPage";
 

@@ -1,4 +1,4 @@
-import { PlusIcon, TrashIcon } from "@phosphor-icons/react"
+import { PlusIcon, TrashIcon } from "@phosphor-icons/react";
 import * as React from "react";
 import {
   Popover,
@@ -214,10 +214,6 @@ export function FilterPopover({
   );
 }
 
-// ---------------------------------------------------------------------------
-// Filter Value Input
-// ---------------------------------------------------------------------------
-
 function FilterValueInput({
   attribute,
   value,
@@ -240,7 +236,7 @@ function FilterValueInput({
 
   const fieldType = getFieldType(attribute.uiType);
 
-  // If the field type provides a custom FilterComponent, use it
+  // custom FilterComponent when available
   if (fieldType.FilterComponent) {
     const FilterComp = fieldType.FilterComponent;
     return (
@@ -250,7 +246,7 @@ function FilterValueInput({
     );
   }
 
-  // Default: text input
+  // fallback text input
   return (
     <Input
       className="h-7 flex-1 text-xs"

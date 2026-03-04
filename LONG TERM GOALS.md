@@ -1,5 +1,24 @@
 # Long Term Goals
 
+## Route Decomposition (PR #Production Review)
+
+Priority decomposition targets per PRODUCTION_ARCHITECTURE_CODE_REVIEW_2026-03-04:
+
+- [x] **auth.ts** – Done. Split into `auth/init-signup-invite-routes`, `auth/me-settings-routes`, `auth/organization-routes`.
+- [ ] **gateway-chat.ts** – Split into `schemas`, `tool-defs`, `tool-executors`, `thread-store`, `orchestrator`, `route`.
+- [x] **views.ts** – Done. Split into `views/column-routes`, `views/filter-routes`, `views/sort-routes`, `views/view-item-routes`, `views/object-routes`, plus `shared`, `mappers`.
+- [ ] **Server CRM handlers** – Extract shared session/org/permission resolution into one middleware/helper; extract embedding/event side effects into post-write domain services.
+- [ ] **prompt-input.tsx** – Split provider/hooks/attachments/presentation.
+- [ ] **SettingsPage.tsx** – Split into account/org/security/connections modules.
+
+### Target organization
+- `routes/*` – HTTP only (parsing, status codes, response shape).
+- `services/*` – Business orchestration.
+- `repositories/*` or `data-access/*` – Drizzle query composition.
+- `schemas/*` – Zod contracts and DTO mapping.
+
+---
+
 ## AI Memory (Optional, Not a Current Blocker)
 
 - Current state is production-ready for now:

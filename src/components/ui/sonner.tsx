@@ -4,7 +4,7 @@ import {
   InfoIcon,
   CircleNotchIcon,
   WarningOctagonIcon,
-} from "@phosphor-icons/react";
+} from "@phosphor-icons/react"
 import { useTheme } from "next-themes"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 

@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { authClient } from "@/lib/auth";
+import { authClient } from "@/lib/auth-client";
 import { ROUTES } from "@basics-os/hub";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "";
@@ -26,7 +26,9 @@ export function SignupPage() {
   const { data: isInitialized } = useQuery({
     queryKey: ["init"],
     queryFn: async () => {
-      const res = await fetch(`${API_URL}/api/init`, { credentials: "include" });
+      const res = await fetch(`${API_URL}/api/init`, {
+        credentials: "include",
+      });
       const json = (await res.json()) as { initialized: boolean };
       return json.initialized;
     },
@@ -85,7 +87,9 @@ export function SignupPage() {
           />
           <div className="space-y-1 text-center">
             <h1 className="text-2xl font-bold">
-              {isInitialized ? "Join your organization" : "Welcome to Basics CRM"}
+              {isInitialized
+                ? "Join your organization"
+                : "Welcome to Basics CRM"}
             </h1>
             <p className="text-muted-foreground text-sm">
               {isInitialized
@@ -95,7 +99,9 @@ export function SignupPage() {
           </div>
         </div>
         {error && (
-          <p className="text-destructive text-sm rounded-md bg-destructive/10 p-2">{error}</p>
+          <p className="text-destructive text-sm rounded-md bg-destructive/10 p-2">
+            {error}
+          </p>
         )}
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
@@ -142,7 +148,11 @@ export function SignupPage() {
               />
             </div>
           )}
-          <Button type="submit" className="w-full" disabled={!isValid || isSubmitting}>
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={!isValid || isSubmitting}
+          >
             {isSubmitting ? "Creating account..." : "Create account"}
           </Button>
           <p className="text-center text-xs text-muted-foreground">

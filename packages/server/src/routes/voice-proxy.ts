@@ -24,7 +24,7 @@ type DeepgramTranscriptionResult = {
 export function createVoiceProxyRoutes(
   db: Db,
   auth: BetterAuthInstance,
-  env: Env
+  env: Env,
 ) {
   const app = new Hono();
 
@@ -47,21 +47,28 @@ export function createVoiceProxyRoutes(
       return c.json({ error: "audio (base64) is required" }, 400);
     }
 
-    const proxyRes = await fetch(`${env.BASICOS_API_URL}/v1/audio/transcriptions`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+    const proxyRes = await fetch(
+      `${env.BASICOS_API_URL}/v1/audio/transcriptions`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          audio: body.audio,
+          mime_type: body.mime_type ?? "audio/webm",
+        }),
       },
-      body: JSON.stringify({
-        audio: body.audio,
-        mime_type: body.mime_type ?? "audio/webm",
-      }),
-    });
+    );
 
     if (!proxyRes.ok) {
       const errText = await proxyRes.text().catch(() => "");
-      console.error("[voice-proxy] transcriptions error:", proxyRes.status, errText);
+      console.error(
+        "[voice-proxy] transcriptions error:",
+        proxyRes.status,
+        errText,
+      );
       return new Response(JSON.stringify({ error: "Transcription failed" }), {
         status: proxyRes.status,
         headers: { "Content-Type": "application/json" },

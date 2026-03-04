@@ -1,4 +1,9 @@
-import { CaretDownIcon, CaretUpIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react"
+import {
+  CaretDownIcon,
+  CaretUpIcon,
+  PlusIcon,
+  TrashIcon,
+} from "@phosphor-icons/react";
 import * as React from "react";
 import {
   Popover,

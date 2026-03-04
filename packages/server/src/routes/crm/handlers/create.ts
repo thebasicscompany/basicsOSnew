@@ -38,7 +38,8 @@ export function createCreateHandler(db: Db, env: Env) {
     const crmUser = crmUserRows[0];
     const crmUserId = crmUser?.id;
     const orgId = crmUser?.organizationId;
-    if (!crmUserId || !crmUser) return c.json({ error: "User not found in CRM" }, 404);
+    if (!crmUserId || !crmUser)
+      return c.json({ error: "User not found in CRM" }, 404);
     if (!orgId) return c.json({ error: "Organization not found" }, 404);
     const permissions = await getPermissionSetForUser(db, crmUser);
     if (!permissions.has("*") && !permissions.has(PERMISSIONS.recordsWrite)) {
@@ -49,7 +50,10 @@ export function createCreateHandler(db: Db, env: Env) {
     }
 
     const rawBody = (await c.req.json()) as Record<string, unknown>;
-    const table = TABLE_MAP[resource as Exclude<Resource, "companies_summary" | "contacts_summary">];
+    const table =
+      TABLE_MAP[
+        resource as Exclude<Resource, "companies_summary" | "contacts_summary">
+      ];
     if (!table) return c.json({ error: "Unknown resource" }, 404);
 
     const bodyRaw = snakeToCamel(rawBody) as Record<string, unknown>;
@@ -80,17 +84,42 @@ export function createCreateHandler(db: Db, env: Env) {
 
     const entityType = getEntityType(resource);
     const apiKey = resolveStoredApiKey(crmUserRows[0] ?? {});
-    if (entityType && apiKey && inserted && typeof (inserted as { id?: unknown }).id === "number") {
-      const chunkText = buildEntityText(entityType, inserted as Record<string, unknown>);
-      upsertEntityEmbedding(db, env.BASICOS_API_URL, apiKey, crmUserId, entityType, (inserted as { id: number }).id, chunkText).catch(() => {});
+    if (
+      entityType &&
+      apiKey &&
+      inserted &&
+      typeof (inserted as { id?: unknown }).id === "number"
+    ) {
+      const chunkText = buildEntityText(
+        entityType,
+        inserted as Record<string, unknown>,
+      );
+      upsertEntityEmbedding(
+        db,
+        env.BASICOS_API_URL,
+        apiKey,
+        crmUserId,
+        entityType,
+        (inserted as { id: number }).id,
+        chunkText,
+      ).catch(() => {});
     }
 
-    const eventResource = ["deals", "contacts", "tasks"].includes(resource) ? resource : null;
+    const eventResource = ["deals", "contacts", "tasks"].includes(resource)
+      ? resource
+      : null;
     if (eventResource) {
-      fireEvent(`${eventResource.replace(/s$/, "")}.created`, inserted as Record<string, unknown>, crmUserId).catch(() => {});
+      fireEvent(
+        `${eventResource.replace(/s$/, "")}.created`,
+        inserted as Record<string, unknown>,
+        crmUserId,
+      ).catch(() => {});
     }
 
-    if (resource === "automation_rules" && typeof (inserted as { id?: number }).id === "number") {
+    if (
+      resource === "automation_rules" &&
+      typeof (inserted as { id?: number }).id === "number"
+    ) {
       reloadRule((inserted as { id: number }).id).catch(() => {});
     }
 

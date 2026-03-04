@@ -1,1 +1,1 @@
-export { useGateway } from "@/providers/GatewayProvider";
+export { useGateway } from "@/providers/gateway-context";

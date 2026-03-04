@@ -93,12 +93,8 @@
           "name": "account_user_id_user_id_fk",
           "tableFrom": "account",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -168,12 +164,8 @@
           "name": "session_user_id_user_id_fk",
           "tableFrom": "session",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -183,9 +175,7 @@
         "session_token_unique": {
           "name": "session_token_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token"
-          ]
+          "columns": ["token"]
         }
       },
       "policies": {},
@@ -247,9 +237,7 @@
         "user_email_unique": {
           "name": "user_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},
@@ -381,12 +369,8 @@
           "name": "automation_rules_sales_id_sales_id_fk",
           "tableFrom": "automation_rules",
           "tableTo": "sales",
-          "columnsFrom": [
-            "sales_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["sales_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -523,12 +507,8 @@
           "name": "companies_sales_id_sales_id_fk",
           "tableFrom": "companies",
           "tableTo": "sales",
-          "columnsFrom": [
-            "sales_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["sales_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -620,12 +600,8 @@
           "name": "contact_notes_contact_id_contacts_id_fk",
           "tableFrom": "contact_notes",
           "tableTo": "contacts",
-          "columnsFrom": [
-            "contact_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["contact_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -633,12 +609,8 @@
           "name": "contact_notes_sales_id_sales_id_fk",
           "tableFrom": "contact_notes",
           "tableTo": "sales",
-          "columnsFrom": [
-            "sales_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["sales_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -768,12 +740,8 @@
           "name": "contacts_company_id_companies_id_fk",
           "tableFrom": "contacts",
           "tableTo": "companies",
-          "columnsFrom": [
-            "company_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["company_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -781,12 +749,8 @@
           "name": "contacts_sales_id_sales_id_fk",
           "tableFrom": "contacts",
           "tableTo": "sales",
-          "columnsFrom": [
-            "sales_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["sales_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -886,12 +850,8 @@
           "name": "context_embeddings_sales_id_sales_id_fk",
           "tableFrom": "context_embeddings",
           "tableTo": "sales",
-          "columnsFrom": [
-            "sales_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["sales_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -956,12 +916,8 @@
           "name": "deal_notes_deal_id_deals_id_fk",
           "tableFrom": "deal_notes",
           "tableTo": "deals",
-          "columnsFrom": [
-            "deal_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["deal_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -969,12 +925,8 @@
           "name": "deal_notes_sales_id_sales_id_fk",
           "tableFrom": "deal_notes",
           "tableTo": "sales",
-          "columnsFrom": [
-            "sales_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["sales_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1082,12 +1034,8 @@
           "name": "deals_company_id_companies_id_fk",
           "tableFrom": "deals",
           "tableTo": "companies",
-          "columnsFrom": [
-            "company_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["company_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1095,12 +1043,8 @@
           "name": "deals_sales_id_sales_id_fk",
           "tableFrom": "deals",
           "tableTo": "sales",
-          "columnsFrom": [
-            "sales_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["sales_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1248,12 +1192,8 @@
           "name": "sales_user_id_user_id_fk",
           "tableFrom": "sales",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1261,12 +1201,8 @@
           "name": "sales_organization_id_organizations_id_fk",
           "tableFrom": "sales",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1330,12 +1266,8 @@
           "name": "tasks_contact_id_contacts_id_fk",
           "tableFrom": "tasks",
           "tableTo": "contacts",
-          "columnsFrom": [
-            "contact_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["contact_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1343,12 +1275,8 @@
           "name": "tasks_sales_id_sales_id_fk",
           "tableFrom": "tasks",
           "tableTo": "sales",
-          "columnsFrom": [
-            "sales_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["sales_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1439,12 +1367,8 @@
           "name": "invites_organization_id_organizations_id_fk",
           "tableFrom": "invites",
           "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["organization_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1454,9 +1378,7 @@
         "invites_token_unique": {
           "name": "invites_token_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token"
-          ]
+          "columns": ["token"]
         }
       },
       "policies": {},

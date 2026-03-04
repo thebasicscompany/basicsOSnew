@@ -1,4 +1,4 @@
-import { ListIcon } from "@phosphor-icons/react"
+import { ListIcon } from "@phosphor-icons/react";
 import type {
   FieldTypeDefinition,
   CalculationType,

@@ -26,6 +26,8 @@ export const automationRuns = pgTable("automation_runs", {
   status: varchar("status", { length: 32 }).notNull(), // 'running' | 'success' | 'error'
   result: jsonb("result"),
   error: text("error"),
-  startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(),
+  startedAt: timestamp("started_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
   finishedAt: timestamp("finished_at", { withTimezone: true }),
 });

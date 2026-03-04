@@ -1,4 +1,4 @@
-import { EnvelopeIcon } from "@phosphor-icons/react"
+import { EnvelopeIcon } from "@phosphor-icons/react";
 import type { FieldTypeDefinition, CalculationType } from "../../types";
 import { EmailCellDisplay } from "./EmailCellDisplay";
 import { EmailCellEditor } from "./EmailCellEditor";

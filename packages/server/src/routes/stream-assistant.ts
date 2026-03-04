@@ -10,7 +10,10 @@ import type { Env } from "../env.js";
 import type { createAuth } from "../auth.js";
 import { buildCrmSummary, retrieveRelevantContext } from "../lib/context.js";
 import { resolveCrmUserWithApiKey } from "../lib/crm-user-auth.js";
-import { ASSISTANT_TOOLS, executeAssistantToolDrizzle } from "../assistant/tools.js";
+import {
+  ASSISTANT_TOOLS,
+  executeAssistantToolDrizzle,
+} from "../assistant/tools.js";
 import { PERMISSIONS, requirePermission } from "../lib/rbac.js";
 
 type BetterAuthInstance = ReturnType<typeof createAuth>;
@@ -35,7 +38,7 @@ const ASSISTANT_SYSTEM_PROMPT =
 export function createStreamAssistantRoutes(
   db: Db,
   auth: BetterAuthInstance,
-  env: Env
+  env: Env,
 ) {
   const app = new Hono();
 
@@ -46,9 +49,13 @@ export function createStreamAssistantRoutes(
     const crmUserAuth = await resolveCrmUserWithApiKey(c, db);
     if (!crmUserAuth.ok) return crmUserAuth.response;
     const { crmUser, apiKey } = crmUserAuth.data;
-    if (!crmUser.organizationId) return c.json({ error: "Organization not found" }, 404);
+    if (!crmUser.organizationId)
+      return c.json({ error: "Organization not found" }, 404);
 
-    let body: { message?: string; history?: Array<{ role: string; content: string }> };
+    let body: {
+      message?: string;
+      history?: Array<{ role: string; content: string }>;
+    };
     try {
       body = (await c.req.json()) as {
         message?: string;
@@ -70,7 +77,13 @@ export function createStreamAssistantRoutes(
 
     const [crmSummary, ragContext] = await Promise.all([
       buildCrmSummary(db, crmUser.organizationId),
-      retrieveRelevantContext(db, env.BASICOS_API_URL, apiKey, crmUser.organizationId, message),
+      retrieveRelevantContext(
+        db,
+        env.BASICOS_API_URL,
+        apiKey,
+        crmUser.organizationId,
+        message,
+      ),
     ]);
 
     let contextText = `## Your CRM\n${crmSummary}`;
@@ -91,20 +104,23 @@ export function createStreamAssistantRoutes(
     for (let iteration = 0; iteration < maxIterations; iteration++) {
       let toolCallRes: Response;
       try {
-        toolCallRes = await fetch(`${env.BASICOS_API_URL}/v1/chat/completions`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${apiKey}`,
+        toolCallRes = await fetch(
+          `${env.BASICOS_API_URL}/v1/chat/completions`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              model: "basics-chat-smart",
+              messages: chatMessages,
+              tools: ASSISTANT_TOOLS,
+              tool_choice: "auto",
+              stream: false,
+            }),
           },
-          body: JSON.stringify({
-            model: "basics-chat-smart",
-            messages: chatMessages,
-            tools: ASSISTANT_TOOLS,
-            tool_choice: "auto",
-            stream: false,
-          }),
-        });
+        );
       } catch (err) {
         console.error("[stream-assistant] fetch error:", err);
         return c.json({ error: "Failed to reach AI gateway" }, 502);
@@ -115,7 +131,7 @@ export function createStreamAssistantRoutes(
         console.error(
           "[stream-assistant] gateway error:",
           toolCallRes.status,
-          errText
+          errText,
         );
         return c.json({ error: "Gateway error" }, 502);
       }
@@ -160,7 +176,7 @@ export function createStreamAssistantRoutes(
           crmUser.id,
           crmUser.organizationId,
           tc.function.name,
-          args
+          args,
         );
 
         chatMessages.push({
@@ -179,7 +195,9 @@ export function createStreamAssistantRoutes(
     const outStream = new ReadableStream({
       start(controller) {
         controller.enqueue(
-          encoder.encode(`data: ${JSON.stringify({ token: finalContent })}\n\n`)
+          encoder.encode(
+            `data: ${JSON.stringify({ token: finalContent })}\n\n`,
+          ),
         );
         controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         controller.close();

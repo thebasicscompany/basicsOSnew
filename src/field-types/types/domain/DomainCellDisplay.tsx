@@ -1,4 +1,4 @@
-import { ArrowSquareOutIcon } from "@phosphor-icons/react"
+import { ArrowSquareOutIcon } from "@phosphor-icons/react";
 import type { CellDisplayProps } from "../../types";
 function ensureProtocol(url: string): string {
   if (/^https?:\/\//i.test(url)) return url;

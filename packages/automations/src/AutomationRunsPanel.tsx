@@ -1,4 +1,9 @@
-import { CheckCircleIcon, XCircleIcon, CopyIcon, CircleNotchIcon } from "@phosphor-icons/react"
+import {
+  CheckCircleIcon,
+  XCircleIcon,
+  CopyIcon,
+  CircleNotchIcon,
+} from "@phosphor-icons/react";
 import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchApi } from "basics-os/src/lib/api";
@@ -9,7 +14,12 @@ import {
   SheetTitle,
 } from "basics-os/src/components/ui/sheet";
 import { Button } from "basics-os/src/components/ui/button";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "basics-os/src/components/ui/tabs";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "basics-os/src/components/ui/tabs";
 export interface AutomationRun {
   id: number;
   ruleId: number;
@@ -43,13 +53,17 @@ function formatRelative(date: Date): string {
   return rtf.format(diffDay, "day");
 }
 
-export function AutomationRunsPanel({ ruleId, open, onOpenChange }: AutomationRunsPanelProps) {
+export function AutomationRunsPanel({
+  ruleId,
+  open,
+  onOpenChange,
+}: AutomationRunsPanelProps) {
   const [limit, setLimit] = useState(20);
   const { data: runs = [], isPending } = useQuery({
     queryKey: ["automation-runs", ruleId, limit],
     queryFn: () =>
       fetchApi<AutomationRun[]>(
-        `/api/automation-runs?ruleId=${ruleId}&limit=${limit}`
+        `/api/automation-runs?ruleId=${ruleId}&limit=${limit}`,
       ),
     enabled: !!ruleId && open,
   });
@@ -67,7 +81,11 @@ export function AutomationRunsPanel({ ruleId, open, onOpenChange }: AutomationRu
         <SheetHeader>
           <SheetTitle>Run History</SheetTitle>
         </SheetHeader>
-        <Tabs value={filter} onValueChange={(v) => setFilter(v as typeof filter)} className="mt-4">
+        <Tabs
+          value={filter}
+          onValueChange={(v) => setFilter(v as typeof filter)}
+          className="mt-4"
+        >
           <TabsList className="mb-4">
             <TabsTrigger value="all">All</TabsTrigger>
             <TabsTrigger value="success">Success</TabsTrigger>
@@ -120,10 +138,14 @@ function RunRow({ run }: { run: AutomationRun }) {
 
   const StatusIcon = () => {
     if (run.status === "success")
-      return <CheckCircleIcon className="size-4 text-green-600 dark:text-green-500 shrink-0" />;
+      return (
+        <CheckCircleIcon className="size-4 text-green-600 dark:text-green-500 shrink-0" />
+      );
     if (run.status === "error")
       return <XCircleIcon className="size-4 text-destructive shrink-0" />;
-    return <CircleNotchIcon className="size-4 shrink-0 animate-spin text-muted-foreground" />;
+    return (
+      <CircleNotchIcon className="size-4 shrink-0 animate-spin text-muted-foreground" />
+    );
   };
 
   return (
@@ -133,10 +155,7 @@ function RunRow({ run }: { run: AutomationRun }) {
           <StatusIcon />
           <span className="text-sm font-medium capitalize">{run.status}</span>
         </div>
-        <span
-          className="text-xs text-muted-foreground"
-          title={fullDatetime}
-        >
+        <span className="text-xs text-muted-foreground" title={fullDatetime}>
           {relative}
         </span>
       </div>

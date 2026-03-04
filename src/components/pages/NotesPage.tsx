@@ -72,7 +72,9 @@ export function NotesPage() {
     const data = dealNotesData?.data ?? [];
     const ids = new Set<number>();
     for (const n of data) {
-      const id = (n as Record<string, unknown>).dealId ?? (n as Record<string, unknown>).deal_id;
+      const id =
+        (n as Record<string, unknown>).dealId ??
+        (n as Record<string, unknown>).deal_id;
       if (id != null) ids.add(Number(id));
     }
     return Array.from(ids);
@@ -82,7 +84,9 @@ export function NotesPage() {
     const data = contactNotesData?.data ?? [];
     const ids = new Set<number>();
     for (const n of data) {
-      const id = (n as Record<string, unknown>).contactId ?? (n as Record<string, unknown>).contact_id;
+      const id =
+        (n as Record<string, unknown>).contactId ??
+        (n as Record<string, unknown>).contact_id;
       if (id != null) ids.add(Number(id));
     }
     return Array.from(ids);
@@ -117,7 +121,10 @@ export function NotesPage() {
             const c = await getOne<Record<string, unknown>>("contacts", id);
             const first = c.firstName ?? c.first_name ?? "";
             const last = c.lastName ?? c.last_name ?? "";
-            return [id, { name: [first, last].filter(Boolean).join(" ") || "Contact" }] as const;
+            return [
+              id,
+              { name: [first, last].filter(Boolean).join(" ") || "Contact" },
+            ] as const;
           } catch {
             return [id, { name: "Unknown" }] as const;
           }
@@ -143,7 +150,10 @@ export function NotesPage() {
 
   return (
     <div className="flex h-full flex-col gap-4 py-4">
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "deals" | "contacts")}>
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as "deals" | "contacts")}
+      >
         <TabsList>
           <TabsTrigger value="deals">Deal Notes</TabsTrigger>
           <TabsTrigger value="contacts">Contact Notes</TabsTrigger>
@@ -188,7 +198,9 @@ export function NotesPage() {
                           <td className="max-w-md px-4 py-2 text-muted-foreground">
                             {truncate(text, 80)}
                           </td>
-                          <td className="px-4 py-2 text-muted-foreground">{formatDate(date)}</td>
+                          <td className="px-4 py-2 text-muted-foreground">
+                            {formatDate(date)}
+                          </td>
                         </tr>
                       );
                     })}
@@ -224,7 +236,10 @@ export function NotesPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="contacts" className="mt-4 flex flex-1 flex-col gap-4">
+        <TabsContent
+          value="contacts"
+          className="mt-4 flex flex-1 flex-col gap-4"
+        >
           {contactNotesPending ? (
             <div className="space-y-2">
               {[1, 2, 3, 4, 5].map((i) => (
@@ -241,7 +256,9 @@ export function NotesPage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b bg-muted/50">
-                      <th className="px-4 py-2 text-left font-medium">Contact</th>
+                      <th className="px-4 py-2 text-left font-medium">
+                        Contact
+                      </th>
                       <th className="px-4 py-2 text-left font-medium">Note</th>
                       <th className="px-4 py-2 text-left font-medium">Date</th>
                     </tr>
@@ -263,7 +280,9 @@ export function NotesPage() {
                           <td className="max-w-md px-4 py-2 text-muted-foreground">
                             {truncate(text, 80)}
                           </td>
-                          <td className="px-4 py-2 text-muted-foreground">{formatDate(date)}</td>
+                          <td className="px-4 py-2 text-muted-foreground">
+                            {formatDate(date)}
+                          </td>
                         </tr>
                       );
                     })}

@@ -1,4 +1,4 @@
-import { createContext, useMemo, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { useQuery, useQueries } from "@tanstack/react-query";
 import { fetchApi } from "@/lib/api";
 import { TAG_COLOR_PALETTE } from "@/field-types/colors";
@@ -11,10 +11,10 @@ import type {
 } from "@/types/objects";
 
 import { mapUidtToFieldType } from "@/field-types";
-
-// ---------------------------------------------------------------------------
-// Merge schema columns with attribute overrides into Attribute[]
-// ---------------------------------------------------------------------------
+import {
+  ObjectRegistryContext,
+  type ObjectRegistryContextValue,
+} from "./object-registry-context";
 
 /**
  * Parse dtxp (comma-separated select values) into SelectOption[].
@@ -42,9 +42,9 @@ function parseDtxpOptions(
  * "CREATED_AT" → "Created At", "company_id" → "Company Id", "crm_user_id" → "Crm User Id"
  */
 function formatColumnName(col: NocoDBColumn): string {
-  // col.title is usually human-friendly from NocoDB; prefer it if different
+  // prefer col.title when it differs (human-friendly)
   if (col.title && col.title !== col.column_name) return col.title;
-  // Format snake_case or UPPER_CASE column names
+  // snake_case / UPPER_CASE -> readable
   if (/[_]/.test(col.column_name) || /^[A-Z_]+$/.test(col.column_name)) {
     return col.column_name
       .toLowerCase()
@@ -67,7 +67,7 @@ function mergeAttributes(
     const override = overrideByColumn.get(col.column_name);
     const mappedUiType = mapUidtToFieldType(col.uidt);
 
-    // Parse dtxp into options for select/multi-select columns
+    // dtxp -> select options
     const isSelectType =
       col.uidt === "SingleSelect" || col.uidt === "MultiSelect";
     const dtxpOptions =
@@ -94,32 +94,7 @@ function mergeAttributes(
   });
 }
 
-// ---------------------------------------------------------------------------
-// Context
-// ---------------------------------------------------------------------------
-
-export interface ObjectRegistryContextValue {
-  objects: ObjectConfig[];
-  getObject: (slug: string) => ObjectConfig | undefined;
-  getAttributes: (slug: string) => Attribute[];
-  isLoading: boolean;
-  error: Error | null;
-}
-
-export const ObjectRegistryContext = createContext<ObjectRegistryContextValue>({
-  objects: [],
-  getObject: () => undefined,
-  getAttributes: () => [],
-  isLoading: true,
-  error: null,
-});
-
-// ---------------------------------------------------------------------------
-// Provider
-// ---------------------------------------------------------------------------
-
 export function ObjectRegistryProvider({ children }: { children: ReactNode }) {
-  // 1. Fetch object configs from backend API
   const {
     data: rawConfigs,
     isLoading: configsLoading,
@@ -135,7 +110,6 @@ export function ObjectRegistryProvider({ children }: { children: ReactNode }) {
     return rawConfigs.filter((cfg) => cfg.isActive);
   }, [rawConfigs]);
 
-  // 3. For each active object, fetch schema columns in parallel
   const columnQueries = useQueries({
     queries: activeConfigs.map((cfg) => ({
       queryKey: ["columns", cfg.tableName],
@@ -152,11 +126,9 @@ export function ObjectRegistryProvider({ children }: { children: ReactNode }) {
     })),
   });
 
-  // 4. Determine loading / error states across all column queries
   const columnsLoading = columnQueries.some((q) => q.isLoading);
   const columnsError = columnQueries.find((q) => q.error)?.error ?? null;
 
-  // 5. Build the column lookup: slug -> NocoDBColumn[]
   const columnsBySlug = useMemo(() => {
     const map = new Map<string, NocoDBColumn[]>();
     for (const q of columnQueries) {
@@ -167,7 +139,6 @@ export function ObjectRegistryProvider({ children }: { children: ReactNode }) {
     return map;
   }, [columnQueries]);
 
-  // 6. Merge everything into fully-resolved ObjectConfig[]
   const objects = useMemo<ObjectConfig[]>(() => {
     if (!activeConfigs.length) return [];
 
@@ -192,7 +163,6 @@ export function ObjectRegistryProvider({ children }: { children: ReactNode }) {
     });
   }, [activeConfigs, columnsBySlug]);
 
-  // 7. Build lookup helpers
   const contextValue = useMemo<ObjectRegistryContextValue>(() => {
     const objectMap = new Map<string, ObjectConfig>();
     for (const obj of objects) {

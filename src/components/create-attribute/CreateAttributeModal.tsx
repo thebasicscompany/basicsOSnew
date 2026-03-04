@@ -48,24 +48,15 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { getFieldType, getAllFieldTypes } from "@/field-types";
+import { getFieldType } from "@/field-types";
 import { useCreateColumn } from "@/hooks/use-columns";
 
-// ---------------------------------------------------------------------------
-// Props
-// ---------------------------------------------------------------------------
-
 export interface CreateAttributeModalProps {
-  objectSlug: string;
   resource: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated?: () => void;
 }
-
-// ---------------------------------------------------------------------------
-// Static type catalogue (for the selector grid)
-// ---------------------------------------------------------------------------
 
 interface TypeOption {
   key: string;
@@ -76,9 +67,19 @@ interface TypeOption {
 
 const TYPE_OPTIONS: TypeOption[] = [
   { key: "text", label: "Text", icon: TextAaIcon, group: "standard" },
-  { key: "long-text", label: "Long Text", icon: AlignLeftIcon, group: "standard" },
+  {
+    key: "long-text",
+    label: "Long Text",
+    icon: AlignLeftIcon,
+    group: "standard",
+  },
   { key: "number", label: "Number", icon: HashIcon, group: "standard" },
-  { key: "currency", label: "Currency", icon: CurrencyDollarIcon, group: "standard" },
+  {
+    key: "currency",
+    label: "Currency",
+    icon: CurrencyDollarIcon,
+    group: "standard",
+  },
   { key: "select", label: "Select", icon: ListIcon, group: "standard" },
   {
     key: "multi-select",
@@ -87,7 +88,12 @@ const TYPE_OPTIONS: TypeOption[] = [
     group: "standard",
   },
   { key: "status", label: "Status", icon: CircleIcon, group: "standard" },
-  { key: "checkbox", label: "Checkbox", icon: CheckSquareIcon, group: "standard" },
+  {
+    key: "checkbox",
+    label: "Checkbox",
+    icon: CheckSquareIcon,
+    group: "standard",
+  },
   { key: "date", label: "Date", icon: CalendarIcon, group: "standard" },
   { key: "timestamp", label: "Timestamp", icon: ClockIcon, group: "standard" },
   { key: "rating", label: "Rating", icon: StarIcon, group: "standard" },
@@ -104,24 +110,14 @@ const TYPE_OPTIONS: TypeOption[] = [
   },
 ];
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-
 export function CreateAttributeModal({
-  objectSlug: _objectSlug,
   resource,
   open,
   onOpenChange,
   onCreated,
 }: CreateAttributeModalProps) {
-  // Step state
   const [step, setStep] = useState<1 | 2>(1);
-
-  // Step 1: selected type
   const [selectedType, setSelectedType] = useState<string | null>(null);
-
-  // Step 2: configuration
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [typeConfig, setTypeConfig] = useState<Record<string, any>>({});
@@ -129,7 +125,6 @@ export function CreateAttributeModal({
   const nameInputRef = useRef<HTMLInputElement>(null);
   const createColumn = useCreateColumn();
 
-  // Group the type options
   const standardTypes = useMemo(
     () => TYPE_OPTIONS.filter((t) => t.group === "standard"),
     [],
@@ -139,7 +134,6 @@ export function CreateAttributeModal({
     [],
   );
 
-  // Reset state when modal opens/closes
   useEffect(() => {
     if (open) {
       setStep(1);
@@ -150,11 +144,10 @@ export function CreateAttributeModal({
     }
   }, [open]);
 
-  // Focus name input when entering step 2
   useEffect(() => {
     if (step === 2) {
       // Small delay so dialog animation completes
-      const timer = setTimeout(() => nameInputRef.current?.focus(), 50);
+      const timer = setTimeout(() => nameInputRef.current?.focus(), 50); // let dialog settle
       return () => clearTimeout(timer);
     }
   }, [step]);
@@ -174,14 +167,10 @@ export function CreateAttributeModal({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [open, onOpenChange]);
 
-  // ---- step 1: select type ------------------------------------------------
-
   const handleSelectType = useCallback((typeKey: string) => {
     setSelectedType(typeKey);
     setStep(2);
   }, []);
-
-  // ---- step 2: submit ------------------------------------------------------
 
   const handleBack = useCallback(() => {
     setStep(1);
@@ -200,7 +189,7 @@ export function CreateAttributeModal({
       onCreated?.();
       onOpenChange(false);
     } catch {
-      // Error surfaced via createColumn.error
+      // Validation or API error; form stays open
     }
   }, [
     name,
@@ -357,10 +346,6 @@ export function CreateAttributeModal({
     </Dialog>
   );
 }
-
-// ---------------------------------------------------------------------------
-// TypeCard — a single option in the type selector grid
-// ---------------------------------------------------------------------------
 
 interface TypeCardProps {
   typeOption: TypeOption;

@@ -19,7 +19,9 @@ export const tasks = pgTable(
     contactId: bigint("contact_id", { mode: "number" })
       .notNull()
       .references(() => contacts.id, { onDelete: "cascade" }),
-    crmUserId: bigint("crm_user_id", { mode: "number" }).references(() => crmUsers.id),
+    crmUserId: bigint("crm_user_id", { mode: "number" }).references(
+      () => crmUsers.id,
+    ),
     organizationId: uuid("organization_id").references(() => organizations.id, {
       onDelete: "cascade",
     }),
@@ -32,5 +34,5 @@ export const tasks = pgTable(
     index("tasks_contact_id_idx").on(t.contactId),
     index("tasks_crm_user_id_idx").on(t.crmUserId),
     index("tasks_org_idx").on(t.organizationId),
-  ]
+  ],
 );

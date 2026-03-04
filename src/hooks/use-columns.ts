@@ -154,10 +154,9 @@ export function useDeleteColumn() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (params: { columnId: string; resource: string }) => {
-      const id =
-        params.columnId.startsWith("custom_")
-          ? params.columnId.slice(7)
-          : params.columnId;
+      const id = params.columnId.startsWith("custom_")
+        ? params.columnId.slice(7)
+        : params.columnId;
       await fetchApi(`/api/custom_field_defs/${id}`, {
         method: "DELETE",
       });

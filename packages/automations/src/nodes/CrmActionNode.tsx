@@ -1,4 +1,4 @@
-import { ListChecksIcon } from "@phosphor-icons/react"
+import { ListChecksIcon } from "@phosphor-icons/react";
 import type { NodeProps } from "@xyflow/react";
 import { CompactAutomationNode } from "./CompactAutomationNode";
 

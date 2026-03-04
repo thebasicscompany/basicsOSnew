@@ -5,6 +5,9 @@ import * as schema from "../db/schema/index.js";
 import { eq, and } from "drizzle-orm";
 import { executeWorkflow } from "./automation-executor.js";
 import { resolveStoredApiKey } from "./api-key-crypto.js";
+import { logger } from "./logger.js";
+
+const log = logger.child({ component: "automation-engine" });
 
 export interface WorkflowDefinition {
   nodes: Array<{
@@ -31,15 +34,13 @@ export async function startAutomationEngine(database: Db, environment: Env) {
   _boss = new PgBoss(environment.DATABASE_URL);
 
   _boss.on("error", (err: unknown) => {
-    console.error("[automation-engine] pg-boss error:", err);
+    log.error({ err }, "pg-boss error");
   });
 
   await _boss.start();
 
-  // pg-boss v12 requires creating the queue before workers can poll it
   await _boss.createQueue("run-automation");
 
-  // Worker for event-triggered (immediate) jobs - pg-boss v12 passes array of jobs
   type RunJobData = { ruleId: number; crmUserId: number; triggerData: Record<string, unknown> };
   await _boss.work<RunJobData>(
     "run-automation",
@@ -55,12 +56,25 @@ export async function startAutomationEngine(database: Db, environment: Env) {
   // Load and register schedule-triggered rules
   await loadScheduleRules();
 
-  console.log("[automation-engine] started");
+  log.info("Automation engine started");
+}
+
+/** Gracefully stop the automation engine. Waits for in-flight jobs up to timeout. */
+export async function stopAutomationEngine(): Promise<void> {
+  if (!_boss) return;
+  try {
+    await _boss.stop({ graceful: true, timeout: 30_000 });
+    log.info("Automation engine stopped");
+  } catch (err) {
+    log.error({ err }, "Automation engine stop error");
+  } finally {
+    _boss = null;
+  }
 }
 
 async function loadScheduleRules() {
   if (!_db) return;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const rules: any[] = await (_db as any)
     .select()
     .from(schema.automationRules)
@@ -91,7 +105,7 @@ async function registerScheduleRule(ruleId: number, crmUserId: number, cron: str
       }
     });
   } catch (err) {
-    console.error(`[automation-engine] failed to register schedule for rule ${ruleId}:`, err);
+    log.error({ err, ruleId }, "Failed to register schedule for rule");
   }
 }
 
@@ -105,7 +119,7 @@ export async function reloadRule(ruleId: number) {
     // Schedule may not exist, ignore
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const rules: any[] = await (_db as any)
     .select()
     .from(schema.automationRules)
@@ -133,7 +147,7 @@ export async function fireEvent(
   if (!_boss || !_db) return;
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     const rules: any[] = await (_db as any)
       .select()
       .from(schema.automationRules)
@@ -154,7 +168,7 @@ export async function fireEvent(
       }
     }
   } catch (err) {
-    console.error("[automation-engine] fireEvent error:", err);
+    log.error({ err, event, crmUserId }, "fireEvent error");
   }
 }
 
@@ -169,7 +183,7 @@ export async function triggerRunNow(ruleId: number, crmUserId: number): Promise<
     });
     return true;
   } catch (err) {
-    console.error("[automation-engine] triggerRunNow error:", err);
+    log.error({ err, ruleId, crmUserId }, "triggerRunNow error");
     return false;
   }
 }
@@ -181,7 +195,7 @@ async function runAutomation(
 ) {
   if (!_db || !_env) return;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const db = _db as any;
 
   const [run] = await db
@@ -228,7 +242,7 @@ async function runAutomation(
       .where(eq(schema.automationRules.id, ruleId));
   } catch (err) {
     const error = err instanceof Error ? err.message : String(err);
-    console.error(`[automation-engine] run ${run?.id} failed:`, err);
+    log.error({ err, runId: run?.id, ruleId, crmUserId }, "Automation run failed");
     if (run?.id != null) {
       await (db)
         .update(schema.automationRuns)

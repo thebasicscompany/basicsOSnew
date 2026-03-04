@@ -20,7 +20,11 @@ import { executeValidatedTool } from "./gateway-chat/tools.js";
 
 type BetterAuthInstance = ReturnType<typeof createAuth>;
 
-export function createGatewayChatRoutes(db: Db, auth: BetterAuthInstance, env: Env) {
+export function createGatewayChatRoutes(
+  db: Db,
+  auth: BetterAuthInstance,
+  env: Env,
+) {
   const app = new Hono();
 
   app.post("/", authMiddleware(auth, db), async (c) => {
@@ -30,7 +34,8 @@ export function createGatewayChatRoutes(db: Db, auth: BetterAuthInstance, env: E
     const crmUserAuth = await resolveCrmUserWithApiKey(c, db);
     if (!crmUserAuth.ok) return crmUserAuth.response;
     const { crmUser, apiKey } = crmUserAuth.data;
-    if (!crmUser.organizationId) return c.json({ error: "Organization not found" }, 404);
+    if (!crmUser.organizationId)
+      return c.json({ error: "Organization not found" }, 404);
 
     let body: unknown;
     try {
@@ -41,29 +46,48 @@ export function createGatewayChatRoutes(db: Db, auth: BetterAuthInstance, env: E
 
     const parsed = requestSchema.safeParse(body);
     if (!parsed.success) {
-      return c.json({ error: "Invalid request", details: parsed.error.flatten() }, 400);
+      return c.json(
+        { error: "Invalid request", details: parsed.error.flatten() },
+        400,
+      );
     }
 
     const uiMessages = parsed.data.messages;
     const openAIMessages = toOpenAIMessages(uiMessages);
-    const lastUser = [...openAIMessages].reverse().find((m) => m.role === "user") as
+    const lastUser = [...openAIMessages]
+      .reverse()
+      .find((m) => m.role === "user") as
       | { role: "user"; content: string }
       | undefined;
     const queryText = lastUser?.content?.trim() ?? "";
     if (!queryText) return c.json({ error: "No user message found" }, 400);
 
-    const threadId = await ensureThread(db, crmUser, parsed.data.threadId, parsed.data.channel);
+    const threadId = await ensureThread(
+      db,
+      crmUser,
+      parsed.data.threadId,
+      parsed.data.channel,
+    );
     await persistMessage(db, threadId, "user", queryText);
 
     const [crmSummary, ragContext] = await Promise.all([
       buildCrmSummary(db, crmUser.organizationId),
-      retrieveRelevantContext(db, env.BASICOS_API_URL, apiKey, crmUser.organizationId, queryText),
+      retrieveRelevantContext(
+        db,
+        env.BASICOS_API_URL,
+        apiKey,
+        crmUser.organizationId,
+        queryText,
+      ),
     ]);
 
     let systemPrompt = `${BASE_SYSTEM_PROMPT}\n\n## Your CRM\n${crmSummary}`;
     if (ragContext) systemPrompt += `\n\n## Relevant context\n${ragContext}`;
 
-    const chatMessages: ChatMessage[] = [{ role: "system", content: systemPrompt }, ...openAIMessages];
+    const chatMessages: ChatMessage[] = [
+      { role: "system", content: systemPrompt },
+      ...openAIMessages,
+    ];
     const usedTools = new Set<string>();
     let finalContent = "";
     const latestToolOutputs: Array<{ name: string; result: unknown }> = [];
@@ -97,7 +121,13 @@ export function createGatewayChatRoutes(db: Db, auth: BetterAuthInstance, env: E
           finalContent = toolFallbackText(latestToolOutputs);
           break;
         }
-        return c.json({ error: `Gateway error ${res.status}`, details: errText.slice(0, 400) }, 502);
+        return c.json(
+          {
+            error: `Gateway error ${res.status}`,
+            details: errText.slice(0, 400),
+          },
+          502,
+        );
       }
 
       const json = (await res.json()) as {
@@ -130,7 +160,10 @@ export function createGatewayChatRoutes(db: Db, auth: BetterAuthInstance, env: E
       for (const tc of toolCalls) {
         let args: Record<string, unknown> = {};
         try {
-          args = JSON.parse(tc.function.arguments || "{}") as Record<string, unknown>;
+          args = JSON.parse(tc.function.arguments || "{}") as Record<
+            string,
+            unknown
+          >;
         } catch {
           args = {};
         }
@@ -140,7 +173,7 @@ export function createGatewayChatRoutes(db: Db, auth: BetterAuthInstance, env: E
           crmUser.id,
           crmUser.organizationId,
           tc.function.name,
-          args
+          args,
         );
         usedTools.add(tc.function.name);
         latestToolOutputs.push({ name: tc.function.name, result });
@@ -158,15 +191,19 @@ export function createGatewayChatRoutes(db: Db, auth: BetterAuthInstance, env: E
       }
     }
 
-    if (!finalContent) finalContent = "I could not complete that request. Please try again.";
+    if (!finalContent)
+      finalContent = "I could not complete that request. Please try again.";
     await persistMessage(db, threadId, "assistant", finalContent);
 
     const encoder = new TextEncoder();
     const parts = finalContent.match(/.{1,140}/g) ?? [finalContent];
     const outStream = new ReadableStream({
       start(controller) {
-        for (const part of parts) controller.enqueue(encoder.encode(sdkPart("0", part)));
-        controller.enqueue(encoder.encode(sdkPart("d", { finishReason: "stop" })));
+        for (const part of parts)
+          controller.enqueue(encoder.encode(sdkPart("0", part)));
+        controller.enqueue(
+          encoder.encode(sdkPart("d", { finishReason: "stop" })),
+        );
         controller.close();
       },
     });

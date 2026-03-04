@@ -29,7 +29,10 @@ let meetingMgr: ReturnType<typeof createMeetingManager> | null = null;
 let registeredMeetingAccelerator: string | null = null;
 
 const WEB_URL = process.env["BASICOS_URL"] ?? "http://localhost:5173";
-const API_URL = process.env["BASICOS_API_URL"] ?? process.env["VITE_API_URL"] ?? "http://localhost:3001";
+const API_URL =
+  process.env["BASICOS_API_URL"] ??
+  process.env["VITE_API_URL"] ??
+  "http://localhost:3001";
 const ALLOWED_PROXY_PATHS = new Set([
   "/v1/audio/transcriptions",
   "/v1/audio/speech",
@@ -183,9 +186,10 @@ function createOverlayWindow(): void {
 
   overlayWindow.setAlwaysOnTop(true, "screen-saver");
 
-  const overlayUrl = is.dev && process.env["ELECTRON_RENDERER_URL"]
-    ? `${process.env["ELECTRON_RENDERER_URL"].replace(/\/$/, "")}/overlay.html`
-    : path.join(__dirname, "../renderer/overlay.html");
+  const overlayUrl =
+    is.dev && process.env["ELECTRON_RENDERER_URL"]
+      ? `${process.env["ELECTRON_RENDERER_URL"].replace(/\/$/, "")}/overlay.html`
+      : path.join(__dirname, "../renderer/overlay.html");
 
   if (is.dev && overlayUrl.startsWith("http")) {
     overlayWindow.loadURL(overlayUrl);
@@ -202,10 +206,7 @@ function createOverlayWindow(): void {
       if (allowedOrigins.has(target.origin) && mainWindow) {
         mainWindow.show();
         mainWindow.loadURL(url).catch(() => undefined);
-      } else if (
-        target.protocol === "http:" ||
-        target.protocol === "https:"
-      ) {
+      } else if (target.protocol === "http:" || target.protocol === "https:") {
         shell.openExternal(url).catch(() => undefined);
       }
     } catch {
@@ -235,32 +236,36 @@ ipcMain.handle("get-api-url", () => API_URL);
 
 ipcMain.handle("get-overlay-settings", () => getOverlaySettings());
 
-ipcMain.handle("update-overlay-settings", (_event, partial: Record<string, unknown>) => {
-  const updated = setOverlaySettings(partial as Parameters<typeof setOverlaySettings>[0]);
-  if (shortcutMgr) {
-    shortcutMgr.registerAll(
-      updated.shortcuts.assistantToggle,
-      updated.behavior.doubleTapWindowMs
+ipcMain.handle(
+  "update-overlay-settings",
+  (_event, partial: Record<string, unknown>) => {
+    const updated = setOverlaySettings(
+      partial as Parameters<typeof setOverlaySettings>[0],
     );
-  }
-  if (registeredMeetingAccelerator) {
-    globalShortcut.unregister(registeredMeetingAccelerator);
-    registeredMeetingAccelerator = null;
-  }
-  globalShortcut.register(
-    updated.shortcuts.meetingToggle,
-    () => overlayWindow?.webContents.send("meeting-toggle")
-  );
-  registeredMeetingAccelerator = updated.shortcuts.meetingToggle;
-  if (holdDetector) {
-    holdDetector.updateConfig({
-      accelerator: updated.shortcuts.dictationHoldKey,
-      holdThresholdMs: updated.behavior.holdThresholdMs,
-    });
-  }
-  overlayWindow?.webContents.send("settings-changed", updated);
-  return updated;
-});
+    if (shortcutMgr) {
+      shortcutMgr.registerAll(
+        updated.shortcuts.assistantToggle,
+        updated.behavior.doubleTapWindowMs,
+      );
+    }
+    if (registeredMeetingAccelerator) {
+      globalShortcut.unregister(registeredMeetingAccelerator);
+      registeredMeetingAccelerator = null;
+    }
+    globalShortcut.register(updated.shortcuts.meetingToggle, () =>
+      overlayWindow?.webContents.send("meeting-toggle"),
+    );
+    registeredMeetingAccelerator = updated.shortcuts.meetingToggle;
+    if (holdDetector) {
+      holdDetector.updateConfig({
+        accelerator: updated.shortcuts.dictationHoldKey,
+        holdThresholdMs: updated.behavior.holdThresholdMs,
+      });
+    }
+    overlayWindow?.webContents.send("settings-changed", updated);
+    return updated;
+  },
+);
 
 ipcMain.on("set-ignore-mouse", (_event, ignore: boolean) => {
   if (ignore) {
@@ -294,15 +299,27 @@ ipcMain.handle(
       method?: string;
       headers?: Record<string, string>;
       body?: string;
-    }
+    },
   ) => {
     const method = (req.method ?? "GET").toUpperCase();
     const pathName = req.path?.trim();
     if (!pathName || !ALLOWED_PROXY_PATHS.has(pathName)) {
-      return { ok: false, status: 400, statusText: "Bad request", headers: {}, body: "" };
+      return {
+        ok: false,
+        status: 400,
+        statusText: "Bad request",
+        headers: {},
+        body: "",
+      };
     }
     if (!["GET", "POST"].includes(method)) {
-      return { ok: false, status: 405, statusText: "Method not allowed", headers: {}, body: "" };
+      return {
+        ok: false,
+        status: 405,
+        statusText: "Method not allowed",
+        headers: {},
+        body: "",
+      };
     }
 
     const cookies = await session.defaultSession.cookies.get({
@@ -310,7 +327,13 @@ ipcMain.handle(
     });
     const token = cookies[0]?.value;
     if (!token) {
-      return { ok: false, status: 401, statusText: "Unauthorized", headers: {}, body: "" };
+      return {
+        ok: false,
+        status: 401,
+        statusText: "Unauthorized",
+        headers: {},
+        body: "",
+      };
     }
 
     const headers = new Headers(req.headers ?? {});
@@ -340,7 +363,7 @@ ipcMain.handle(
       body: textBody,
       encoding: isBinary ? "base64" : "text",
     };
-  }
+  },
 );
 
 ipcMain.handle("inject-text", (_event, text: string): Promise<void> => {
@@ -350,14 +373,14 @@ ipcMain.handle("inject-text", (_event, text: string): Promise<void> => {
       setTimeout(() => {
         exec(
           `osascript -e 'tell application "System Events" to keystroke "v" using {command down}'`,
-          () => setTimeout(resolve, 200)
+          () => setTimeout(resolve, 200),
         );
       }, 50);
     } else if (process.platform === "win32") {
       setTimeout(() => {
         exec(
           `powershell -command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')"`,
-          () => setTimeout(resolve, 200)
+          () => setTimeout(resolve, 200),
         );
       }, 50);
     } else {
@@ -465,15 +488,16 @@ app.whenReady().then(() => {
       holdThresholdMs: getOverlaySettings().behavior.holdThresholdMs,
     },
     {
-      onHoldStart: () => overlayWindow?.webContents.send("dictation-hold-start"),
+      onHoldStart: () =>
+        overlayWindow?.webContents.send("dictation-hold-start"),
       onHoldEnd: () => overlayWindow?.webContents.send("dictation-hold-end"),
-    }
+    },
   );
 
   const settings = getOverlaySettings();
   shortcutMgr.registerAll(
     settings.shortcuts.assistantToggle,
-    settings.behavior.doubleTapWindowMs
+    settings.behavior.doubleTapWindowMs,
   );
   holdDetector.start();
   registerMeetingShortcut(settings.shortcuts.meetingToggle);

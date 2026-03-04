@@ -4,11 +4,14 @@ import * as schema from "../../db/schema/index.js";
 
 export async function getCrmUserId(
   db: Db,
-  session: { user?: { id: string } }
+  session: { user?: { id: string } },
 ): Promise<{ crmUserId: number; organizationId: string } | null> {
   if (!session?.user?.id) return null;
   const [row] = await db
-    .select({ id: schema.crmUsers.id, organizationId: schema.crmUsers.organizationId })
+    .select({
+      id: schema.crmUsers.id,
+      organizationId: schema.crmUsers.organizationId,
+    })
     .from(schema.crmUsers)
     .where(eq(schema.crmUsers.userId, session.user.id))
     .limit(1);
@@ -20,7 +23,7 @@ export async function getViewAndCheckOwnership(
   db: Db,
   viewId: string,
   crmUserId: number,
-  organizationId: string
+  organizationId: string,
 ): Promise<typeof schema.views.$inferSelect | null> {
   const [row] = await db
     .select()
@@ -29,8 +32,8 @@ export async function getViewAndCheckOwnership(
       and(
         eq(schema.views.id, viewId),
         eq(schema.views.crmUserId, crmUserId),
-        eq(schema.views.organizationId, organizationId)
-      )
+        eq(schema.views.organizationId, organizationId),
+      ),
     )
     .limit(1);
   return row ?? null;
@@ -49,14 +52,16 @@ export function formatColumnTitle(columnName: string): string {
 async function getColumnListForTable(
   db: Db,
   baseTable: string,
-  organizationId: string
+  organizationId: string,
 ): Promise<{ fieldId: string; title: string }[]> {
   const result = await db.execute(
     sql`SELECT column_name FROM information_schema.columns
         WHERE table_schema = 'public' AND table_name = ${baseTable}
-        ORDER BY ordinal_position`
+        ORDER BY ordinal_position`,
   );
-  const raw = Array.isArray(result) ? result : (result as { rows?: unknown[] }).rows ?? [];
+  const raw = Array.isArray(result)
+    ? result
+    : ((result as { rows?: unknown[] }).rows ?? []);
   const rows = raw as { column_name: string }[];
   const out: { fieldId: string; title: string }[] = rows.map((r) => ({
     fieldId: r.column_name,
@@ -71,11 +76,14 @@ async function getColumnListForTable(
         eq(schema.customFieldDefs.resource, baseTable),
         or(
           eq(schema.customFieldDefs.organizationId, organizationId),
-          isNull(schema.customFieldDefs.organizationId)
-        )
-      )
+          isNull(schema.customFieldDefs.organizationId),
+        ),
+      ),
     )
-    .orderBy(asc(schema.customFieldDefs.position), asc(schema.customFieldDefs.id));
+    .orderBy(
+      asc(schema.customFieldDefs.position),
+      asc(schema.customFieldDefs.id),
+    );
   for (const def of customRows) {
     out.push({ fieldId: `custom_${def.id}`, title: def.label });
   }
@@ -85,7 +93,7 @@ async function getColumnListForTable(
 export async function copyViewColumns(
   db: Db,
   sourceViewId: string,
-  targetViewId: string
+  targetViewId: string,
 ): Promise<void> {
   const sourceCols = await db
     .select()
@@ -100,7 +108,7 @@ export async function copyViewColumns(
       title: c.title,
       show: c.show,
       displayOrder: c.displayOrder,
-    }))
+    })),
   );
 }
 
@@ -108,7 +116,7 @@ export async function seedDefaultViewColumns(
   db: Db,
   viewId: string,
   objectSlug: string,
-  organizationId: string
+  organizationId: string,
 ): Promise<void> {
   const [objConfig] = await db
     .select({ tableName: schema.objectConfig.tableName })
@@ -116,7 +124,11 @@ export async function seedDefaultViewColumns(
     .where(eq(schema.objectConfig.slug, objectSlug))
     .limit(1);
   if (!objConfig) return;
-  const columns = await getColumnListForTable(db, objConfig.tableName, organizationId);
+  const columns = await getColumnListForTable(
+    db,
+    objConfig.tableName,
+    organizationId,
+  );
   if (columns.length === 0) return;
   await db.insert(schema.viewColumns).values(
     columns.map((col, i) => ({
@@ -125,6 +137,6 @@ export async function seedDefaultViewColumns(
       title: col.title,
       show: col.fieldId !== "id",
       displayOrder: i,
-    }))
+    })),
   );
 }

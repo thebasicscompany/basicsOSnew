@@ -25,7 +25,6 @@ import {
   UploadSimpleIcon,
   RobotIcon,
   LinkIcon,
-  PlusIcon,
 } from "@phosphor-icons/react";
 import { ROUTES } from "@basics-os/hub";
 import { getList } from "@/lib/api/crm";
@@ -52,7 +51,7 @@ export function CommandPalette() {
 
   const isSearching = search.length >= 2;
 
-  // Reset search when palette closes
+  // clear on close
   useEffect(() => {
     if (!open) setSearch("");
   }, [open]);
@@ -75,7 +74,10 @@ export function CommandPalette() {
         filter: { q: search },
         pagination: { page: 1, perPage: 5 },
       });
-      return { data: mapRecords(result.data) as ContactSummary[], total: result.total };
+      return {
+        data: mapRecords(result.data) as ContactSummary[],
+        total: result.total,
+      };
     },
     enabled: isSearching,
     staleTime: 10_000,
@@ -88,7 +90,10 @@ export function CommandPalette() {
         filter: { q: search },
         pagination: { page: 1, perPage: 5 },
       });
-      return { data: mapRecords(result.data) as CompanySummary[], total: result.total };
+      return {
+        data: mapRecords(result.data) as CompanySummary[],
+        total: result.total,
+      };
     },
     enabled: isSearching,
     staleTime: 10_000,
@@ -110,7 +115,8 @@ export function CommandPalette() {
   const contacts = contactsData?.data ?? [];
   const companies = companiesData?.data ?? [];
   const deals = dealsData?.data ?? [];
-  const hasResults = contacts.length > 0 || companies.length > 0 || deals.length > 0;
+  const hasResults =
+    contacts.length > 0 || companies.length > 0 || deals.length > 0;
 
   const run = (fn: () => void) => {
     fn();
@@ -134,274 +140,273 @@ export function CommandPalette() {
           onValueChange={setSearch}
         />
         <CommandList>
-        {isSearching ? (
-          <>
-            {!hasResults && (
-              <p className="py-6 text-center text-sm text-muted-foreground">
-                No results for &ldquo;{search}&rdquo;
-              </p>
-            )}
-            {contacts.length > 0 && (
-              <CommandGroup heading="Contacts">
-                {contacts.map((c) => {
-                  const displayName =
-                    [c.firstName, c.lastName].filter(Boolean).join(" ") ||
-                    c.email ||
-                    "Unnamed";
-                  return (
-                    <CommandItem
-                      key={c.id}
-                      value={`contact-${c.id}-${displayName}-${c.companyName ?? ""}`}
-                      onSelect={() =>
-                        run(() => navigate(`/objects/contacts/${c.id}`))
-                      }
-                      className="gap-2"
-                    >
-                      <UserIcon className="size-4 shrink-0" />
-                      <span className="flex-1 truncate">{displayName}</span>
-                      {c.companyName && (
-                        <span className="text-xs text-muted-foreground">
-                          {c.companyName}
-                        </span>
-                      )}
-                    </CommandItem>
-                  );
-                })}
-              </CommandGroup>
-            )}
-            {companies.length > 0 && (
-              <>
-                {contacts.length > 0 && <CommandSeparator />}
-                <CommandGroup heading="Companies">
-                  {companies.map((c) => (
-                    <CommandItem
-                      key={c.id}
-                      value={`company-${c.id}-${c.name}`}
-                      onSelect={() =>
-                        run(() => navigate(`/objects/companies/${c.id}`))
-                      }
-                      className="gap-2"
-                    >
-                      <BuildingIcon className="size-4 shrink-0" />
-                      <span className="flex-1 truncate">{c.name}</span>
-                      {c.sector && (
-                        <span className="text-xs text-muted-foreground">
-                          {c.sector}
-                        </span>
-                      )}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </>
-            )}
-            {deals.length > 0 && (
-              <>
-                {(contacts.length > 0 || companies.length > 0) && (
-                  <CommandSeparator />
-                )}
-                <CommandGroup heading="Deals">
-                  {deals.map((d) => (
-                    <CommandItem
-                      key={d.id}
-                      value={`deal-${d.id}-${d.name}`}
-                      onSelect={() =>
-                        run(() => navigate(`/objects/deals/${d.id}`))
-                      }
-                      className="gap-2"
-                    >
-                      <HandshakeIcon
-                        className="size-4 shrink-0"
-                      />
-                      <span className="flex-1 truncate">{d.name}</span>
-                      <DealStageBadge stage={d.stage} />
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </>
-            )}
-          </>
-        ) : (
-          <>
-            <CommandEmpty>No results.</CommandEmpty>
-            {recentItems.length > 0 && (
-              <CommandGroup heading="Recent">
-                {recentItems.map((item) => {
-                  const IconComponent =
-                    item.type === "contact"
-                      ? UserIcon
-                      : item.type === "company"
-                        ? BuildingIcon
-                        : HandshakeIcon;
-                  const path =
-                    item.type === "contact"
-                      ? `/objects/contacts/${item.id}`
-                      : item.type === "company"
-                        ? `/objects/companies/${item.id}`
-                        : `/objects/deals/${item.id}`;
-                  return (
-                    <CommandItem
-                      key={`${item.type}-${item.id}`}
-                      value={`recent-${item.type}-${item.id}-${item.name}`}
-                      onSelect={() => run(() => navigate(path))}
-                      className="gap-2"
-                    >
-                      <IconComponent className="size-4 shrink-0" />
-                      <span className="flex-1 truncate">{item.name}</span>
-                    </CommandItem>
-                  );
-                })}
-              </CommandGroup>
-            )}
-            {recentItems.length > 0 && <CommandSeparator />}
-            <CommandGroup heading="Go to">
-              <CommandItem
-                onSelect={() => run(() => navigate(ROUTES.CRM))}
-                className="gap-2"
-              >
-                <HouseIcon className="size-4 shrink-0" />
-                Dashboard
-              </CommandItem>
-              <CommandItem
-                onSelect={() => run(() => navigate("/objects/contacts"))}
-                className="gap-2"
-              >
-                <UserIcon className="size-4 shrink-0" />
-                Contacts
-              </CommandItem>
-              <CommandItem
-                onSelect={() => run(() => navigate("/objects/companies"))}
-                className="gap-2"
-              >
-                <BuildingIcon className="size-4 shrink-0" />
-                Companies
-              </CommandItem>
-              <CommandItem
-                onSelect={() => run(() => navigate("/objects/deals"))}
-                className="gap-2"
-              >
-                <HandshakeIcon className="size-4 shrink-0" />
-                Deals
-              </CommandItem>
-              <CommandItem
-                onSelect={() => run(() => navigate(ROUTES.TASKS))}
-                className="gap-2"
-              >
-                <ListChecksIcon className="size-4 shrink-0" />
-                Tasks
-              </CommandItem>
-            </CommandGroup>
-
-            {/* Dynamic "Navigate to" items from Object Registry */}
-            {objects.length > 0 && (
-              <>
-                <CommandSeparator />
-                <CommandGroup heading="Navigate to object">
-                  {objects.map((obj) => {
-                    const IconComponent = getObjectIcon(obj.icon);
+          {isSearching ? (
+            <>
+              {!hasResults && (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  No results for &ldquo;{search}&rdquo;
+                </p>
+              )}
+              {contacts.length > 0 && (
+                <CommandGroup heading="Contacts">
+                  {contacts.map((c) => {
+                    const displayName =
+                      [c.firstName, c.lastName].filter(Boolean).join(" ") ||
+                      c.email ||
+                      "Unnamed";
                     return (
                       <CommandItem
-                        key={`nav-obj-${obj.id}`}
-                        value={`navigate-object-${obj.slug}-${obj.pluralName}`}
+                        key={c.id}
+                        value={`contact-${c.id}-${displayName}-${c.companyName ?? ""}`}
                         onSelect={() =>
-                          run(() => navigate(`/objects/${obj.slug}`))
+                          run(() => navigate(`/objects/contacts/${c.id}`))
                         }
+                        className="gap-2"
+                      >
+                        <UserIcon className="size-4 shrink-0" />
+                        <span className="flex-1 truncate">{displayName}</span>
+                        {c.companyName && (
+                          <span className="text-xs text-muted-foreground">
+                            {c.companyName}
+                          </span>
+                        )}
+                      </CommandItem>
+                    );
+                  })}
+                </CommandGroup>
+              )}
+              {companies.length > 0 && (
+                <>
+                  {contacts.length > 0 && <CommandSeparator />}
+                  <CommandGroup heading="Companies">
+                    {companies.map((c) => (
+                      <CommandItem
+                        key={c.id}
+                        value={`company-${c.id}-${c.name}`}
+                        onSelect={() =>
+                          run(() => navigate(`/objects/companies/${c.id}`))
+                        }
+                        className="gap-2"
+                      >
+                        <BuildingIcon className="size-4 shrink-0" />
+                        <span className="flex-1 truncate">{c.name}</span>
+                        {c.sector && (
+                          <span className="text-xs text-muted-foreground">
+                            {c.sector}
+                          </span>
+                        )}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </>
+              )}
+              {deals.length > 0 && (
+                <>
+                  {(contacts.length > 0 || companies.length > 0) && (
+                    <CommandSeparator />
+                  )}
+                  <CommandGroup heading="Deals">
+                    {deals.map((d) => (
+                      <CommandItem
+                        key={d.id}
+                        value={`deal-${d.id}-${d.name}`}
+                        onSelect={() =>
+                          run(() => navigate(`/objects/deals/${d.id}`))
+                        }
+                        className="gap-2"
+                      >
+                        <HandshakeIcon className="size-4 shrink-0" />
+                        <span className="flex-1 truncate">{d.name}</span>
+                        <DealStageBadge stage={d.stage} />
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <CommandEmpty>No results.</CommandEmpty>
+              {recentItems.length > 0 && (
+                <CommandGroup heading="Recent">
+                  {recentItems.map((item) => {
+                    const IconComponent =
+                      item.type === "contact"
+                        ? UserIcon
+                        : item.type === "company"
+                          ? BuildingIcon
+                          : HandshakeIcon;
+                    const path =
+                      item.type === "contact"
+                        ? `/objects/contacts/${item.id}`
+                        : item.type === "company"
+                          ? `/objects/companies/${item.id}`
+                          : `/objects/deals/${item.id}`;
+                    return (
+                      <CommandItem
+                        key={`${item.type}-${item.id}`}
+                        value={`recent-${item.type}-${item.id}-${item.name}`}
+                        onSelect={() => run(() => navigate(path))}
                         className="gap-2"
                       >
                         <IconComponent className="size-4 shrink-0" />
-                        <span className="flex-1 truncate">
-                          Go to {obj.pluralName}
-                        </span>
+                        <span className="flex-1 truncate">{item.name}</span>
                       </CommandItem>
                     );
                   })}
                 </CommandGroup>
-              </>
-            )}
+              )}
+              {recentItems.length > 0 && <CommandSeparator />}
+              <CommandGroup heading="Go to">
+                <CommandItem
+                  onSelect={() => run(() => navigate(ROUTES.CRM))}
+                  className="gap-2"
+                >
+                  <HouseIcon className="size-4 shrink-0" />
+                  Dashboard
+                </CommandItem>
+                <CommandItem
+                  onSelect={() => run(() => navigate("/objects/contacts"))}
+                  className="gap-2"
+                >
+                  <UserIcon className="size-4 shrink-0" />
+                  Contacts
+                </CommandItem>
+                <CommandItem
+                  onSelect={() => run(() => navigate("/objects/companies"))}
+                  className="gap-2"
+                >
+                  <BuildingIcon className="size-4 shrink-0" />
+                  Companies
+                </CommandItem>
+                <CommandItem
+                  onSelect={() => run(() => navigate("/objects/deals"))}
+                  className="gap-2"
+                >
+                  <HandshakeIcon className="size-4 shrink-0" />
+                  Deals
+                </CommandItem>
+                <CommandItem
+                  onSelect={() => run(() => navigate(ROUTES.TASKS))}
+                  className="gap-2"
+                >
+                  <ListChecksIcon className="size-4 shrink-0" />
+                  Tasks
+                </CommandItem>
+              </CommandGroup>
 
-            {/* Dynamic "Create" items from Object Registry */}
-            {objects.length > 0 && (
-              <>
-                <CommandSeparator />
-                <CommandGroup heading="Create record">
-                  {objects.map((obj) => {
-                    const IconComponent = getObjectIcon(obj.icon);
-                    return (
-                      <CommandItem
-                        key={`create-obj-${obj.id}`}
-                        value={`create-object-${obj.slug}-${obj.singularName}`}
-                        onSelect={() =>
-                          run(() =>
-                            navigate(`/objects/${obj.slug}?open=new`)
-                          )
-                        }
-                        className="gap-2"
-                      >
-                        <PlusIcon className="size-4 shrink-0" />
-                        <span className="flex-1 truncate">
-                          Create {obj.singularName}
-                        </span>
-                      </CommandItem>
-                    );
-                  })}
-                </CommandGroup>
-              </>
-            )}
+              {/* Dynamic "Navigate to" items from Object Registry */}
+              {objects.length > 0 && (
+                <>
+                  <CommandSeparator />
+                  <CommandGroup heading="Navigate to object">
+                    {objects.map((obj) => {
+                      const IconComponent = getObjectIcon(obj.icon);
+                      return (
+                        <CommandItem
+                          key={`nav-obj-${obj.id}`}
+                          value={`navigate-object-${obj.slug}-${obj.pluralName}`}
+                          onSelect={() =>
+                            run(() => navigate(`/objects/${obj.slug}`))
+                          }
+                          className="gap-2"
+                        >
+                          <IconComponent className="size-4 shrink-0" />
+                          <span className="flex-1 truncate">
+                            Go to {obj.pluralName}
+                          </span>
+                        </CommandItem>
+                      );
+                    })}
+                  </CommandGroup>
+                </>
+              )}
 
-            <CommandSeparator />
-            <CommandGroup heading="Other">
-              <CommandItem
-                onSelect={() => run(() => navigate(ROUTES.CHAT))}
-                className="gap-2"
-              >
-                <RobotIcon className="size-4 shrink-0" />
-                AI Chat
-              </CommandItem>
-              <CommandItem
-                onSelect={() => run(() => navigate(ROUTES.CONNECTIONS))}
-                className="gap-2"
-              >
-                <LinkIcon className="size-4 shrink-0" />
-                Connections
-              </CommandItem>
-              <CommandItem
-                onSelect={() => run(() => navigate(ROUTES.PROFILE))}
-                className="gap-2"
-              >
-                <UserIcon className="size-4 shrink-0" />
-                Profile
-              </CommandItem>
-              <CommandItem
-                onSelect={() => run(() => navigate(ROUTES.SETTINGS))}
-                className="gap-2"
-              >
-                <GearIcon className="size-4 shrink-0" />
-                Settings
-              </CommandItem>
-              <CommandItem
-                onSelect={() => run(() => navigate(ROUTES.IMPORT))}
-                className="gap-2"
-              >
-                <UploadSimpleIcon className="size-4 shrink-0" />
-                Import data
-              </CommandItem>
-            </CommandGroup>
-            <CommandSeparator />
-            <CommandGroup>
-              <CommandItem className="text-muted-foreground" disabled>
-                <CommandShortcut>
-                  <KbdGroup>
-                    {shortcutKeys.map((key) => (
-                      <Kbd key={key} className="h-4 min-w-4 px-1 text-[10px] font-medium">
-                        {key}
-                      </Kbd>
-                    ))}
-                  </KbdGroup>
-                </CommandShortcut>
-                Open palette
-              </CommandItem>
-            </CommandGroup>
-          </>
-        )}
+              {/* Dynamic "Create" items from Object Registry */}
+              {objects.length > 0 && (
+                <>
+                  <CommandSeparator />
+                  <CommandGroup heading="Create record">
+                    {objects.map((obj) => {
+                      const IconComponent = getObjectIcon(obj.icon);
+                      return (
+                        <CommandItem
+                          key={`create-obj-${obj.id}`}
+                          value={`create-object-${obj.slug}-${obj.singularName}`}
+                          onSelect={() =>
+                            run(() => navigate(`/objects/${obj.slug}?open=new`))
+                          }
+                          className="gap-2"
+                        >
+                          <IconComponent className="size-4 shrink-0" />
+                          <span className="flex-1 truncate">
+                            Create {obj.singularName}
+                          </span>
+                        </CommandItem>
+                      );
+                    })}
+                  </CommandGroup>
+                </>
+              )}
+
+              <CommandSeparator />
+              <CommandGroup heading="Other">
+                <CommandItem
+                  onSelect={() => run(() => navigate(ROUTES.CHAT))}
+                  className="gap-2"
+                >
+                  <RobotIcon className="size-4 shrink-0" />
+                  AI Chat
+                </CommandItem>
+                <CommandItem
+                  onSelect={() => run(() => navigate(ROUTES.CONNECTIONS))}
+                  className="gap-2"
+                >
+                  <LinkIcon className="size-4 shrink-0" />
+                  Connections
+                </CommandItem>
+                <CommandItem
+                  onSelect={() => run(() => navigate(ROUTES.PROFILE))}
+                  className="gap-2"
+                >
+                  <UserIcon className="size-4 shrink-0" />
+                  Profile
+                </CommandItem>
+                <CommandItem
+                  onSelect={() => run(() => navigate(ROUTES.SETTINGS))}
+                  className="gap-2"
+                >
+                  <GearIcon className="size-4 shrink-0" />
+                  Settings
+                </CommandItem>
+                <CommandItem
+                  onSelect={() => run(() => navigate(ROUTES.IMPORT))}
+                  className="gap-2"
+                >
+                  <UploadSimpleIcon className="size-4 shrink-0" />
+                  Import data
+                </CommandItem>
+              </CommandGroup>
+              <CommandSeparator />
+              <CommandGroup>
+                <CommandItem className="text-muted-foreground" disabled>
+                  <CommandShortcut>
+                    <KbdGroup>
+                      {shortcutKeys.map((key) => (
+                        <Kbd
+                          key={key}
+                          className="h-4 min-w-4 px-1 text-[10px] font-medium"
+                        >
+                          {key}
+                        </Kbd>
+                      ))}
+                    </KbdGroup>
+                  </CommandShortcut>
+                  Open palette
+                </CommandItem>
+              </CommandGroup>
+            </>
+          )}
         </CommandList>
       </Command>
     </CommandDialog>

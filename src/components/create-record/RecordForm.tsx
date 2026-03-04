@@ -11,10 +11,6 @@ import { Label } from "@/components/ui/label";
 import { getFieldType } from "@/field-types";
 import type { Attribute } from "@/field-types/types";
 
-// ---------------------------------------------------------------------------
-// Props
-// ---------------------------------------------------------------------------
-
 export interface RecordFormProps {
   attributes: Attribute[];
   values: Record<string, any>;
@@ -22,24 +18,18 @@ export interface RecordFormProps {
   errors?: Record<string, string>;
 }
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-
 export function RecordForm({
   attributes,
   values,
   onChange,
   errors,
 }: RecordFormProps) {
-  // Filter out system & hidden attributes, then sort: primary first, then by order.
   const visibleAttributes = useMemo(() => {
     const filtered = attributes.filter(
       (attr) => !attr.isSystem && !attr.isHiddenByDefault,
     );
 
     return filtered.sort((a, b) => {
-      // Primary always comes first
       if (a.isPrimary && !b.isPrimary) return -1;
       if (!a.isPrimary && b.isPrimary) return 1;
       return a.order - b.order;

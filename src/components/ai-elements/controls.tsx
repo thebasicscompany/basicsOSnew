@@ -1,7 +1,12 @@
 "use client";
 
 import { useReactFlow } from "@xyflow/react";
-import { ArrowsOutIcon, MagnifyingGlassPlusIcon, MagnifyingGlassMinusIcon, MapTrifoldIcon } from "@phosphor-icons/react";
+import {
+  ArrowsOutIcon,
+  MagnifyingGlassPlusIcon,
+  MagnifyingGlassMinusIcon,
+  MapTrifoldIcon,
+} from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
 import { Panel } from "@/components/ai-elements/panel";

@@ -12,7 +12,7 @@ export function MarkdownContent({ children, className }: MarkdownContentProps) {
     <div
       className={cn(
         "prose prose-sm dark:prose-invert max-w-none text-sm",
-        className
+        className,
       )}
     >
       <ReactMarkdown

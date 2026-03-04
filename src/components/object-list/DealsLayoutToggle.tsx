@@ -6,7 +6,10 @@ export interface DealsLayoutToggleProps {
   onLayoutChange: (layout: "table" | "kanban") => void;
 }
 
-export function DealsLayoutToggle({ layout, onLayoutChange }: DealsLayoutToggleProps) {
+export function DealsLayoutToggle({
+  layout,
+  onLayoutChange,
+}: DealsLayoutToggleProps) {
   return (
     <div className="flex shrink-0 gap-0.5 rounded-md border p-0.5">
       <button

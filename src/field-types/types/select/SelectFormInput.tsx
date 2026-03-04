@@ -1,4 +1,4 @@
-import { CheckIcon, CaretDownIcon } from "@phosphor-icons/react"
+import { CheckIcon, CaretDownIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import type { FormInputProps, SelectOption } from "../../types";
 import {

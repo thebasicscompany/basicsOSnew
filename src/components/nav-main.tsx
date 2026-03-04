@@ -1,11 +1,11 @@
-import { CaretRightIcon } from "@phosphor-icons/react"
-import { Link, useLocation } from "react-router"
+import { CaretRightIcon } from "@phosphor-icons/react";
+import { Link, useLocation } from "react-router";
 
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible"
+} from "@/components/ui/collapsible";
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -13,11 +13,11 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
-import type { NavGroupConfig } from "@/config/sidebar-nav"
+} from "@/components/ui/sidebar";
+import type { NavGroupConfig } from "@/config/sidebar-nav";
 
 export function NavGroup({ label, items }: NavGroupConfig) {
-  const { pathname } = useLocation()
+  const { pathname } = useLocation();
 
   return (
     <Collapsible defaultOpen className="group/collapsible">
@@ -36,22 +36,27 @@ export function NavGroup({ label, items }: NavGroupConfig) {
                 const isActive =
                   item.path === "/"
                     ? pathname === item.path
-                    : pathname === item.path || pathname.startsWith(item.path + "/")
+                    : pathname === item.path ||
+                      pathname.startsWith(item.path + "/");
                 return (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive}
+                      tooltip={item.title}
+                    >
                       <Link to={item.path}>
                         <item.icon className="size-4" />
                         <span>{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
-                )
+                );
               })}
             </SidebarMenu>
           </SidebarGroupContent>
         </CollapsibleContent>
       </SidebarGroup>
     </Collapsible>
-  )
+  );
 }

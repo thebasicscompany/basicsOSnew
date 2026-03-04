@@ -430,7 +430,7 @@ function BuilderInner() {
         </Button>
       </div>
     ),
-    [name, isNew, isSaving, isDirty, rule, navigate, onSave, runNowMutation],
+    [isNew, isSaving, isDirty, navigate, onSave, runNowMutation],
   );
   const headerActionsPortal = usePageHeaderActions(headerActionsNode);
 

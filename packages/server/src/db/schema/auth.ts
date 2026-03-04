@@ -8,7 +8,6 @@ import {
   text,
   timestamp,
   boolean,
-  primaryKey,
 } from "drizzle-orm/pg-core";
 
 export const user = pgTable("user", {
@@ -34,26 +33,27 @@ export const session = pgTable("session", {
     .references(() => user.id, { onDelete: "cascade" }),
 });
 
-export const account = pgTable(
-  "account",
-  {
-    id: varchar("id", { length: 255 }).primaryKey(),
-    accountId: varchar("account_id", { length: 255 }).notNull(),
-    providerId: varchar("provider_id", { length: 255 }).notNull(),
-    userId: varchar("user_id", { length: 255 })
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    accessToken: text("access_token"),
-    refreshToken: text("refresh_token"),
-    idToken: text("id_token"),
-    accessTokenExpiresAt: timestamp("access_token_expires_at", { withTimezone: true }),
-    refreshTokenExpiresAt: timestamp("refresh_token_expires_at", { withTimezone: true }),
-    scope: varchar("scope", { length: 255 }),
-    password: varchar("password", { length: 255 }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
-  }
-);
+export const account = pgTable("account", {
+  id: varchar("id", { length: 255 }).primaryKey(),
+  accountId: varchar("account_id", { length: 255 }).notNull(),
+  providerId: varchar("provider_id", { length: 255 }).notNull(),
+  userId: varchar("user_id", { length: 255 })
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  accessToken: text("access_token"),
+  refreshToken: text("refresh_token"),
+  idToken: text("id_token"),
+  accessTokenExpiresAt: timestamp("access_token_expires_at", {
+    withTimezone: true,
+  }),
+  refreshTokenExpiresAt: timestamp("refresh_token_expires_at", {
+    withTimezone: true,
+  }),
+  scope: varchar("scope", { length: 255 }),
+  password: varchar("password", { length: 255 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull(),
+});
 
 export const verification = pgTable("verification", {
   id: varchar("id", { length: 255 }).primaryKey(),

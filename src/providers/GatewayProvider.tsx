@@ -1,19 +1,8 @@
 import type { ReactNode } from "react";
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-import { authClient } from "@/lib/auth";
-import {
-  createApiClient,
-  createManageClient,
-  type ApiClient,
-  type ManageClient,
-} from "@/lib/gateway";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { authClient } from "@/lib/auth-client";
+import { createApiClient, createManageClient } from "@/lib/gateway";
+import { GatewayContext, type GatewayContextValue } from "./gateway-context";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "";
 const GATEWAY_URL =
@@ -25,18 +14,6 @@ function isValidApiKey(key: string): boolean {
   return VALID_PREFIXES.some((p) => key.startsWith(p));
 }
 
-export interface GatewayContextValue {
-  apiKey: string | null;
-  hasKey: boolean;
-  setApiKey: (key: string) => void;
-  clearApiKey: () => void;
-  apiClient: ApiClient | null;
-  manageClient: ManageClient | null;
-  gatewayUrl: string;
-}
-
-const GatewayContext = createContext<GatewayContextValue | null>(null);
-
 export function GatewayProvider({ children }: { children: ReactNode }) {
   const { data: session } = authClient.useSession();
   const userId = session?.user?.id ?? null;
@@ -45,7 +22,7 @@ export function GatewayProvider({ children }: { children: ReactNode }) {
   const [hasServerKey, setHasServerKey] = useState(false);
   const [manageToken, setManageToken] = useState<string | null>(null);
 
-  // Never persist raw API key client-side; keep it in memory only.
+  // API key stays in memory, never persisted
   useEffect(() => {
     if (!userId) {
       setApiKeyState(null);
@@ -72,7 +49,7 @@ export function GatewayProvider({ children }: { children: ReactNode }) {
     };
   }, [userId]);
 
-  // Fetch manage token when session exists
+  // fetch manage token
   useEffect(() => {
     if (!userId) {
       setManageToken(null);
@@ -95,9 +72,7 @@ export function GatewayProvider({ children }: { children: ReactNode }) {
   const setApiKey = useCallback(
     (key: string) => {
       if (!isValidApiKey(key)) {
-        throw new Error(
-          "API key must start with bos_live_sk_ or bos_test_sk_",
-        );
+        throw new Error("API key must start with bos_live_sk_ or bos_test_sk_");
       }
       if (!userId) return;
       setApiKeyState(key);
@@ -138,12 +113,4 @@ export function GatewayProvider({ children }: { children: ReactNode }) {
   return (
     <GatewayContext.Provider value={value}>{children}</GatewayContext.Provider>
   );
-}
-
-export function useGateway(): GatewayContextValue {
-  const ctx = useContext(GatewayContext);
-  if (!ctx) {
-    throw new Error("useGateway must be used within GatewayProvider");
-  }
-  return ctx;
 }

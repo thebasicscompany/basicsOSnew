@@ -1,4 +1,4 @@
-import { PaperPlaneTiltIcon } from "@phosphor-icons/react"
+import { PaperPlaneTiltIcon } from "@phosphor-icons/react";
 import type { NodeProps } from "@xyflow/react";
 import { CompactAutomationNode } from "./CompactAutomationNode";
 import { useAutomationBuilder } from "../AutomationBuilderContext";
@@ -15,7 +15,11 @@ export function GmailSendNode({
 }: NodeProps<{ type: "action_gmail_send"; data: GmailSendData }>) {
   const { connectedProviders } = useAutomationBuilder();
   const to = data?.to?.trim() || "";
-  const display = to ? (to.length > 20 ? `${to.slice(0, 20)}…` : to) : "Send Gmail";
+  const display = to
+    ? to.length > 20
+      ? `${to.slice(0, 20)}…`
+      : to
+    : "Send Gmail";
   const connectionRequired = !connectedProviders.includes("google");
 
   return (

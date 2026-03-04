@@ -1,4 +1,4 @@
-import { CalendarIcon } from "@phosphor-icons/react"
+import { CalendarIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import type { FormInputProps } from "../../types";
 import {

@@ -297,7 +297,10 @@ export const OPENAI_TOOL_DEFS = [
       description: "List tasks for a contact.",
       parameters: {
         type: "object",
-        properties: { contact_id: { type: "number" }, limit: { type: "number" } },
+        properties: {
+          contact_id: { type: "number" },
+          limit: { type: "number" },
+        },
         required: ["contact_id"],
       },
     },
@@ -338,7 +341,10 @@ export const OPENAI_TOOL_DEFS = [
       description: "List notes for a contact.",
       parameters: {
         type: "object",
-        properties: { contact_id: { type: "number" }, limit: { type: "number" } },
+        properties: {
+          contact_id: { type: "number" },
+          limit: { type: "number" },
+        },
         required: ["contact_id"],
       },
     },
@@ -370,7 +376,7 @@ export const sdkPart = (code: string, value: unknown): string =>
   `${code}:${JSON.stringify(value)}\n`;
 
 export const toolFallbackText = (
-  toolOutputs: Array<{ name: string; result: unknown }>
+  toolOutputs: Array<{ name: string; result: unknown }>,
 ): string => {
   if (toolOutputs.length === 0) {
     return "I could not complete that request. Please try again.";

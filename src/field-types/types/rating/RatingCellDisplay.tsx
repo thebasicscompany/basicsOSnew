@@ -1,4 +1,4 @@
-import { StarIcon } from "@phosphor-icons/react"
+import { StarIcon } from "@phosphor-icons/react";
 import type { CellDisplayProps } from "../../types";
 import { cn } from "@/lib/utils";
 

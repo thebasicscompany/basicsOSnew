@@ -34,15 +34,16 @@ import {
   PromptInputTextarea,
   PromptInputTools,
   PromptInputProvider,
-  usePromptInputAttachments,
 } from "@/components/ai-elements/prompt-input";
+import { usePromptInputAttachments } from "@/components/ai-elements/prompt-input-context";
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import { useGatewayChat } from "@/hooks/useGatewayChat";
 import { useGateway } from "@/hooks/useGateway";
 
-function getTextContent(
-  msg: { content?: unknown; parts?: Array<{ type: string; text?: string }> }
-): string {
+function getTextContent(msg: {
+  content?: unknown;
+  parts?: Array<{ type: string; text?: string }>;
+}): string {
   if (msg.parts) {
     return msg.parts
       .filter((p) => p.type === "text")
@@ -94,7 +95,10 @@ export function ChatPage() {
   const { messages, append, status, stop } = useGatewayChat();
 
   const handleSubmit = useCallback(
-    async (message: PromptInputMessage, _event: React.FormEvent<HTMLFormElement>) => {
+    async (
+      message: PromptInputMessage,
+      _event: React.FormEvent<HTMLFormElement>,
+    ) => {
       if (!hasKey) {
         toast.error("Add your Basics API key in Settings to use the assistant");
         return;
@@ -111,19 +115,26 @@ export function ChatPage() {
       }
       await append({ role: "user", content: text });
     },
-    [append, hasKey]
+    [append, hasKey],
   );
 
   const handleSuggestionClick = useCallback(
-    (suggestion: string) => { append({ role: "user", content: suggestion }); },
-    [append]
+    (suggestion: string) => {
+      append({ role: "user", content: suggestion });
+    },
+    [append],
   );
 
-  const allVisible = messages.filter((m) => m.role === "user" || m.role === "assistant");
+  const allVisible = messages.filter(
+    (m) => m.role === "user" || m.role === "assistant",
+  );
   const lastMsg = allVisible.at(-1);
-  const lastAssistantIsEmpty = lastMsg?.role === "assistant" && !getTextContent(lastMsg);
-  const isThinking = status === "submitted" || (status === "streaming" && lastAssistantIsEmpty);
-  const displayMessages = isThinking && lastAssistantIsEmpty ? allVisible.slice(0, -1) : allVisible;
+  const lastAssistantIsEmpty =
+    lastMsg?.role === "assistant" && !getTextContent(lastMsg);
+  const isThinking =
+    status === "submitted" || (status === "streaming" && lastAssistantIsEmpty);
+  const displayMessages =
+    isThinking && lastAssistantIsEmpty ? allVisible.slice(0, -1) : allVisible;
   const isEmpty = allVisible.length === 0;
 
   return (
@@ -139,7 +150,8 @@ export function ChatPage() {
                   </p>
                 ) : (
                   <p className="text-[13px] text-muted-foreground">
-                    Ask about your CRM — create tasks, add notes, or update deals.
+                    Ask about your CRM — create tasks, add notes, or update
+                    deals.
                   </p>
                 )}
               </div>
@@ -165,7 +177,11 @@ export function ChatPage() {
           {isEmpty && (
             <Suggestions>
               {SUGGESTIONS.map((suggestion) => (
-                <Suggestion key={suggestion} suggestion={suggestion} onClick={handleSuggestionClick} />
+                <Suggestion
+                  key={suggestion}
+                  suggestion={suggestion}
+                  onClick={handleSuggestionClick}
+                />
               ))}
             </Suggestions>
           )}

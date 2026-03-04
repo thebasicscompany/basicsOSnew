@@ -1,11 +1,13 @@
 import { useMemo, useCallback, useEffect, useState } from "react";
-import { usePageTitle, usePageHeaderActions } from "basics-os/src/contexts/page-header";
+import {
+  usePageTitle,
+  usePageHeaderActions,
+} from "basics-os/src/contexts/page-header";
 import { Button } from "basics-os/src/components/ui/button";
 import { Kbd } from "basics-os/src/components/ui/kbd";
 import { getPrimaryModifierLabel } from "basics-os/src/lib/keyboard-shortcuts";
 
-const isElectron = () =>
-  typeof window !== "undefined" && !!window.electronAPI;
+const isElectron = () => typeof window !== "undefined" && !!window.electronAPI;
 
 export function VoiceApp() {
   usePageTitle("Voice");
@@ -52,9 +54,9 @@ export function VoiceApp() {
             <div className="rounded-lg border p-4">
               <h2 className="text-[13px] font-medium">Desktop app required</h2>
               <p className="mt-0.5 text-[12px] text-muted-foreground">
-                Voice overlay is available in the Basics OS desktop app. Download
-                and run the desktop app to use voice commands, dictation, and the
-                AI assistant overlay.
+                Voice overlay is available in the Basics OS desktop app.
+                Download and run the desktop app to use voice commands,
+                dictation, and the AI assistant overlay.
               </p>
             </div>
           </div>
@@ -80,18 +82,21 @@ export function VoiceApp() {
               from the header button.
             </p>
             <p className="mt-3 text-[12px] text-muted-foreground">
-              Use{" "}
-              <Kbd>{`${primaryModifier}+Space`}</Kbd>{" "}
-              to activate the AI assistant.
+              Use <Kbd>{`${primaryModifier}+Space`}</Kbd> to activate the AI
+              assistant.
             </p>
           </div>
 
           <div className="rounded-lg border p-4">
             <h2 className="text-[13px] font-medium">Current capabilities</h2>
             <ul className="mt-2 space-y-1 text-[12px] text-muted-foreground">
-              <li>Ask CRM-aware questions (pipeline, deals, contacts, tasks)</li>
+              <li>
+                Ask CRM-aware questions (pipeline, deals, contacts, tasks)
+              </li>
               <li>Dictation and transcription shortcuts</li>
-              <li>Navigation voice commands (open contacts, deals, settings)</li>
+              <li>
+                Navigation voice commands (open contacts, deals, settings)
+              </li>
               <li>
                 CRM write actions from voice (create task, add note, update deal
                 stage)
@@ -103,21 +108,20 @@ export function VoiceApp() {
             <h2 className="text-[13px] font-medium">Shortcuts</h2>
             <ul className="mt-2 space-y-1.5 text-[12px] text-muted-foreground">
               <li>
-                <Kbd>{`${primaryModifier}+Space`}</Kbd>{" "}
-                — AI Assistant (tap to listen, auto-stops after silence)
+                <Kbd>{`${primaryModifier}+Space`}</Kbd> — AI Assistant (tap to
+                listen, auto-stops after silence)
               </li>
               <li>
-                Double-tap{" "}
-                <Kbd>{`${primaryModifier}+Space`}</Kbd>{" "}
-                — Continuous listening
+                Double-tap <Kbd>{`${primaryModifier}+Space`}</Kbd> — Continuous
+                listening
               </li>
               <li>
-                <Kbd>{`${primaryModifier}+Shift+Space`}</Kbd>{" "}
-                — Dictation (hold to record, release to transcribe and paste)
+                <Kbd>{`${primaryModifier}+Shift+Space`}</Kbd> — Dictation (hold
+                to record, release to transcribe and paste)
               </li>
               <li>
-                <Kbd>{`${primaryModifier}+Alt+Space`}</Kbd>{" "}
-                — Meeting toggle (stub)
+                <Kbd>{`${primaryModifier}+Alt+Space`}</Kbd> — Meeting toggle
+                (stub)
               </li>
             </ul>
           </div>

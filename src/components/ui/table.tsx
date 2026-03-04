@@ -10,7 +10,10 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
     >
       <table
         data-slot="table"
-        className={cn("w-full caption-bottom text-[13px] border-collapse", className)}
+        className={cn(
+          "w-full caption-bottom text-[13px] border-collapse",
+          className
+        )}
         {...props}
       />
     </div>
@@ -29,11 +32,7 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
 
 function TableBody({ className, ...props }: React.ComponentProps<"tbody">) {
   return (
-    <tbody
-      data-slot="table-body"
-      className={cn("", className)}
-      {...props}
-    />
+    <tbody data-slot="table-body" className={cn("", className)} {...props} />
   )
 }
 
@@ -41,10 +40,7 @@ function TableFooter({ className, ...props }: React.ComponentProps<"tfoot">) {
   return (
     <tfoot
       data-slot="table-footer"
-      className={cn(
-        "border-t font-medium [&>tr]:last:border-b-0",
-        className
-      )}
+      className={cn("border-t font-medium [&>tr]:last:border-b-0", className)}
       {...props}
     />
   )

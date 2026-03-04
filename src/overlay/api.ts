@@ -63,10 +63,15 @@ const readErrorEnvelope = (res: ProxyResponse): VoiceApiError => {
 const fetchWithSession = async (
   path: string,
   init: { method: string; headers?: Record<string, string>; body?: string },
-  options?: { timeoutMs?: number; retries?: number }
+  options?: { timeoutMs?: number; retries?: number },
 ): Promise<ProxyResponse> => {
   const proxyRequest = window.electronAPI?.proxyOverlayRequest;
-  if (!proxyRequest) throw new VoiceApiError("Overlay bridge unavailable", 500, "bridge_unavailable");
+  if (!proxyRequest)
+    throw new VoiceApiError(
+      "Overlay bridge unavailable",
+      500,
+      "bridge_unavailable",
+    );
 
   const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const retries = options?.retries ?? 0;
@@ -78,8 +83,11 @@ const fetchWithSession = async (
     try {
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(
-          () => reject(new VoiceApiError("Voice request timed out", 504, "timeout")),
-          timeoutMs
+          () =>
+            reject(
+              new VoiceApiError("Voice request timed out", 504, "timeout"),
+            ),
+          timeoutMs,
         );
       });
       const res = (await Promise.race([
@@ -107,7 +115,9 @@ const fetchWithSession = async (
   throw new VoiceApiError("Voice request failed", 500);
 };
 
-export const synthesizeSpeech = async (text: string): Promise<ArrayBuffer | null> => {
+export const synthesizeSpeech = async (
+  text: string,
+): Promise<ArrayBuffer | null> => {
   try {
     const res = await fetchWithSession(
       "/v1/audio/speech",
@@ -118,7 +128,7 @@ export const synthesizeSpeech = async (text: string): Promise<ArrayBuffer | null
         },
         body: JSON.stringify({ text }),
       },
-      { retries: 1 }
+      { retries: 1 },
     );
     if (res.encoding !== "base64") {
       return new TextEncoder().encode(res.body).buffer;
@@ -130,13 +140,15 @@ export const synthesizeSpeech = async (text: string): Promise<ArrayBuffer | null
   }
 };
 
-export const transcribeAudioBlob = async (blob: Blob): Promise<string | null> => {
+export const transcribeAudioBlob = async (
+  blob: Blob,
+): Promise<string | null> => {
   const arrayBuffer = await blob.arrayBuffer();
   const base64 = btoa(
     new Uint8Array(arrayBuffer).reduce(
       (data, byte) => data + String.fromCharCode(byte),
-      ""
-    )
+      "",
+    ),
   );
 
   try {
@@ -152,7 +164,7 @@ export const transcribeAudioBlob = async (blob: Blob): Promise<string | null> =>
           mime_type: blob.type || "audio/webm",
         }),
       },
-      { retries: 1 }
+      { retries: 1 },
     );
     const json = JSON.parse(res.body) as { transcript?: string };
     return json.transcript ?? null;
@@ -164,7 +176,7 @@ export const transcribeAudioBlob = async (blob: Blob): Promise<string | null> =>
 /** Stub — no backend. Used by meeting recorder. */
 export const uploadMeetingTranscript = async (
   _meetingId: string,
-  _transcriptText: string
+  _transcriptText: string,
 ): Promise<void> => {
   // No-op when stubbed
 };
@@ -177,7 +189,7 @@ export const processMeeting = async (_meetingId: string): Promise<void> => {
 export async function* streamAssistant(
   message: string,
   history: Array<{ role: string; content: string }>,
-  options?: { timeoutMs?: number }
+  options?: { timeoutMs?: number },
 ): AsyncGenerator<string> {
   const res = await fetchWithSession(
     "/stream/assistant",
@@ -188,7 +200,7 @@ export async function* streamAssistant(
       },
       body: JSON.stringify({ message, history }),
     },
-    { timeoutMs: options?.timeoutMs ?? DEFAULT_TIMEOUT_MS }
+    { timeoutMs: options?.timeoutMs ?? DEFAULT_TIMEOUT_MS },
   );
   if (!res.body) throw new VoiceApiError("Empty stream response", 502);
   const lines = res.body.split("\n");

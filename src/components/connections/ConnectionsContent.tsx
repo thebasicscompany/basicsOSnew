@@ -47,8 +47,8 @@ export function ConnectionsContent({
   const { data: connections = [] } = useQuery<Connection[]>({
     queryKey: ["connections"],
     queryFn: () =>
-      fetch(`${API_URL}/api/connections`, { credentials: "include" }).then((r) =>
-        r.ok ? r.json() : [],
+      fetch(`${API_URL}/api/connections`, { credentials: "include" }).then(
+        (r) => (r.ok ? r.json() : []),
       ),
     enabled: hasKey,
   });
@@ -122,7 +122,11 @@ export function ConnectionsContent({
         </div>
         {!hasKey && (
           <p className="text-[10px] text-muted-foreground">
-            Add API key in <a href="/settings" className="underline">Settings</a> to connect.
+            Add API key in{" "}
+            <a href="/settings" className="underline">
+              Settings
+            </a>{" "}
+            to connect.
           </p>
         )}
       </div>
@@ -138,7 +142,10 @@ export function ConnectionsContent({
           ) : (
             <>
               Add your Basics API key in{" "}
-              <a href="/settings" className="font-medium text-foreground underline">
+              <a
+                href="/settings"
+                className="font-medium text-foreground underline"
+              >
                 Settings
               </a>{" "}
               to use connections.
@@ -154,9 +161,14 @@ export function ConnectionsContent({
           const conn = getConnection(provider.id);
           const Icon = provider.icon;
           return (
-            <div key={provider.id} className="flex flex-col gap-3 rounded-lg border p-3">
+            <div
+              key={provider.id}
+              className="flex flex-col gap-3 rounded-lg border p-3"
+            >
               <div className="flex items-start gap-3">
-                <Icon className={`mt-0.5 size-5 shrink-0 ${provider.iconColor}`} />
+                <Icon
+                  className={`mt-0.5 size-5 shrink-0 ${provider.iconColor}`}
+                />
                 <div>
                   <p className="text-[13px] font-medium">{provider.name}</p>
                   <p className="text-[11px] text-muted-foreground">

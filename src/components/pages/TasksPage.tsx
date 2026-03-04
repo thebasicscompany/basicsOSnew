@@ -1,4 +1,11 @@
-import { CircleNotchIcon, PlusIcon, MagnifyingGlassIcon, SquareIcon, CheckSquareIcon, TrashIcon } from "@phosphor-icons/react"
+import {
+  CircleNotchIcon,
+  PlusIcon,
+  MagnifyingGlassIcon,
+  SquareIcon,
+  CheckSquareIcon,
+  TrashIcon,
+} from "@phosphor-icons/react";
 import { useState, useMemo } from "react";
 import {
   startOfToday,
@@ -6,7 +13,6 @@ import {
   endOfTomorrow,
   endOfWeek,
   getDay,
-  isPast,
   isWithinInterval,
   parseISO,
   format,
@@ -32,16 +38,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useTasks, useMarkTaskDone, useDeleteTask, useCreateTask, type Task } from "@/hooks/use-tasks";
+import {
+  useTasks,
+  useMarkTaskDone,
+  useDeleteTask,
+  useCreateTask,
+  type Task,
+} from "@/hooks/use-tasks";
 import { useContacts, type ContactSummary } from "@/hooks/use-contacts";
 import { ContactSheet } from "@/components/sheets/ContactSheet";
 
-function getBucket(dueDate: string | null): "overdue" | "today" | "tomorrow" | "thisWeek" | "later" {
+function getBucket(
+  dueDate: string | null,
+): "overdue" | "today" | "tomorrow" | "thisWeek" | "later" {
   if (!dueDate) return "later";
   const date = parseISO(dueDate);
   if (date < startOfToday()) return "overdue";
-  if (isWithinInterval(date, { start: startOfToday(), end: endOfToday() })) return "today";
-  if (isWithinInterval(date, { start: endOfToday(), end: endOfTomorrow() })) return "tomorrow";
+  if (isWithinInterval(date, { start: startOfToday(), end: endOfToday() }))
+    return "today";
+  if (isWithinInterval(date, { start: endOfToday(), end: endOfTomorrow() }))
+    return "tomorrow";
   const now = new Date();
   const endOfWeekDate = endOfWeek(now, { weekStartsOn: 0 });
   if (getDay(now) < 5 && date <= endOfWeekDate) return "thisWeek";
@@ -79,7 +95,10 @@ function TaskRow({
 
   const handleDelete = () => {
     deleteTask.mutate(task.id, {
-      onSuccess: () => { toast.success("Task deleted"); setConfirmDeleteOpen(false); },
+      onSuccess: () => {
+        toast.success("Task deleted");
+        setConfirmDeleteOpen(false);
+      },
       onError: () => toast.error("Failed to delete task"),
     });
   };
@@ -93,9 +112,15 @@ function TaskRow({
           aria-label={`${isDone ? "Mark task as not done" : "Mark task as done"}: ${task.text ?? "Untitled task"}`}
           className="shrink-0 text-muted-foreground hover:text-primary transition-colors"
         >
-          {isDone ? <CheckSquareIcon className="size-3.5 text-primary" /> : <SquareIcon className="size-3.5" />}
+          {isDone ? (
+            <CheckSquareIcon className="size-3.5 text-primary" />
+          ) : (
+            <SquareIcon className="size-3.5" />
+          )}
         </button>
-        <span className={`min-w-0 flex-1 truncate text-sm ${isDone ? "line-through text-muted-foreground" : ""}`}>
+        <span
+          className={`min-w-0 flex-1 truncate text-sm ${isDone ? "line-through text-muted-foreground" : ""}`}
+        >
           {task.text ?? "—"}
         </span>
         {task.type && task.type !== "None" && (
@@ -131,11 +156,24 @@ function TaskRow({
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Delete task?</DialogTitle>
-            <DialogDescription>"{task.text}" will be permanently deleted.</DialogDescription>
+            <DialogDescription>
+              "{task.text}" will be permanently deleted.
+            </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" size="sm" onClick={() => setConfirmDeleteOpen(false)}>Cancel</Button>
-            <Button variant="destructive" size="sm" onClick={handleDelete} disabled={deleteTask.isPending}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setConfirmDeleteOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleDelete}
+              disabled={deleteTask.isPending}
+            >
               {deleteTask.isPending ? "Deleting..." : "Delete"}
             </Button>
           </DialogFooter>
@@ -164,16 +202,24 @@ function AddTaskDialog({
 
   const filteredContacts = useMemo(
     () =>
-      contacts.filter((c) => {
-        const name = `${c.firstName ?? ""} ${c.lastName ?? ""}`.toLowerCase();
-        return name.includes(contactSearch.toLowerCase());
-      }).slice(0, 20),
+      contacts
+        .filter((c) => {
+          const name = `${c.firstName ?? ""} ${c.lastName ?? ""}`.toLowerCase();
+          return name.includes(contactSearch.toLowerCase());
+        })
+        .slice(0, 20),
     [contacts, contactSearch],
   );
 
   const handleSubmit = () => {
-    if (!contactId) { toast.error("Select a contact"); return; }
-    if (!text.trim()) { toast.error("Enter task text"); return; }
+    if (!contactId) {
+      toast.error("Select a contact");
+      return;
+    }
+    if (!text.trim()) {
+      toast.error("Enter task text");
+      return;
+    }
     createTask.mutate(
       {
         contactId: parseInt(contactId, 10),
@@ -208,7 +254,10 @@ function AddTaskDialog({
             <Input
               placeholder="Search contacts…"
               value={contactSearch}
-              onChange={(e) => { setContactSearch(e.target.value); setContactId(""); }}
+              onChange={(e) => {
+                setContactSearch(e.target.value);
+                setContactId("");
+              }}
               className="h-8 text-sm"
             />
             {contactSearch && !contactId && filteredContacts.length > 0 && (
@@ -219,12 +268,16 @@ function AddTaskDialog({
                     className="w-full px-3 py-1.5 text-left text-sm hover:bg-accent"
                     onClick={() => {
                       setContactId(String(c.id));
-                      setContactSearch(`${c.firstName ?? ""} ${c.lastName ?? ""}`.trim());
+                      setContactSearch(
+                        `${c.firstName ?? ""} ${c.lastName ?? ""}`.trim(),
+                      );
                     }}
                   >
                     {c.firstName} {c.lastName}
                     {c.companyName && (
-                      <span className="ml-1 text-muted-foreground">· {c.companyName}</span>
+                      <span className="ml-1 text-muted-foreground">
+                        · {c.companyName}
+                      </span>
                     )}
                   </button>
                 ))}
@@ -237,7 +290,9 @@ function AddTaskDialog({
               placeholder="Task description"
               value={text}
               onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSubmit();
+              }}
               className="h-8 text-sm"
             />
           </div>
@@ -245,7 +300,9 @@ function AddTaskDialog({
             <div className="space-y-1.5">
               <Label className="text-xs">Type</Label>
               <Select value={type} onValueChange={setType}>
-                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="None">None</SelectItem>
                   <SelectItem value="Call">Call</SelectItem>
@@ -257,14 +314,31 @@ function AddTaskDialog({
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Due date</Label>
-              <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="h-8 text-sm" />
+              <Input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="h-8 text-sm"
+              />
             </div>
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button size="sm" onClick={handleSubmit} disabled={createTask.isPending}>
-            {createTask.isPending && <CircleNotchIcon className="mr-1.5 size-3.5 animate-spin" />}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onOpenChange(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleSubmit}
+            disabled={createTask.isPending}
+          >
+            {createTask.isPending && (
+              <CircleNotchIcon className="mr-1.5 size-3.5 animate-spin" />
+            )}
             Create
           </Button>
         </DialogFooter>
@@ -278,26 +352,35 @@ import { usePageTitle } from "@/contexts/page-header";
 export function TasksPage() {
   usePageTitle("Tasks");
   const { data: tasksData, isPending: tasksPending } = useTasks();
-  const { data: contactsData } = useContacts({ pagination: { page: 1, perPage: 500 } });
+  const { data: contactsData } = useContacts({
+    pagination: { page: 1, perPage: 500 },
+  });
 
   const [addOpen, setAddOpen] = useState(false);
-  const [selectedContact, setSelectedContact] = useState<ContactSummary | null>(null);
+  const [selectedContact, setSelectedContact] = useState<ContactSummary | null>(
+    null,
+  );
   const [contactSheetOpen, setContactSheetOpen] = useState(false);
   const [search, setSearch] = useState("");
 
-  const contacts = contactsData?.data ?? [];
+  const contacts = useMemo(
+    () => contactsData?.data ?? [],
+    [contactsData?.data],
+  );
 
   const contactMap = useMemo(
     () => new Map(contacts.map((c) => [c.id, c])),
     [contacts],
   );
 
-  const tasks = tasksData?.data ?? [];
+  const tasks = useMemo(() => tasksData?.data ?? [], [tasksData?.data]);
 
   const activeTasks = useMemo(
     () =>
       tasks.filter(
-        (t) => !t.doneDate || new Date(t.doneDate) > new Date(Date.now() - 5 * 60 * 1000),
+        (t) =>
+          !t.doneDate ||
+          new Date(t.doneDate) > new Date(Date.now() - 5 * 60 * 1000),
       ),
     [tasks],
   );
@@ -308,14 +391,20 @@ export function TasksPage() {
     return activeTasks.filter((t) => {
       if (t.text?.toLowerCase().includes(q)) return true;
       const contact = t.contactId ? contactMap.get(t.contactId) : null;
-      const name = contact ? `${contact.firstName ?? ""} ${contact.lastName ?? ""}`.toLowerCase() : "";
+      const name = contact
+        ? `${contact.firstName ?? ""} ${contact.lastName ?? ""}`.toLowerCase()
+        : "";
       return name.includes(q);
     });
   }, [activeTasks, search, contactMap]);
 
   const grouped = useMemo(() => {
     const groups: Record<string, Task[]> = {
-      overdue: [], today: [], tomorrow: [], thisWeek: [], later: [],
+      overdue: [],
+      today: [],
+      tomorrow: [],
+      thisWeek: [],
+      later: [],
     };
     for (const t of filteredTasks) {
       groups[getBucket(t.dueDate)].push(t);
@@ -335,11 +424,17 @@ export function TasksPage() {
     <div className="flex h-full flex-col overflow-auto py-4">
       <div className="mb-3 flex items-center justify-between">
         {!tasksPending ? (
-          <span className="text-xs text-muted-foreground">{activeTasks.length} upcoming</span>
+          <span className="text-xs text-muted-foreground">
+            {activeTasks.length} upcoming
+          </span>
         ) : (
           <span />
         )}
-        <Button size="sm" onClick={() => setAddOpen(true)} className="h-7 gap-1 text-sm">
+        <Button
+          size="sm"
+          onClick={() => setAddOpen(true)}
+          className="h-7 gap-1 text-sm"
+        >
           <PlusIcon className="size-3.5" />
           Add task
         </Button>
@@ -364,12 +459,18 @@ export function TasksPage() {
         )}
 
         {!tasksPending && activeTasks.length === 0 && (
-          <p className="py-8 text-center text-sm text-muted-foreground">No upcoming tasks.</p>
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            No upcoming tasks.
+          </p>
         )}
 
-        {!tasksPending && activeTasks.length > 0 && filteredTasks.length === 0 && (
-          <p className="py-8 text-center text-sm text-muted-foreground">No tasks match "{search}".</p>
-        )}
+        {!tasksPending &&
+          activeTasks.length > 0 &&
+          filteredTasks.length === 0 && (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              No tasks match "{search}".
+            </p>
+          )}
 
         {BUCKETS.map(({ key, label }) => {
           const bucket = grouped[key];
@@ -377,13 +478,19 @@ export function TasksPage() {
           return (
             <div key={key}>
               <p className="mb-1 px-3 text-xs font-medium uppercase tracking-wider text-muted-foreground/70">
-                {label} <span className="ml-1 text-muted-foreground/40">{bucket.length}</span>
+                {label}{" "}
+                <span className="ml-1 text-muted-foreground/40">
+                  {bucket.length}
+                </span>
               </p>
               <div className="divide-y divide-border/50 rounded-md border">
                 {bucket.map((task) => {
-                  const contact = task.contactId ? contactMap.get(task.contactId) : null;
+                  const contact = task.contactId
+                    ? contactMap.get(task.contactId)
+                    : null;
                   const contactName = contact
-                    ? `${contact.firstName ?? ""} ${contact.lastName ?? ""}`.trim() || null
+                    ? `${contact.firstName ?? ""} ${contact.lastName ?? ""}`.trim() ||
+                      null
                     : null;
                   return (
                     <TaskRow
@@ -400,8 +507,16 @@ export function TasksPage() {
         })}
       </div>
 
-      <AddTaskDialog open={addOpen} onOpenChange={setAddOpen} contacts={contacts} />
-      <ContactSheet open={contactSheetOpen} onOpenChange={setContactSheetOpen} contact={selectedContact} />
+      <AddTaskDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        contacts={contacts}
+      />
+      <ContactSheet
+        open={contactSheetOpen}
+        onOpenChange={setContactSheetOpen}
+        contact={selectedContact}
+      />
     </div>
   );
 }

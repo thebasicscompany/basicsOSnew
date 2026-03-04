@@ -42,7 +42,10 @@ const isSensitivePath = (path: string): boolean => {
   );
 };
 
-const rateLimitMiddleware = async (c: Context, next: Next): Promise<Response | void> => {
+const rateLimitMiddleware = async (
+  c: Context,
+  next: Next,
+): Promise<Response | void> => {
   const now = Date.now();
   const path = c.req.path;
   const clientKey = getClientKey(c);
@@ -94,7 +97,7 @@ export function createApp(db: Db, env: Env) {
       allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowHeaders: ["Content-Type", "Authorization"],
       credentials: true,
-    })
+    }),
   );
 
   app.use("/*", async (c, next) => {
@@ -106,7 +109,7 @@ export function createApp(db: Db, env: Env) {
     c.header("Cross-Origin-Resource-Policy", "same-site");
     c.header(
       "Content-Security-Policy",
-      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' http://localhost:* https://localhost:*; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+      "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' http://localhost:* https://localhost:*; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
     );
     await next();
   });
@@ -114,7 +117,6 @@ export function createApp(db: Db, env: Env) {
   app.use("/*", rateLimitMiddleware);
 
   app.get("/health", (c) => c.json({ status: "ok" }));
-
 
   // Better Auth
   app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));

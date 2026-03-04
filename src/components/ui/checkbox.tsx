@@ -1,4 +1,4 @@
-import { CheckIcon } from "@phosphor-icons/react";
+import { CheckIcon } from "@phosphor-icons/react"
 import * as React from "react"
 import * as CheckboxPrimitive from "@radix-ui/react-checkbox"
 import { cn } from "@/lib/utils"

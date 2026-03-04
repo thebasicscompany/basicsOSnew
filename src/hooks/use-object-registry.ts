@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ObjectRegistryContext,
   type ObjectRegistryContextValue,
-} from "@/providers/ObjectRegistryProvider";
+} from "@/providers/object-registry-context";
 import { fetchApi } from "@/lib/api";
 import type { Attribute, ObjectConfig } from "@/types/objects";
 

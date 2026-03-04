@@ -5,7 +5,7 @@
  */
 export function topologicalSort(
   nodeIds: Iterable<string>,
-  edges: Iterable<{ source: string; target: string }>
+  edges: Iterable<{ source: string; target: string }>,
 ): string[] {
   const nodeIdSet = new Set(nodeIds);
   const adjacency = new Map<string, string[]>();
