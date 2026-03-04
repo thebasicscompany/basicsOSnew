@@ -1,4 +1,4 @@
-import { IdentificationCardIcon, CaretDownIcon, DownloadSimpleIcon, SignOutIcon, GearIcon, UserIcon } from "@phosphor-icons/react"
+import { CaretUpDownIcon, DownloadSimpleIcon, GearIcon, IdentificationCardIcon, SignOutIcon } from "@phosphor-icons/react"
 import { Link, useNavigate } from "react-router"
 
 import {
@@ -67,7 +67,7 @@ export function NavUser() {
                 <span className="truncate font-medium">{name}</span>
                 <span className="truncate text-xs">{email}</span>
               </div>
-              <CaretDownIcon className="ml-auto size-4" />
+              <CaretUpDownIcon size={32} className="ml-auto" />
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
