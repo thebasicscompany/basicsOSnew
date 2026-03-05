@@ -10,6 +10,14 @@ import {
   systemPreferences,
   dialog,
 } from "electron";
+
+if (process.env["REMOTE_DEBUGGING_PORT"]) {
+  app.commandLine.appendSwitch(
+    "remote-debugging-port",
+    process.env["REMOTE_DEBUGGING_PORT"],
+  );
+}
+
 import pkg from "electron-updater";
 const { autoUpdater } = pkg;
 import path from "path";
@@ -146,6 +154,8 @@ function createMainWindow(): void {
     show: false,
     autoHideMenuBar: true,
     icon: iconPath,
+    titleBarStyle: 'hiddenInset',
+    trafficLightPosition: { x: 20, y: 22 },
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.cjs"),
       sandbox: true,

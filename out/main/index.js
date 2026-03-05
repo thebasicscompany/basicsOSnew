@@ -1,7 +1,8 @@
-import { app, globalShortcut, ipcMain, session, clipboard, BrowserWindow, screen, shell } from "electron";
+import { app, globalShortcut, ipcMain, session, clipboard, systemPreferences, dialog, BrowserWindow, screen, shell } from "electron";
+import pkg from "electron-updater";
 import path from "path";
-import { exec } from "child_process";
-import { electronApp, optimizer, is } from "@electron-toolkit/utils";
+import { exec, execSync } from "child_process";
+import { electronApp, is, optimizer } from "@electron-toolkit/utils";
 import fs from "fs";
 import __cjs_mod__ from "node:module";
 const __filename = import.meta.filename;
@@ -21,10 +22,10 @@ const createDesktopLogger = (tag) => {
 const log$2 = createDesktopLogger("settings");
 const OVERLAY_DEFAULTS = {
   shortcuts: {
-    assistantToggle: "CommandOrControl+Space",
-    dictationToggle: "CommandOrControl+Shift+Space",
-    dictationHoldKey: "CommandOrControl+Shift+Space",
-    meetingToggle: "CommandOrControl+Alt+Space"
+    assistantToggle: "Option+Space",
+    dictationToggle: "Option+Shift+Space",
+    dictationHoldKey: "Option+Shift+Space",
+    meetingToggle: "Option+CommandOrControl+Space"
   },
   voice: {
     language: "en-US",
@@ -43,7 +44,7 @@ const OVERLAY_DEFAULTS = {
     chunkIntervalMs: 5e3
   }
 };
-const getSettingsPath = () => path.join(app.getPath("userData"), "basicos-overlay-settings.json");
+const getSettingsPath = () => path.join(app.getPath("userData"), "basicsos-overlay-settings.json");
 const getOverlaySettings = () => {
   try {
     const raw = fs.readFileSync(getSettingsPath(), "utf8");
@@ -167,6 +168,13 @@ function createMeetingManager(options) {
 }
 const PILL_WIDTH = 400;
 const PILL_HEIGHT = 200;
+if (process.env["REMOTE_DEBUGGING_PORT"]) {
+  app.commandLine.appendSwitch(
+    "remote-debugging-port",
+    process.env["REMOTE_DEBUGGING_PORT"]
+  );
+}
+const { autoUpdater } = pkg;
 let mainWindow = null;
 let overlayWindow = null;
 let overlayActive = false;
@@ -175,8 +183,8 @@ let shortcutMgr = null;
 let holdDetector = null;
 let meetingMgr = null;
 let registeredMeetingAccelerator = null;
-const WEB_URL = process.env["BASICOS_URL"] ?? "http://localhost:5173";
-const API_URL = process.env["BASICOS_API_URL"] ?? process.env["VITE_API_URL"] ?? "http://localhost:3001";
+const WEB_URL = process.env["BASICSOS_URL"] ?? "http://localhost:5173";
+const API_URL = process.env["BASICSOS_API_URL"] ?? process.env["VITE_API_URL"] ?? "http://localhost:3001";
 const ALLOWED_PROXY_PATHS = /* @__PURE__ */ new Set([
   "/v1/audio/transcriptions",
   "/v1/audio/speech",
@@ -238,12 +246,26 @@ const deactivateOverlay = () => {
 const detectNotch = () => {
   const primaryDisplay = screen.getPrimaryDisplay();
   const menuBarHeight = primaryDisplay.workArea.y;
-  return {
+  const info = {
     hasNotch: false,
     notchHeight: 0,
     menuBarHeight: menuBarHeight > 0 ? menuBarHeight : 25,
     windowWidth: PILL_WIDTH
   };
+  if (process.platform !== "darwin") return info;
+  try {
+    const result = execSync(
+      `swift -e 'import AppKit; if let s = NSScreen.main { print(s.safeAreaInsets.top) } else { print(0) }'`,
+      { timeout: 3e3, encoding: "utf8" }
+    ).trim();
+    const insetTop = parseFloat(result);
+    if (insetTop > 0) {
+      info.hasNotch = true;
+      info.notchHeight = Math.round(insetTop);
+    }
+  } catch {
+  }
+  return info;
 };
 function createMainWindow() {
   const iconPath = path.join(process.cwd(), "public", "favicon.png");
@@ -255,8 +277,10 @@ function createMainWindow() {
     show: false,
     autoHideMenuBar: true,
     icon: iconPath,
+    titleBarStyle: "hiddenInset",
+    trafficLightPosition: { x: 20, y: 22 },
     webPreferences: {
-      preload: path.join(__dirname, "../preload/index.mjs"),
+      preload: path.join(__dirname, "../preload/index.cjs"),
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false
@@ -299,8 +323,11 @@ function createOverlayWindow() {
     show: false,
     resizable: false,
     movable: false,
+    roundedCorners: false,
+    hiddenInMissionControl: true,
+    enableLargerThanScreen: true,
     webPreferences: {
-      preload: path.join(__dirname, "../preload/index.mjs"),
+      preload: path.join(__dirname, "../preload/index.cjs"),
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false
@@ -309,6 +336,7 @@ function createOverlayWindow() {
     backgroundColor: "#00000000"
   });
   overlayWindow.setAlwaysOnTop(true, "screen-saver");
+  overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   const overlayUrl = is.dev && process.env["ELECTRON_RENDERER_URL"] ? `${process.env["ELECTRON_RENDERER_URL"].replace(/\/$/, "")}/overlay.html` : path.join(__dirname, "../renderer/overlay.html");
   if (is.dev && overlayUrl.startsWith("http")) {
     overlayWindow.loadURL(overlayUrl);
@@ -480,7 +508,7 @@ ipcMain.handle("inject-text", (_event, text) => {
 });
 ipcMain.handle("start-meeting", async () => {
   if (!meetingMgr) return;
-  const apiUrl = process.env["BASICOS_API_URL"] ?? "http://localhost:3001";
+  const apiUrl = process.env["BASICSOS_API_URL"] ?? "http://localhost:3001";
   const cookies = await session.defaultSession.cookies.get({
     name: "better-auth.session_token"
   });
@@ -490,7 +518,7 @@ ipcMain.handle("start-meeting", async () => {
 });
 ipcMain.handle("stop-meeting", async () => {
   if (!meetingMgr) return;
-  const apiUrl = process.env["BASICOS_API_URL"] ?? "http://localhost:3001";
+  const apiUrl = process.env["BASICSOS_API_URL"] ?? "http://localhost:3001";
   await meetingMgr.stop(apiUrl);
 });
 ipcMain.handle("meeting-state", () => {
@@ -527,8 +555,22 @@ const registerMeetingShortcut = (accelerator) => {
   });
   if (ok) registeredMeetingAccelerator = accelerator;
 };
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   electronApp.setAppUserModelId("com.basics-hub");
+  if (!is.dev) {
+    autoUpdater.checkForUpdatesAndNotify().catch(() => {
+    });
+  }
+  if (process.platform === "darwin") {
+    const trusted = systemPreferences.isTrustedAccessibilityClient(true);
+    if (!trusted) {
+      await dialog.showMessageBox({
+        type: "warning",
+        title: "Accessibility Permission Required",
+        message: "BasicsOS needs Accessibility permission for keyboard shortcuts.\n\nPlease grant access in System Settings → Privacy & Security → Accessibility, then restart the app."
+      });
+    }
+  }
   app.on("browser-window-created", (_, window) => {
     optimizer.watchWindowShortcuts(window);
   });
@@ -572,6 +614,7 @@ app.whenReady().then(() => {
   holdDetector.start();
   registerMeetingShortcut(settings.shortcuts.meetingToggle);
   createMainWindow();
+  createOverlayWindow();
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createMainWindow();

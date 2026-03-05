@@ -5,7 +5,6 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { Separator } from "@/components/ui/separator";
 import { AppSidebar } from "@/components/app-sidebar";
 import {
   PageHeaderProvider,
@@ -48,24 +47,17 @@ function LayoutHeader() {
   const registerBreadcrumbContainer = useRegisterBreadcrumbContainer();
   const registerTitleSlotContainer = useRegisterTitleSlotContainer();
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between gap-2 px-4 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
+    <header className="drag-region flex h-[52px] shrink-0 items-center gap-3 bg-surface-canvas">
+      {/* Traffic light zone (0-76px), 24px gap, then toggle — matches Wispr Flow ratios */}
+      <div className="flex items-center pl-[92px]">
+        <SidebarTrigger className="size-8 shrink-0" />
+      </div>
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        <SidebarTrigger className="-ml-1 shrink-0" />
-        <Separator
-          orientation="vertical"
-          className="mr-2 h-4 shrink-0 data-[orientation=vertical]:h-4"
-        />
-        {titleSlotInUse ? (
+        {titleSlotInUse && (
           <div
             ref={registerTitleSlotContainer}
             className="min-w-0 shrink-0 overflow-hidden [&>*]:truncate"
           />
-        ) : (
-          title && (
-            <span className="truncate text-sm font-medium shrink-0">
-              {title}
-            </span>
-          )
         )}
         {/* Breadcrumb portal — RecordDetailPage renders here */}
         <div
@@ -76,7 +68,7 @@ function LayoutHeader() {
       {/* Portal mount point — page components render their header actions here */}
       <div
         ref={registerActionsContainer}
-        className="flex shrink-0 items-center gap-2"
+        className="flex shrink-0 items-center gap-2 pr-4"
       />
     </header>
   );
@@ -90,8 +82,8 @@ function LayoutContent() {
       <div
         className={
           isBuilder
-            ? "flex w-full flex-1 flex-col min-h-0 pl-0 pr-4"
-            : "flex w-full flex-1 flex-col px-4 min-h-0"
+            ? "flex w-full flex-1 flex-col min-h-0 pl-0 pr-14 pt-6"
+            : "flex w-full flex-1 flex-col px-14 pt-6 min-h-0"
         }
         id="main-content"
       >
@@ -114,13 +106,19 @@ function LayoutContent() {
 export function AppLayout() {
   return (
     <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset className="flex h-svh flex-col min-w-0 overflow-hidden sm:transition-[width] sm:duration-200 sm:ease-linear">
-        <PageHeaderProvider>
+      <PageHeaderProvider>
+        <div className="flex h-svh flex-col bg-surface-canvas">
+          {/* Full-width header — independent of sidebar state */}
           <LayoutHeader />
-          <LayoutContent />
-        </PageHeaderProvider>
-      </SidebarInset>
+          {/* Body row: sidebar + content */}
+          <div className="flex flex-1 min-h-0">
+            <AppSidebar />
+            <SidebarInset className="flex flex-1 min-h-0 flex-col">
+              <LayoutContent />
+            </SidebarInset>
+          </div>
+        </div>
+      </PageHeaderProvider>
     </SidebarProvider>
   );
 }

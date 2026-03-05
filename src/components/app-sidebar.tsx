@@ -32,8 +32,8 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <div className="flex h-12 min-w-0 shrink-0 items-center overflow-hidden rounded-md px-2 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-2">
-              <span className="truncate font-semibold text-sm group-data-[collapsible=icon]:hidden">
+            <div className="flex h-8 min-w-0 shrink-0 items-center overflow-hidden rounded-md px-2 group-data-[collapsible=icon]:hidden">
+              <span className="truncate font-semibold text-sm">
                 {organization?.name ?? "Basics Hub"}
               </span>
             </div>
