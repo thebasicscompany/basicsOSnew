@@ -41,7 +41,7 @@ export async function updateRecordService(
   env: Env,
   input: UpdateRecordInput,
 ): Promise<UpdateRecordResult> {
-  const { resource, id, body, orgId, crmUserId, crmUserRow } = input;
+  const { resource, id, body, orgId, crmUserId, crmUserRow: _crmUserRow } = input;
 
   const validated = validateWritePayload(resource, "update", body);
   if (!validated.success) return { success: false, error: validated.error };

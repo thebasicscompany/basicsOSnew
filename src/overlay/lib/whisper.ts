@@ -291,7 +291,7 @@ export const useSpeechRecognition = (
         setInterimText(msg);
         onMicError?.(msg);
       });
-  }, [onSilence, silenceTimeoutMs, onMicError, preferredDeviceId]);
+  }, [onSilence, silenceTimeoutMs, onMicError, preferredDeviceId, onAudioLevel]);
 
   const stopMediaTracks = useCallback(() => {
     if (streamRef.current) {

@@ -40,7 +40,7 @@ export async function createRecord(
   env: Env,
   input: CreateRecordInput,
 ): Promise<CreateRecordResult> {
-  const { resource, body, crmUserId, orgId, crmUserRow } = input;
+  const { resource, body, crmUserId, orgId, crmUserRow: _crmUserRow } = input;
 
   const validated = validateWritePayload(resource, "create", body);
   if (!validated.success) return { success: false, error: validated.error };

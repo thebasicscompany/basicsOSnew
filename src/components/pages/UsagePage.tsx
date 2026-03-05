@@ -116,7 +116,10 @@ export function UsagePage() {
   );
 
   const LOGS_PAGE_SIZE = 25;
-  const logs = logsData?.logs ?? [];
+  const logs = useMemo(
+    () => logsData?.logs ?? [],
+    [logsData?.logs],
+  );
   const totalLogsPages = Math.max(1, Math.ceil(logs.length / LOGS_PAGE_SIZE));
   const paginatedLogs = useMemo(() => {
     const start = (recentRequestsPage - 1) * LOGS_PAGE_SIZE;

@@ -88,7 +88,7 @@ function getPreloadPath(): string {
   const absolute = path.resolve(relative);
   if (fs.existsSync(absolute)) {
     if (!app.isPackaged) {
-      console.log("[main] preload path:", absolute);
+      console.warn("[main] preload path:", absolute);
     }
     return absolute;
   }
@@ -96,7 +96,7 @@ function getPreloadPath(): string {
   const resolvedAppPath = path.resolve(fromAppPath);
   if (fs.existsSync(resolvedAppPath)) {
     if (!app.isPackaged) {
-      console.log("[main] preload path (from app path):", resolvedAppPath);
+      console.warn("[main] preload path (from app path):", resolvedAppPath);
     }
     return resolvedAppPath;
   }
