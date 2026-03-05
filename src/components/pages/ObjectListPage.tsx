@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router";
 import { toast } from "sonner";
+import { showError } from "@/lib/show-error";
 import { DataTable, buildColumnItems } from "@/components/data-table";
 import { CreateRecordModal } from "@/components/create-record/CreateRecordModal";
 import { CreateAttributeModal } from "@/components/create-attribute/CreateAttributeModal";
@@ -154,8 +155,9 @@ export function ObjectListPage() {
         `${obj?.singularName ?? "Record"} deleted`,
       );
       setDeleteTarget(null);
-    } catch {
-      toast.error(
+    } catch (err) {
+      showError(
+        err,
         `Failed to delete ${obj?.singularName?.toLowerCase() ?? "record"}`,
       );
     }

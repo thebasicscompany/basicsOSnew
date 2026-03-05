@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { toast } from "sonner";
+import { showError } from "@/lib/show-error";
 import {
   useCreateContact,
   useUpdateContact,
@@ -73,8 +73,8 @@ export function ContactSheet({
         await createContact.mutateAsync(form);
       }
       onOpenChange(false);
-    } catch {
-      toast.error("Failed to save contact");
+    } catch (err) {
+      showError(err, "Failed to save contact");
     }
   };
 
@@ -84,8 +84,8 @@ export function ContactSheet({
       await deleteContact.mutateAsync(contact.id);
       setConfirmDeleteOpen(false);
       onOpenChange(false);
-    } catch {
-      toast.error("Failed to delete contact");
+    } catch (err) {
+      showError(err, "Failed to delete contact");
     }
   };
 

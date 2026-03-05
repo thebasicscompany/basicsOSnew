@@ -19,6 +19,7 @@ import {
   addDays,
 } from "date-fns";
 import { toast } from "sonner";
+import { showError } from "@/lib/show-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -89,7 +90,7 @@ function TaskRow({
   const handleToggle = () => {
     markDone.mutate(
       { id: task.id, done: !isDone },
-      { onError: () => toast.error("Failed to update task") },
+      { onError: (err) => showError(err, "Failed to update task") },
     );
   };
 
@@ -237,7 +238,7 @@ function AddTaskDialog({
           setText("");
           setDueDate(tomorrow);
         },
-        onError: () => toast.error("Failed to create task"),
+        onError: (err) => showError(err, "Failed to create task"),
       },
     );
   };

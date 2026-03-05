@@ -3,6 +3,7 @@
 import { SlackLogoIcon, GoogleLogoIcon } from "@phosphor-icons/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { showError } from "@/lib/show-error";
 import { Button } from "@/components/ui/button";
 import { useGateway } from "@/hooks/useGateway";
 
@@ -63,7 +64,7 @@ export function ConnectionsContent({
       queryClient.invalidateQueries({ queryKey: ["connections"] });
       toast.success("Disconnected");
     },
-    onError: () => toast.error("Failed to disconnect"),
+    onError: (err) => showError(err, "Failed to disconnect"),
   });
 
   const handleConnect = (provider: string) => {

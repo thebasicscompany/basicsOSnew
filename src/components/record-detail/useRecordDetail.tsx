@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router";
 import { toast } from "sonner";
+import { showError } from "@/lib/show-error";
 import { useObject, useAttributes } from "@/hooks/use-object-registry";
 import type { Attribute } from "@/types/objects";
 import {
@@ -155,8 +156,8 @@ export function useRecordDetail(): UseRecordDetailReturn {
         navigate(`/objects/${objectSlug}/${newId}`);
         toast.success("Record duplicated");
       }
-    } catch {
-      toast.error("Failed to duplicate record");
+    } catch (err) {
+      showError(err, "Failed to duplicate record");
     }
   }, [
     record,
@@ -271,8 +272,9 @@ export function useRecordDetail(): UseRecordDetailReturn {
     try {
       await deleteRecord.mutateAsync(recordId);
       navigate(`/objects/${objectSlug}`);
-    } catch {
-      toast.error(
+    } catch (err) {
+      showError(
+        err,
         `Failed to delete ${obj?.singularName?.toLowerCase() ?? "record"}`,
       );
     }

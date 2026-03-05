@@ -1,5 +1,6 @@
 import type { Context } from "hono";
 import type { Db } from "@/db/client.js";
+import { jsonError } from "@/lib/api-error.js";
 import { PERMISSIONS, getCrmUserFromSession, getPermissionSetForUser, hasPermission } from "@/lib/rbac.js";
 import { deleteRecord } from "@/services/crm/delete-record.js";
 import {
@@ -17,13 +18,13 @@ export function createDeleteHandler(db: Db) {
       !CRM_RESOURCES.includes(resource) ||
       resource.endsWith("_summary")
     ) {
-      return c.json({ error: "Invalid request" }, 400);
+      return jsonError(c, "Invalid request", 400, "INVALID_REQUEST");
     }
 
     const crmUser = await getCrmUserFromSession(c, db);
-    if (!crmUser) return c.json({ error: "User not found in CRM" }, 404);
+    if (!crmUser) return jsonError(c, "User not found in CRM", 404, "NOT_FOUND");
     const orgId = crmUser.organizationId;
-    if (!orgId) return c.json({ error: "Organization not found" }, 404);
+    if (!orgId) return jsonError(c, "Organization not found", 404, "NOT_FOUND");
 
     const permissions = await getPermissionSetForUser(db, crmUser);
     const canHardDelete =
@@ -48,7 +49,8 @@ export function createDeleteHandler(db: Db) {
 
     if (!result.success) {
       const status = result.error === "Not found" ? 404 : 403;
-      return c.json({ error: result.error }, status);
+      const code = result.error === "Not found" ? "NOT_FOUND" : "FORBIDDEN";
+      return jsonError(c, result.error, status, code);
     }
     if (result.archived) {
       return c.json({ archived: true, record: result.record });

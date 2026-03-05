@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { useCreateColumn } from "@/hooks/use-columns";
 import { toast } from "sonner";
+import { showError } from "@/lib/show-error";
 
 const SIMPLE_FIELD_TYPES = [
   { value: "text", label: "Text" },
@@ -70,7 +71,7 @@ export function ImportCreateFieldPrompt({
       onCreated(name);
       onOpenChange(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to create field");
+      showError(err, "Failed to create field");
     }
   }, [label, fieldType, resource, createColumn, onCreated, onOpenChange]);
 

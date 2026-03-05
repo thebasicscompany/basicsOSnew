@@ -134,7 +134,7 @@ export function createApp(db: Db, env: Env) {
     try {
       await db.execute(sql`SELECT 1`);
       return c.json({ status: "ok" });
-    } catch (err) {
+    } catch {
       return c.json({ status: "unhealthy", error: "Database unreachable" }, 503);
     }
   });

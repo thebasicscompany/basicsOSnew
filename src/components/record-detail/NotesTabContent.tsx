@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { toast } from "sonner";
+import { showError } from "@/lib/show-error";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
@@ -54,7 +54,7 @@ export function NotesTabContent({
         { dealId: recordId, text },
         {
           onSuccess: () => setNewNoteText(""),
-          onError: () => toast.error("Failed to add note"),
+          onError: (err) => showError(err, "Failed to add note"),
         },
       );
     } else if (isContact) {
@@ -62,7 +62,7 @@ export function NotesTabContent({
         { contactId: recordId, text },
         {
           onSuccess: () => setNewNoteText(""),
-          onError: () => toast.error("Failed to add note"),
+          onError: (err) => showError(err, "Failed to add note"),
         },
       );
     }
@@ -80,12 +80,12 @@ export function NotesTabContent({
       if (isDeal) {
         deleteDealNote.mutate(
           { id, dealId: parentId },
-          { onError: () => toast.error("Failed to delete note") },
+          { onError: (err) => showError(err, "Failed to delete note") },
         );
       } else if (isContact) {
         deleteContactNote.mutate(
           { id, contactId: parentId },
-          { onError: () => toast.error("Failed to delete note") },
+          { onError: (err) => showError(err, "Failed to delete note") },
         );
       }
     },

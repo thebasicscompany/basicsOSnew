@@ -99,7 +99,7 @@ cd packages/server
 cp .env.example .env
 # Set BETTER_AUTH_SECRET (min 32 chars), e.g. openssl rand -base64 32
 pnpm db:migrate
-pnpm db:seed
+pnpm db:seed   # Creates admin@example.com / admin123 — dev only, blocked in production
 cd ../..
 ```
 
@@ -124,11 +124,64 @@ The Electron app will open. Log in with:
 |---|---|---|---|
 | `DATABASE_URL` | Yes | `postgresql://postgres:postgres@localhost:5435/crm` | PostgreSQL connection string |
 | `BETTER_AUTH_SECRET` | Yes | N/A | Better Auth secret (min 32 chars) |
-| `BETTER_AUTH_URL` | No | `http://localhost:5173` | Auth callback base URL |
+| `BETTER_AUTH_URL` | No | `http://localhost:5173` | Auth callback base URL (see Production) |
 | `BASICOS_API_URL` | No | `https://api.basicsos.com` | AI gateway URL (chat, embeddings, voice) |
+| `ALLOWED_ORIGINS` | No | (empty) | Comma-separated origins for CORS + Better Auth (e.g. `https://api.acme.com`) |
+| `API_KEY_ENCRYPTION_KEY` | Prod | N/A | 32-byte base64/hex key for encrypting user API keys. Required for production. |
 | `PORT` | No | `3001` | API server port |
 
 *For self-hosting: set `BASICOS_API_URL` to your gateway. Users add their API key in Settings.*
+
+---
+
+## Production Deployment
+
+### API server
+
+1. **Run migrations before starting the server:**
+   ```sh
+   cd packages/server && pnpm db:migrate
+   ```
+
+2. **Do not run `pnpm db:seed` in production.** Seed creates a default admin and is blocked when `NODE_ENV=production`. Create users via signup or your own provisioning.
+
+3. **Required production env vars:**
+   - `DATABASE_URL` – Production Postgres (use SSL, strong credentials).
+   - `BETTER_AUTH_SECRET` – Min 32 chars; use `openssl rand -base64 32`.
+   - `BETTER_AUTH_URL` – Your production API base URL (e.g. `https://api.yourcompany.com`).
+   - `ALLOWED_ORIGINS` – Origins for auth callbacks and CORS (e.g. your API URL).
+   - `API_KEY_ENCRYPTION_KEY` – 32-byte key for encrypting stored API keys.
+
+### Docker
+
+A Dockerfile is provided for the API server. Build and run:
+
+```sh
+docker build -t basicsos-server .
+docker run -p 3001:3001 \
+  -e DATABASE_URL=postgresql://... \
+  -e BETTER_AUTH_SECRET=... \
+  -e BETTER_AUTH_URL=https://api.yourcompany.com \
+  -e ALLOWED_ORIGINS=https://api.yourcompany.com \
+  basicsos-server
+```
+
+Use `docker compose` with the included `docker-compose.yml` for Postgres; add a `server` service that uses this image.
+
+### Electron app (production API URL)
+
+The desktop app connects to the API using `BASICOS_API_URL` or `VITE_API_URL`. For packaged builds:
+
+- **Same machine:** If the API runs on localhost, the default `http://localhost:3001` works.
+- **Remote API:** Set `BASICOS_API_URL` when launching the app:
+  ```sh
+  # macOS / Linux
+  BASICOS_API_URL=https://api.yourcompany.com open "Basics Hub.app"
+  # Or create a wrapper script that exports the env and launches the app
+  ```
+  On Windows, set the env in a shortcut or batch file before starting the app.
+
+- **Build-time:** For a fixed API URL in the packaged app, set `VITE_API_URL` during the Electron build so it gets baked into the renderer. The main process reads `process.env.BASICOS_API_URL` at runtime, which is empty in a packaged app unless set at launch.
 
 ---
 

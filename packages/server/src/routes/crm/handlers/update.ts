@@ -2,6 +2,7 @@ import type { Context } from "hono";
 import type { Db } from "@/db/client.js";
 import type { Env } from "@/env.js";
 import { PERMISSIONS, requirePermission } from "@/lib/rbac.js";
+import { jsonError } from "@/lib/api-error.js";
 import { updateRecordService } from "@/services/crm/update-record.js";
 import { snakeToCamel } from "@/routes/crm/utils.js";
 import {
@@ -27,7 +28,7 @@ export function createUpdateHandler(db: Db, env: Env) {
     if (!authz.ok) return authz.response;
     const { crmUser } = authz;
     if (resource === "crm_users" && !authz.permissions.has("*")) {
-      return c.json({ error: "Forbidden" }, 403);
+      return jsonError(c, "Forbidden", 403, "FORBIDDEN");
     }
     const crmUserId = crmUser.id;
     const orgId = crmUser.organizationId;
@@ -36,14 +37,14 @@ export function createUpdateHandler(db: Db, env: Env) {
     }
 
     if (!TABLE_MAP[resource as Exclude<Resource, "companies_summary" | "contacts_summary">]) {
-      return c.json({ error: "Unknown resource" }, 404);
+      return jsonError(c, "Unknown resource", 404, "NOT_FOUND");
     }
 
     let rawBody: Record<string, unknown>;
     try {
       rawBody = (await c.req.json()) as Record<string, unknown>;
     } catch {
-      return c.json({ error: "Invalid JSON body" }, 400);
+      return jsonError(c, "Invalid JSON body", 400, "VALIDATION_FAILED");
     }
     delete rawBody.id;
     const body = snakeToCamel(rawBody) as Record<string, unknown>;
@@ -59,7 +60,8 @@ export function createUpdateHandler(db: Db, env: Env) {
 
     if (!result.success) {
       const status = result.error === "Not found" ? 404 : 400;
-      return c.json({ error: result.error }, status);
+      const code = result.error === "Not found" ? "NOT_FOUND" : "VALIDATION_FAILED";
+      return jsonError(c, result.error, status, code);
     }
     return c.json(result.record);
   };

@@ -107,7 +107,7 @@ describe("createDeleteHandler security boundaries", () => {
     const res = await handler(c as any);
 
     expect(res.status).toBe(403);
-    expect(res.body).toEqual({ error: "Forbidden" });
+    expect(res.body).toMatchObject({ error: "Forbidden", code: "FORBIDDEN" });
   });
 
   it("archives deals for users with archive permission but no hard-delete permission", async () => {
@@ -156,6 +156,6 @@ describe("createDeleteHandler security boundaries", () => {
     const res = await handler(c as any);
 
     expect(res.status).toBe(404);
-    expect(res.body).toEqual({ error: "Not found" });
+    expect(res.body).toMatchObject({ error: "Not found", code: "NOT_FOUND" });
   });
 });

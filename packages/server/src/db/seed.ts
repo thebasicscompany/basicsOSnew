@@ -782,6 +782,14 @@ async function seed(db: Db, crmUserId: number) {
 }
 
 async function main() {
+  if (process.env.NODE_ENV === "production") {
+    log.error(
+      "Refusing to seed in production. Seed creates admin@example.com with a known password. " +
+        "Create users via signup or your own provisioning instead.",
+    );
+    process.exit(1);
+  }
+
   const url =
     process.env.DATABASE_URL ??
     "postgresql://postgres:postgres@localhost:5435/crm";
