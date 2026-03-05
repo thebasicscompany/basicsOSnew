@@ -1,5 +1,5 @@
-import type { Db } from "../../db/client.js";
-import * as schema from "../../db/schema/index.js";
+import type { Db } from "@/db/client.js";
+import * as schema from "@/db/schema/index.js";
 import { eq, and } from "drizzle-orm";
 
 async function getOrganizationIdForUser(db: Db, crmUserId: number): Promise<string> {

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { createDeleteHandler } from "./delete.js";
-import { PERMISSIONS } from "../../../lib/rbac.js";
+import { createDeleteHandler } from "@/routes/crm/handlers/delete.js";
+import { PERMISSIONS } from "@/lib/rbac.js";
 
 vi.mock("../../../lib/rbac.js", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../../lib/rbac.js")>();

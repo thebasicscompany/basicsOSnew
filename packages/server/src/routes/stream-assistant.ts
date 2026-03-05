@@ -4,17 +4,18 @@
  */
 
 import { Hono } from "hono";
-import { authMiddleware } from "../middleware/auth.js";
-import type { Db } from "../db/client.js";
-import type { Env } from "../env.js";
-import type { createAuth } from "../auth.js";
-import { buildCrmSummary, retrieveRelevantContext } from "../lib/context.js";
-import { resolveCrmUserWithApiKey } from "../lib/crm-user-auth.js";
+import { authMiddleware } from "@/middleware/auth.js";
+import type { Db } from "@/db/client.js";
+import type { Env } from "@/env.js";
+import type { createAuth } from "@/auth.js";
+import { buildCrmSummary, retrieveRelevantContext } from "@/lib/context.js";
+import { resolveCrmUserWithApiKey } from "@/lib/crm-user-auth.js";
 import {
   ASSISTANT_TOOLS,
   executeAssistantToolDrizzle,
-} from "../assistant/tools.js";
-import { PERMISSIONS, requirePermission } from "../lib/rbac.js";
+} from "@/assistant/tools.js";
+import { PERMISSIONS, requirePermission } from "@/lib/rbac.js";
+import { streamAssistantPostSchema } from "@/schemas/stream-assistant.js";
 
 type BetterAuthInstance = ReturnType<typeof createAuth>;
 
@@ -52,25 +53,20 @@ export function createStreamAssistantRoutes(
     if (!crmUser.organizationId)
       return c.json({ error: "Organization not found" }, 404);
 
-    let body: {
-      message?: string;
-      history?: Array<{ role: string; content: string }>;
-    };
+    let rawBody: unknown;
     try {
-      body = (await c.req.json()) as {
-        message?: string;
-        history?: Array<{ role: string; content: string }>;
-      };
+      rawBody = await c.req.json();
     } catch {
       return c.json({ error: "Invalid JSON body" }, 400);
     }
-
-    const message = body.message?.trim() ?? "";
-    if (!message) {
-      return c.json({ error: "message is required" }, 400);
+    const parsed = streamAssistantPostSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      const msg = parsed.error.issues[0]?.message ?? "Validation failed";
+      return c.json({ error: msg }, 400);
     }
+    const { message, history } = parsed.data;
 
-    const history = (body.history ?? []).map((m) => ({
+    const historyMapped = history.map((m) => ({
       role: m.role as "user" | "assistant",
       content: m.content,
     }));
@@ -94,7 +90,7 @@ export function createStreamAssistantRoutes(
     const systemContent = `${ASSISTANT_SYSTEM_PROMPT}\n\n${contextText}`;
     const chatMessages: ChatMessage[] = [
       { role: "system", content: systemContent },
-      ...history,
+      ...historyMapped,
       { role: "user", content: message },
     ];
 

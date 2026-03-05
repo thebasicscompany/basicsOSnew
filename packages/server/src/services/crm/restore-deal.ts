@@ -1,6 +1,6 @@
-import type { Db } from "../../db/client.js";
-import { writeAuditLogSafe } from "../../lib/audit-log.js";
-import { restoreDeal } from "../../data-access/crm/restore.js";
+import type { Db } from "@/db/client.js";
+import { writeAuditLogSafe } from "@/lib/audit-log.js";
+import { restoreDeal } from "@/data-access/crm/restore.js";
 
 export interface RestoreDealInput {
   id: number;

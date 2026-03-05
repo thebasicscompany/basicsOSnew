@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createAuthRoutes } from "./auth.js";
+import { createAuthRoutes } from "@/routes/auth.js";
 
 vi.mock("../middleware/auth.js", () => ({
   authMiddleware: () => async (c: unknown, next: () => Promise<void>) => {

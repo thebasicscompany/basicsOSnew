@@ -1,6 +1,6 @@
 import { pgTable, bigserial, varchar, boolean, jsonb, timestamp, bigint, uuid, } from "drizzle-orm/pg-core";
-import { crmUsers } from "./crm_users.js";
-import { organizations } from "./organizations.js";
+import { crmUsers } from "../../db/schema/crm_users.js";
+import { organizations } from "../../db/schema/organizations.js";
 export const automationRules = pgTable("automation_rules", {
     id: bigserial("id", { mode: "number" }).primaryKey(),
     crmUserId: bigint("crm_user_id", { mode: "number" })
@@ -13,6 +13,10 @@ export const automationRules = pgTable("automation_rules", {
     enabled: boolean("enabled").notNull().default(true),
     workflowDefinition: jsonb("workflow_definition").notNull().default({}),
     lastRunAt: timestamp("last_run_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+        .defaultNow()
+        .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+        .defaultNow()
+        .notNull(),
 });

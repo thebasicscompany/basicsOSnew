@@ -6,7 +6,13 @@ type AuthWithApi = {
         getSession: (opts: {
             headers: Headers;
         }) => Promise<{
-            user?: unknown;
+            user?: {
+                id?: string;
+            };
+            session?: {
+                id?: string;
+                token?: string;
+            };
         } | null>;
     };
 };

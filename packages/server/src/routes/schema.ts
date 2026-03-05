@@ -1,10 +1,10 @@
 import { Hono } from "hono";
-import { authMiddleware } from "../middleware/auth.js";
-import type { Db } from "../db/client.js";
-import type { createAuth } from "../auth.js";
+import { authMiddleware } from "@/middleware/auth.js";
+import type { Db } from "@/db/client.js";
+import type { createAuth } from "@/auth.js";
 import { sql, eq, asc, and, or, isNull } from "drizzle-orm";
-import * as schema from "../db/schema/index.js";
-import { PERMISSIONS, requirePermission } from "../lib/rbac.js";
+import * as schema from "@/db/schema/index.js";
+import { PERMISSIONS, requirePermission } from "@/lib/rbac.js";
 
 type BetterAuthInstance = ReturnType<typeof createAuth>;
 

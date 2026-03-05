@@ -1,8 +1,10 @@
 import { Hono } from "hono";
 import { authMiddleware } from "../middleware/auth.js";
+import { favoritesPostSchema, objectConfigPutSchema, attributeOverridePostSchema, } from "../schemas/object-config.js";
 import * as schema from "../db/schema/index.js";
-import { eq, and, asc } from "drizzle-orm";
+import { eq, and, asc, or, isNull, inArray } from "drizzle-orm";
 import { PERMISSIONS, requirePermission } from "../lib/rbac.js";
+import { writeAuditLogSafe } from "../lib/audit-log.js";
 export function createObjectConfigRoutes(db, auth, _env) {
     const app = new Hono();
     app.use("*", authMiddleware(auth, db));
@@ -14,14 +16,25 @@ export function createObjectConfigRoutes(db, auth, _env) {
     };
     // GET / — List all objects with their attribute overrides
     app.get("/", async (c) => {
+        const authz = await requirePermission(c, db, PERMISSIONS.recordsRead);
+        if (!authz.ok)
+            return authz.response;
+        const orgId = authz.crmUser.organizationId;
+        if (!orgId)
+            return c.json({ error: "Organization not found" }, 404);
         try {
             const objects = await db
                 .select()
                 .from(schema.objectConfig)
+                .where(or(eq(schema.objectConfig.organizationId, orgId), isNull(schema.objectConfig.organizationId)))
                 .orderBy(asc(schema.objectConfig.position), asc(schema.objectConfig.id));
+            const objectIds = objects.map((obj) => obj.id);
             const overrides = await db
                 .select()
                 .from(schema.objectAttributeOverrides)
+                .where(and(objectIds.length > 0
+                ? inArray(schema.objectAttributeOverrides.objectConfigId, objectIds)
+                : eq(schema.objectAttributeOverrides.objectConfigId, -1), or(eq(schema.objectAttributeOverrides.organizationId, orgId), isNull(schema.objectAttributeOverrides.organizationId))))
                 .orderBy(asc(schema.objectAttributeOverrides.id));
             // Group overrides by objectConfigId
             const overridesByConfigId = new Map();
@@ -52,10 +65,19 @@ export function createObjectConfigRoutes(db, auth, _env) {
             const userId = session?.user?.id;
             if (!userId)
                 return c.json({ error: "Unauthorized" }, 401);
-            const body = await c.req.json();
-            if (!body.objectSlug || body.recordId == null) {
-                return c.json({ error: "objectSlug and recordId are required" }, 400);
+            let rawBody;
+            try {
+                rawBody = await c.req.json();
             }
+            catch {
+                return c.json({ error: "Invalid JSON body" }, 400);
+            }
+            const parsed = favoritesPostSchema.safeParse(rawBody);
+            if (!parsed.success) {
+                const msg = parsed.error.issues[0]?.message ?? "Validation failed";
+                return c.json({ error: msg }, 400);
+            }
+            const body = parsed.data;
             // Look up the CRM user for this user
             const [crmUserRow] = await db
                 .select()
@@ -65,11 +87,14 @@ export function createObjectConfigRoutes(db, auth, _env) {
             if (!crmUserRow) {
                 return c.json({ error: "User not found in CRM" }, 404);
             }
+            if (!crmUserRow.organizationId) {
+                return c.json({ error: "Organization not found" }, 404);
+            }
             // Check if favorite already exists
             const [existing] = await db
                 .select()
                 .from(schema.recordFavorites)
-                .where(and(eq(schema.recordFavorites.crmUserId, crmUserRow.id), eq(schema.recordFavorites.objectSlug, body.objectSlug), eq(schema.recordFavorites.recordId, body.recordId)))
+                .where(and(eq(schema.recordFavorites.crmUserId, crmUserRow.id), eq(schema.recordFavorites.organizationId, crmUserRow.organizationId), eq(schema.recordFavorites.objectSlug, body.objectSlug), eq(schema.recordFavorites.recordId, body.recordId)))
                 .limit(1);
             if (existing) {
                 // Remove favorite
@@ -82,6 +107,7 @@ export function createObjectConfigRoutes(db, auth, _env) {
                 // Add favorite
                 await db.insert(schema.recordFavorites).values({
                     crmUserId: crmUserRow.id,
+                    organizationId: crmUserRow.organizationId,
                     objectSlug: body.objectSlug,
                     recordId: body.recordId,
                 });
@@ -112,8 +138,14 @@ export function createObjectConfigRoutes(db, auth, _env) {
             if (!crmUserRow) {
                 return c.json({ error: "User not found in CRM" }, 404);
             }
+            if (!crmUserRow.organizationId) {
+                return c.json({ error: "Organization not found" }, 404);
+            }
             const objectSlug = c.req.query("objectSlug");
-            const conditions = [eq(schema.recordFavorites.crmUserId, crmUserRow.id)];
+            const conditions = [
+                eq(schema.recordFavorites.crmUserId, crmUserRow.id),
+                eq(schema.recordFavorites.organizationId, crmUserRow.organizationId),
+            ];
             if (objectSlug) {
                 conditions.push(eq(schema.recordFavorites.objectSlug, objectSlug));
             }
@@ -137,7 +169,19 @@ export function createObjectConfigRoutes(db, auth, _env) {
         if (adminError)
             return adminError;
         try {
-            const body = await c.req.json();
+            let rawBody;
+            try {
+                rawBody = await c.req.json();
+            }
+            catch {
+                return c.json({ error: "Invalid JSON body" }, 400);
+            }
+            const parsed = objectConfigPutSchema.safeParse(rawBody);
+            if (!parsed.success) {
+                const msg = parsed.error.issues[0]?.message ?? "Validation failed";
+                return c.json({ error: msg }, 400);
+            }
+            const body = parsed.data;
             const [existing] = await db
                 .select()
                 .from(schema.objectConfig)
@@ -174,6 +218,19 @@ export function createObjectConfigRoutes(db, auth, _env) {
                 .set(updates)
                 .where(eq(schema.objectConfig.slug, slug))
                 .returning();
+            if (updated) {
+                const authz = await requirePermission(c, db, PERMISSIONS.objectConfigWrite);
+                if (authz.ok) {
+                    await writeAuditLogSafe(db, {
+                        crmUserId: authz.crmUser.id,
+                        organizationId: authz.crmUser.organizationId,
+                        action: "object_config.updated",
+                        entityType: "object_config",
+                        entityId: updated.id,
+                        metadata: { slug, updatedFields: Object.keys(updates) },
+                    });
+                }
+            }
             return c.json(updated);
         }
         catch (err) {
@@ -188,10 +245,19 @@ export function createObjectConfigRoutes(db, auth, _env) {
         if (adminError)
             return adminError;
         try {
-            const body = await c.req.json();
-            if (!body.columnName) {
-                return c.json({ error: "columnName is required" }, 400);
+            let rawBody;
+            try {
+                rawBody = await c.req.json();
             }
+            catch {
+                return c.json({ error: "Invalid JSON body" }, 400);
+            }
+            const parsed = attributeOverridePostSchema.safeParse(rawBody);
+            if (!parsed.success) {
+                const msg = parsed.error.issues[0]?.message ?? "Validation failed";
+                return c.json({ error: msg }, 400);
+            }
+            const body = parsed.data;
             // Find the object config by slug
             const [objConfig] = await db
                 .select()
@@ -227,6 +293,21 @@ export function createObjectConfigRoutes(db, auth, _env) {
                     .set(updates)
                     .where(eq(schema.objectAttributeOverrides.id, existing.id))
                     .returning();
+                const authz = await requirePermission(c, db, PERMISSIONS.objectConfigWrite);
+                if (authz.ok && updated) {
+                    await writeAuditLogSafe(db, {
+                        crmUserId: authz.crmUser.id,
+                        organizationId: authz.crmUser.organizationId,
+                        action: "object_attribute_override.updated",
+                        entityType: "object_attribute_override",
+                        entityId: updated.id,
+                        metadata: {
+                            slug,
+                            columnName: body.columnName,
+                            updatedFields: Object.keys(updates),
+                        },
+                    });
+                }
                 return c.json(updated);
             }
             else {
@@ -244,6 +325,17 @@ export function createObjectConfigRoutes(db, auth, _env) {
                     config: body.config ?? {},
                 })
                     .returning();
+                const authz = await requirePermission(c, db, PERMISSIONS.objectConfigWrite);
+                if (authz.ok && created) {
+                    await writeAuditLogSafe(db, {
+                        crmUserId: authz.crmUser.id,
+                        organizationId: authz.crmUser.organizationId,
+                        action: "object_attribute_override.created",
+                        entityType: "object_attribute_override",
+                        entityId: created.id,
+                        metadata: { slug, columnName: body.columnName },
+                    });
+                }
                 return c.json(created, 201);
             }
         }

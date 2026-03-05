@@ -10,8 +10,8 @@ import {
   uniqueIndex,
   index,
 } from "drizzle-orm/pg-core";
-import { crmUsers } from "./crm_users";
-import { organizations } from "./organizations";
+import { crmUsers } from "@/db/schema/crm_users";
+import { organizations } from "@/db/schema/organizations";
 
 export const contextEmbeddings = pgTable(
   "context_embeddings",

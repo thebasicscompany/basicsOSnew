@@ -1,15 +1,16 @@
 import { Hono } from "hono";
 import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
-import { authMiddleware } from "../middleware/auth.js";
-import type { Db } from "../db/client.js";
-import type { createAuth } from "../auth.js";
-import * as schema from "../db/schema/index.js";
+import { authMiddleware } from "@/middleware/auth.js";
+import { userRolesPutSchema } from "@/schemas/rbac.js";
+import type { Db } from "@/db/client.js";
+import type { createAuth } from "@/auth.js";
+import * as schema from "@/db/schema/index.js";
 import {
   PERMISSIONS,
   requirePermission,
   wouldRemoveLastManager,
-} from "../lib/rbac.js";
-import { writeAuditLogSafe } from "../lib/audit-log.js";
+} from "@/lib/rbac.js";
+import { writeAuditLogSafe } from "@/lib/audit-log.js";
 
 type BetterAuthInstance = ReturnType<typeof createAuth>;
 
@@ -139,15 +140,18 @@ export function createRbacRoutes(db: Db, auth: BetterAuthInstance) {
       return c.json({ error: "Invalid crmUserId" }, 400);
     }
 
-    const rawBody = await c.req.json().catch(() => null);
-    const roleKeysRaw = (rawBody as { roleKeys?: unknown } | null)?.roleKeys;
-    const roleKeys = Array.isArray(roleKeysRaw)
-      ? roleKeysRaw.filter(
-          (k): k is string => typeof k === "string" && k.trim().length > 0,
-        )
-      : [];
-    if (roleKeys.length === 0)
-      return c.json({ error: "roleKeys is required" }, 400);
+    let rawBody: unknown;
+    try {
+      rawBody = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON body" }, 400);
+    }
+    const parsed = userRolesPutSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      const msg = parsed.error.issues[0]?.message ?? "Validation failed";
+      return c.json({ error: msg }, 400);
+    }
+    const { roleKeys } = parsed.data;
 
     const [targetUser] = await db
       .select({

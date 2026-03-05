@@ -1,14 +1,15 @@
 import type { Hono } from "hono";
 import { and, asc, eq } from "drizzle-orm";
-import type { Db } from "../../db/client.js";
-import * as schema from "../../db/schema/index.js";
-import { PERMISSIONS, requirePermission } from "../../lib/rbac.js";
-import { NUMBER_TO_VIEW_TYPE, viewRowToNocoRaw } from "./mappers.js";
+import type { Db } from "@/db/client.js";
+import { viewPostSchema } from "@/schemas/views.js";
+import * as schema from "@/db/schema/index.js";
+import { PERMISSIONS, requirePermission } from "@/lib/rbac.js";
+import { NUMBER_TO_VIEW_TYPE, viewRowToNocoRaw } from "@/routes/views/mappers.js";
 import {
   copyViewColumns,
   getCrmUserId,
   seedDefaultViewColumns,
-} from "./shared.js";
+} from "@/routes/views/shared.js";
 
 export function registerObjectViewRoutes(app: Hono, db: Db): void {
   app.get("/:objectSlug", async (c) => {
@@ -85,7 +86,18 @@ export function registerObjectViewRoutes(app: Hono, db: Db): void {
     if (crmUser == null) return c.json({ error: "User not found in CRM" }, 404);
     const { crmUserId, organizationId } = crmUser;
 
-    const body = await c.req.json<{ title: string; type?: number }>();
+    let rawBody: unknown;
+    try {
+      rawBody = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON body" }, 400);
+    }
+    const parsed = viewPostSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      const msg = parsed.error.issues[0]?.message ?? "Validation failed";
+      return c.json({ error: msg }, 400);
+    }
+    const body = parsed.data;
     const typeNum = body.type ?? 3;
     const typeStr = NUMBER_TO_VIEW_TYPE[typeNum] ?? "grid";
 
@@ -95,7 +107,7 @@ export function registerObjectViewRoutes(app: Hono, db: Db): void {
         objectSlug,
         crmUserId,
         organizationId,
-        title: body.title ?? "Untitled",
+        title: body.title,
         type: typeStr,
         displayOrder: 0,
         isDefault: false,

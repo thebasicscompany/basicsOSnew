@@ -1,6 +1,6 @@
 import { and, count, desc, eq, isNull, lt, sql, sum } from "drizzle-orm";
-import type { Db } from "../db/client.js";
-import * as schema from "../db/schema/index.js";
+import type { Db } from "@/db/client.js";
+import * as schema from "@/db/schema/index.js";
 
 /**
  * Builds a brief CRM state summary injected into every AI request.

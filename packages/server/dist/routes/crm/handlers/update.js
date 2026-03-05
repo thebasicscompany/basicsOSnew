@@ -1,10 +1,7 @@
-import * as schema from "../../../db/schema/index.js";
-import { eq, and } from "drizzle-orm";
-import { buildEntityText, getEntityType, upsertEntityEmbedding, } from "../../../lib/embeddings.js";
-import { fireEvent, reloadRule } from "../../../lib/automation-engine.js";
-import { CRM_RESOURCES, TABLE_MAP, hasOrganizationId, } from "../constants.js";
-import { snakeToCamel } from "../utils.js";
-import { PERMISSIONS, getPermissionSetForUser } from "../../../lib/rbac.js";
+import { PERMISSIONS, requirePermission } from "../../../lib/rbac.js";
+import { updateRecordService } from "../../../services/crm/update-record.js";
+import { snakeToCamel } from "../../../routes/crm/utils.js";
+import { CRM_RESOURCES, TABLE_MAP, } from "../../../routes/crm/constants.js";
 export function createUpdateHandler(db, env) {
     return async (c) => {
         const resource = c.req.param("resource");
@@ -15,59 +12,42 @@ export function createUpdateHandler(db, env) {
             resource.endsWith("_summary")) {
             return c.json({ error: "Invalid request" }, 400);
         }
-        const session = c.get("session");
-        const crmUserRows = await db
-            .select()
-            .from(schema.crmUsers)
-            .where(eq(schema.crmUsers.userId, session.user.id))
-            .limit(1);
-        const crmUser = crmUserRows[0];
-        const crmUserId = crmUser?.id;
-        const orgId = crmUser?.organizationId;
-        if (!crmUserId || !crmUser)
-            return c.json({ error: "User not found in CRM" }, 404);
-        if (!orgId)
+        const authz = await requirePermission(c, db, PERMISSIONS.recordsWrite);
+        if (!authz.ok)
+            return authz.response;
+        const { crmUser } = authz;
+        if (resource === "crm_users" && !authz.permissions.has("*")) {
+            return c.json({ error: "Forbidden" }, 403);
+        }
+        const crmUserId = crmUser.id;
+        const orgId = crmUser.organizationId;
+        if (!crmUserId || !orgId) {
             return c.json({ error: "Organization not found" }, 404);
-        const permissions = await getPermissionSetForUser(db, crmUser);
-        if (!permissions.has("*") && !permissions.has(PERMISSIONS.recordsWrite)) {
-            return c.json({ error: "Forbidden" }, 403);
         }
-        if (resource === "crm_users" && !permissions.has("*")) {
-            return c.json({ error: "Forbidden" }, 403);
+        if (!TABLE_MAP[resource]) {
+            return c.json({ error: "Unknown resource" }, 404);
         }
-        const rawBody = (await c.req.json());
+        let rawBody;
+        try {
+            rawBody = (await c.req.json());
+        }
+        catch {
+            return c.json({ error: "Invalid JSON body" }, 400);
+        }
         delete rawBody.id;
         const body = snakeToCamel(rawBody);
-        if (Object.keys(body).length === 0) {
-            return c.json({ error: "No fields to update; request body is empty after removing id" }, 400);
+        const result = await updateRecordService(db, env, {
+            resource,
+            id: id,
+            body,
+            orgId,
+            crmUserId,
+            crmUserRow: crmUser,
+        });
+        if (!result.success) {
+            const status = result.error === "Not found" ? 404 : 400;
+            return c.json({ error: result.error }, status);
         }
-        const table = TABLE_MAP[resource];
-        if (!table)
-            return c.json({ error: "Unknown resource" }, 404);
-        const idCol = table.id;
-        const conditions = [eq(idCol, id)];
-        if (resource === "crm_users") {
-            conditions.push(eq(schema.crmUsers.organizationId, orgId));
-        }
-        else if (hasOrganizationId(resource)) {
-            conditions.push(eq(table.organizationId, orgId));
-        }
-        const [updated] = await db.update(table).set(body).where(and(...conditions)).returning();
-        if (!updated)
-            return c.json({ error: "Not found" }, 404);
-        const entityTypeU = getEntityType(resource);
-        const apiKeyU = crmUserRows[0]?.basicsApiKey;
-        if (entityTypeU && apiKeyU && typeof id === "number") {
-            const chunkText = buildEntityText(entityTypeU, updated);
-            upsertEntityEmbedding(db, env.BASICOS_API_URL, apiKeyU, crmUserId, entityTypeU, id, chunkText).catch(() => { });
-        }
-        const eventResourceU = ["deals", "contacts", "tasks"].includes(resource) ? resource : null;
-        if (eventResourceU) {
-            fireEvent(`${eventResourceU.replace(/s$/, "")}.updated`, updated, crmUserId).catch(() => { });
-        }
-        if (resource === "automation_rules" && typeof id === "number") {
-            reloadRule(id).catch(() => { });
-        }
-        return c.json(updated);
+        return c.json(result.record);
     };
 }

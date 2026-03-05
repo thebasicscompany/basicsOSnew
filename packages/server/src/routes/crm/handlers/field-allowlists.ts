@@ -1,4 +1,4 @@
-import type { Resource } from "../constants.js";
+import type { Resource } from "@/routes/crm/constants.js";
 
 const WRITE_ALLOWLISTS: Record<Resource, readonly string[]> = {
   contacts: [

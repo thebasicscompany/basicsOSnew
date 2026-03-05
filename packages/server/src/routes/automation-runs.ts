@@ -1,12 +1,16 @@
 import { Hono } from "hono";
-import { authMiddleware } from "../middleware/auth.js";
-import type { Db } from "../db/client.js";
-import type { Env } from "../env.js";
-import type { createAuth } from "../auth.js";
-import * as schema from "../db/schema/index.js";
+import { authMiddleware } from "@/middleware/auth.js";
+import {
+  runPostSchema,
+  runsListQuerySchema,
+} from "@/schemas/automation-runs.js";
+import type { Db } from "@/db/client.js";
+import type { Env } from "@/env.js";
+import type { createAuth } from "@/auth.js";
+import * as schema from "@/db/schema/index.js";
 import { eq, and, desc } from "drizzle-orm";
-import { triggerRunNow } from "../lib/automation-engine.js";
-import { PERMISSIONS, requirePermission } from "../lib/rbac.js";
+import { triggerRunNow } from "@/lib/automation-engine.js";
+import { PERMISSIONS, requirePermission } from "@/lib/rbac.js";
 
 type BetterAuthInstance = ReturnType<typeof createAuth>;
 
@@ -24,10 +28,18 @@ export function createAutomationRunsRoutes(
     const authz = await requirePermission(c, db, PERMISSIONS.recordsWrite);
     if (!authz.ok) return authz.response;
 
-    const rawBody = await c.req.json().catch(() => null);
-    const ruleId = (rawBody as { ruleId?: unknown } | null)?.ruleId;
-    if (typeof ruleId !== "number")
-      return c.json({ error: "ruleId required" }, 400);
+    let rawBody: unknown;
+    try {
+      rawBody = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON body" }, 400);
+    }
+    const parsed = runPostSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      const msg = parsed.error.issues[0]?.message ?? "Validation failed";
+      return c.json({ error: msg }, 400);
+    }
+    const ruleId = parsed.data.ruleId;
 
     const session = c.get("session") as { user?: { id: string } };
     const [crmUserRow] = await db
@@ -59,11 +71,16 @@ export function createAutomationRunsRoutes(
     const authz = await requirePermission(c, db, PERMISSIONS.recordsRead);
     if (!authz.ok) return authz.response;
 
-    const ruleIdParam = c.req.query("ruleId");
-    if (!ruleIdParam)
-      return c.json({ error: "ruleId query param required" }, 400);
-
-    const ruleId = parseInt(ruleIdParam, 10);
+    const queryParsed = runsListQuerySchema.safeParse({
+      ruleId: c.req.query("ruleId"),
+      limit: c.req.query("limit"),
+    });
+    if (!queryParsed.success) {
+      const msg =
+        queryParsed.error.issues[0]?.message ?? "ruleId query param required";
+      return c.json({ error: msg }, 400);
+    }
+    const ruleId = parseInt(queryParsed.data.ruleId, 10);
     if (isNaN(ruleId)) return c.json({ error: "Invalid ruleId" }, 400);
 
     const session = c.get("session") as { user?: { id: string } };
@@ -87,10 +104,7 @@ export function createAutomationRunsRoutes(
       .limit(1);
     if (!rule) return c.json({ error: "Rule not found" }, 404);
 
-    const limitParam = c.req.query("limit");
-    const limit = limitParam
-      ? Math.min(parseInt(limitParam, 10) || 20, 100)
-      : 20;
+    const limit = queryParsed.data.limit;
 
     const runs = await db
       .select()

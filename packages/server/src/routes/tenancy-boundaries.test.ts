@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createViewRoutes } from "./views.js";
-import { createObjectConfigRoutes } from "./object-config.js";
-import { createCustomFieldRoutes } from "./custom-fields.js";
+import { createViewRoutes } from "@/routes/views.js";
+import { createObjectConfigRoutes } from "@/routes/object-config.js";
+import { createCustomFieldRoutes } from "@/routes/custom-fields.js";
 
 vi.mock("../middleware/auth.js", () => ({
   authMiddleware: () => async (c: any, next: () => Promise<void>) => {

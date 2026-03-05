@@ -1,19 +1,19 @@
 import "dotenv/config";
 import { serve } from "@hono/node-server";
-import { createApp } from "./app.js";
-import { createDb } from "./db/client.js";
-import { getEnv } from "./env.js";
+import { createApp } from "@/app.js";
+import { createDb } from "@/db/client.js";
+import { getEnv } from "@/env.js";
 import {
   startAutomationEngine,
   stopAutomationEngine,
-} from "./lib/automation-engine.js";
-import { logger } from "./lib/logger.js";
+} from "@/lib/automation-engine.js";
+import { logger } from "@/lib/logger.js";
 
 const log = logger.child({ component: "server" });
-const env = getEnv();
-const db = createDb(env.DATABASE_URL);
 
 async function main() {
+  const env = getEnv();
+  const { db, close } = createDb(env.DATABASE_URL);
   const app = createApp(db, env);
 
   const server = serve(
@@ -41,6 +41,7 @@ async function main() {
       });
     });
     await stopAutomationEngine();
+    await close();
     process.exit(0);
   };
 
@@ -52,4 +53,7 @@ async function main() {
   });
 }
 
-main();
+main().catch((err) => {
+  log.error({ err }, "Server failed to start");
+  process.exit(1);
+});

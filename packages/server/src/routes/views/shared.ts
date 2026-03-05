@@ -1,6 +1,6 @@
 import { and, asc, eq, isNull, or, sql } from "drizzle-orm";
-import type { Db } from "../../db/client.js";
-import * as schema from "../../db/schema/index.js";
+import type { Db } from "@/db/client.js";
+import * as schema from "@/db/schema/index.js";
 
 export async function getCrmUserId(
   db: Db,

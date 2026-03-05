@@ -1,10 +1,11 @@
 import type { Hono } from "hono";
 import { and, asc, eq } from "drizzle-orm";
-import type { Db } from "../../db/client.js";
-import * as schema from "../../db/schema/index.js";
-import { PERMISSIONS, requirePermission } from "../../lib/rbac.js";
-import { sortRowToNocoRaw } from "./mappers.js";
-import { getCrmUserId, getViewAndCheckOwnership } from "./shared.js";
+import type { Db } from "@/db/client.js";
+import { sortPostSchema } from "@/schemas/views.js";
+import * as schema from "@/db/schema/index.js";
+import { PERMISSIONS, requirePermission } from "@/lib/rbac.js";
+import { sortRowToNocoRaw } from "@/routes/views/mappers.js";
+import { getCrmUserId, getViewAndCheckOwnership } from "@/routes/views/shared.js";
 
 export function registerSortRoutes(app: Hono, db: Db): void {
   app.get("/view/:viewId/sorts", async (c) => {
@@ -52,10 +53,18 @@ export function registerSortRoutes(app: Hono, db: Db): void {
     );
     if (!view) return c.json({ error: "View not found" }, 404);
 
-    const body = await c.req.json<{
-      fk_column_id: string;
-      direction: "asc" | "desc";
-    }>();
+    let rawBody: unknown;
+    try {
+      rawBody = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON body" }, 400);
+    }
+    const parsed = sortPostSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      const msg = parsed.error.issues[0]?.message ?? "Validation failed";
+      return c.json({ error: msg }, 400);
+    }
+    const body = parsed.data;
     const existing = await db
       .select()
       .from(schema.viewSorts)
@@ -67,7 +76,7 @@ export function registerSortRoutes(app: Hono, db: Db): void {
       .values({
         viewId,
         fieldId: body.fk_column_id,
-        direction: body.direction ?? "asc",
+        direction: body.direction,
         displayOrder,
       })
       .returning();

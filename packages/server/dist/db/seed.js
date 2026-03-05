@@ -7,8 +7,10 @@ import "dotenv/config";
 import { randomUUID } from "crypto";
 import { hashPassword } from "better-auth/crypto";
 import { eq } from "drizzle-orm";
-import { createDb } from "./client.js";
-import * as schema from "./schema/index.js";
+import { createDb } from "../db/client.js";
+import * as schema from "../db/schema/index.js";
+import { logger } from "../lib/logger.js";
+const log = logger.child({ component: "seed" });
 const DEMO_USER = {
     email: "admin@example.com",
     password: "admin123",
@@ -19,7 +21,7 @@ const API_URL = process.env.SEED_API_URL ?? "http://localhost:3001";
 async function ensureAdminUser(db) {
     const crmUserRows = await db.select().from(schema.crmUsers).limit(1);
     if (crmUserRows.length > 0) {
-        console.log("[seed] Using existing org/crm user");
+        log.info("Using existing org/crm user");
         return crmUserRows[0].id;
     }
     // Try signup API first (requires server running)
@@ -52,7 +54,7 @@ async function ensureAdminUser(db) {
         .limit(1);
     let userId;
     if (existingUsers.length > 0) {
-        console.log("[seed] Admin user already exists, ensuring org/crm user...");
+        log.info("Admin user already exists, ensuring org/crm user...");
         userId = existingUsers[0].id;
         const existingCrmUsers = await db
             .select()
@@ -79,10 +81,7 @@ async function ensureAdminUser(db) {
             });
         }
         let orgId;
-        const existingOrgs = await db
-            .select()
-            .from(schema.organizations)
-            .limit(1);
+        const existingOrgs = await db.select().from(schema.organizations).limit(1);
         if (existingOrgs.length > 0) {
             orgId = existingOrgs[0].id;
         }
@@ -110,7 +109,7 @@ async function ensureAdminUser(db) {
             throw new Error("Failed to create CRM user");
         return crmUser.id;
     }
-    console.log("[seed] Creating user directly...");
+    log.info("Creating user directly...");
     userId = randomUUID();
     const passwordHash = await hashPassword(DEMO_USER.password);
     await db.insert(schema.user).values({
@@ -152,40 +151,304 @@ async function ensureAdminUser(db) {
     return crmUser.id;
 }
 const DEMO_COMPANIES = [
-    { name: "Acme Corp", sector: "information-technology", size: 250, website: "https://acme.example.com", phoneNumber: "+1-555-0100", address: "123 Innovation Way", city: "San Francisco", stateAbbr: "CA", country: "USA", zipcode: "94102", description: "Leading provider of innovative solutions.", revenue: "$50M", linkedinUrl: "https://linkedin.com/company/acme" },
-    { name: "Globex Industries", sector: "industrials", size: 500, website: "https://globex.com", phoneNumber: "+1-555-0101", address: "456 Industrial Blvd", city: "Chicago", stateAbbr: "IL", country: "USA", zipcode: "60601", description: "Global industrial manufacturing conglomerate.", revenue: "$200M", linkedinUrl: "https://linkedin.com/company/globex" },
-    { name: "Initech", sector: "financials", size: 50, website: "https://initech.com", phoneNumber: "+1-555-0102", address: "789 Office Park", city: "Austin", stateAbbr: "TX", country: "USA", zipcode: "78701", description: "Software and consulting for enterprise.", revenue: "$10M", linkedinUrl: "https://linkedin.com/company/initech" },
-    { name: "Umbrella Corp", sector: "health-care", size: 500, website: "https://umbrellacorp.com", phoneNumber: "+1-555-0103", address: "1 Research Plaza", city: "Raccoon City", stateAbbr: "CA", country: "USA", zipcode: "90210", description: "Pharmaceutical and biotechnology research.", revenue: "$500M", linkedinUrl: "https://linkedin.com/company/umbrella" },
-    { name: "Stark Industries", sector: "energy", size: 250, website: "https://starkindustries.com", phoneNumber: "+1-555-0104", address: "100 Tech Campus", city: "New York", stateAbbr: "NY", country: "USA", zipcode: "10001", description: "Advanced technology and defense.", revenue: "$1B", linkedinUrl: "https://linkedin.com/company/stark" },
-    { name: "Wayne Enterprises", sector: "consumer-discretionary", size: 500, website: "https://wayne-ent.com", phoneNumber: "+1-555-0105", address: "200 Gotham Tower", city: "Gotham", stateAbbr: "NJ", country: "USA", zipcode: "07001", description: "Diversified holding company.", revenue: "$2B", linkedinUrl: "https://linkedin.com/company/wayne" },
-    { name: "Cyberdyne Systems", sector: "information-technology", size: 50, website: "https://cyberdyne.ai", phoneNumber: "+1-555-0106", address: "300 Silicon Valley Dr", city: "San Jose", stateAbbr: "CA", country: "USA", zipcode: "95101", description: "AI and robotics research.", revenue: "$25M", linkedinUrl: "https://linkedin.com/company/cyberdyne" },
-    { name: "Wonka Industries", sector: "consumer-staples", size: 250, website: "https://wonka.com", phoneNumber: "+1-555-0107", address: "Factory Lane", city: "London", stateAbbr: null, country: "UK", zipcode: "SW1A 1AA", description: "Confectionery and chocolate manufacturer.", revenue: "$100M", linkedinUrl: "https://linkedin.com/company/wonka" },
+    {
+        name: "Acme Corp",
+        sector: "information-technology",
+        size: 250,
+        website: "https://acme.example.com",
+        phoneNumber: "+1-555-0100",
+        address: "123 Innovation Way",
+        city: "San Francisco",
+        stateAbbr: "CA",
+        country: "USA",
+        zipcode: "94102",
+        description: "Leading provider of innovative solutions.",
+        revenue: "$50M",
+        linkedinUrl: "https://linkedin.com/company/acme",
+    },
+    {
+        name: "Globex Industries",
+        sector: "industrials",
+        size: 500,
+        website: "https://globex.com",
+        phoneNumber: "+1-555-0101",
+        address: "456 Industrial Blvd",
+        city: "Chicago",
+        stateAbbr: "IL",
+        country: "USA",
+        zipcode: "60601",
+        description: "Global industrial manufacturing conglomerate.",
+        revenue: "$200M",
+        linkedinUrl: "https://linkedin.com/company/globex",
+    },
+    {
+        name: "Initech",
+        sector: "financials",
+        size: 50,
+        website: "https://initech.com",
+        phoneNumber: "+1-555-0102",
+        address: "789 Office Park",
+        city: "Austin",
+        stateAbbr: "TX",
+        country: "USA",
+        zipcode: "78701",
+        description: "Software and consulting for enterprise.",
+        revenue: "$10M",
+        linkedinUrl: "https://linkedin.com/company/initech",
+    },
+    {
+        name: "Umbrella Corp",
+        sector: "health-care",
+        size: 500,
+        website: "https://umbrellacorp.com",
+        phoneNumber: "+1-555-0103",
+        address: "1 Research Plaza",
+        city: "Raccoon City",
+        stateAbbr: "CA",
+        country: "USA",
+        zipcode: "90210",
+        description: "Pharmaceutical and biotechnology research.",
+        revenue: "$500M",
+        linkedinUrl: "https://linkedin.com/company/umbrella",
+    },
+    {
+        name: "Stark Industries",
+        sector: "energy",
+        size: 250,
+        website: "https://starkindustries.com",
+        phoneNumber: "+1-555-0104",
+        address: "100 Tech Campus",
+        city: "New York",
+        stateAbbr: "NY",
+        country: "USA",
+        zipcode: "10001",
+        description: "Advanced technology and defense.",
+        revenue: "$1B",
+        linkedinUrl: "https://linkedin.com/company/stark",
+    },
+    {
+        name: "Wayne Enterprises",
+        sector: "consumer-discretionary",
+        size: 500,
+        website: "https://wayne-ent.com",
+        phoneNumber: "+1-555-0105",
+        address: "200 Gotham Tower",
+        city: "Gotham",
+        stateAbbr: "NJ",
+        country: "USA",
+        zipcode: "07001",
+        description: "Diversified holding company.",
+        revenue: "$2B",
+        linkedinUrl: "https://linkedin.com/company/wayne",
+    },
+    {
+        name: "Cyberdyne Systems",
+        sector: "information-technology",
+        size: 50,
+        website: "https://cyberdyne.ai",
+        phoneNumber: "+1-555-0106",
+        address: "300 Silicon Valley Dr",
+        city: "San Jose",
+        stateAbbr: "CA",
+        country: "USA",
+        zipcode: "95101",
+        description: "AI and robotics research.",
+        revenue: "$25M",
+        linkedinUrl: "https://linkedin.com/company/cyberdyne",
+    },
+    {
+        name: "Wonka Industries",
+        sector: "consumer-staples",
+        size: 250,
+        website: "https://wonka.com",
+        phoneNumber: "+1-555-0107",
+        address: "Factory Lane",
+        city: "London",
+        stateAbbr: null,
+        country: "UK",
+        zipcode: "SW1A 1AA",
+        description: "Confectionery and chocolate manufacturer.",
+        revenue: "$100M",
+        linkedinUrl: "https://linkedin.com/company/wonka",
+    },
 ];
 const DEMO_CONTACTS = [
-    { firstName: "Jane", lastName: "Smith", title: "VP Sales", gender: "female", status: "lead", background: "15 years in enterprise sales.", linkedinUrl: "https://linkedin.com/in/janesmith" },
-    { firstName: "John", lastName: "Doe", title: "CTO", gender: "male", status: "qualified", background: "Former startup founder. Tech leader.", linkedinUrl: "https://linkedin.com/in/johndoe" },
-    { firstName: "Alice", lastName: "Johnson", title: "Marketing Director", gender: "female", status: "lead", background: "Brand strategy and growth marketing.", linkedinUrl: "https://linkedin.com/in/alicejohnson" },
-    { firstName: "Bob", lastName: "Williams", title: "Procurement Manager", gender: "male", status: "qualified", background: "Supply chain and vendor management.", linkedinUrl: "https://linkedin.com/in/bobwilliams" },
-    { firstName: "Carol", lastName: "Brown", title: "Head of Engineering", gender: "female", status: "customer", background: "Built teams at 3 unicorns.", linkedinUrl: "https://linkedin.com/in/carolbrown" },
-    { firstName: "David", lastName: "Davis", title: "CFO", gender: "male", status: "qualified", background: "IPO experience. M&A expertise.", linkedinUrl: "https://linkedin.com/in/daviddavis" },
-    { firstName: "Eve", lastName: "Miller", title: "Product Manager", gender: "female", status: "lead", background: "B2B SaaS product strategy.", linkedinUrl: "https://linkedin.com/in/evemiller" },
-    { firstName: "Frank", lastName: "Wilson", title: "Account Executive", gender: "male", status: "customer", background: "Top performer 3 years running.", linkedinUrl: "https://linkedin.com/in/frankwilson" },
+    {
+        firstName: "Jane",
+        lastName: "Smith",
+        title: "VP Sales",
+        gender: "female",
+        status: "lead",
+        background: "15 years in enterprise sales.",
+        linkedinUrl: "https://linkedin.com/in/janesmith",
+    },
+    {
+        firstName: "John",
+        lastName: "Doe",
+        title: "CTO",
+        gender: "male",
+        status: "qualified",
+        background: "Former startup founder. Tech leader.",
+        linkedinUrl: "https://linkedin.com/in/johndoe",
+    },
+    {
+        firstName: "Alice",
+        lastName: "Johnson",
+        title: "Marketing Director",
+        gender: "female",
+        status: "lead",
+        background: "Brand strategy and growth marketing.",
+        linkedinUrl: "https://linkedin.com/in/alicejohnson",
+    },
+    {
+        firstName: "Bob",
+        lastName: "Williams",
+        title: "Procurement Manager",
+        gender: "male",
+        status: "qualified",
+        background: "Supply chain and vendor management.",
+        linkedinUrl: "https://linkedin.com/in/bobwilliams",
+    },
+    {
+        firstName: "Carol",
+        lastName: "Brown",
+        title: "Head of Engineering",
+        gender: "female",
+        status: "customer",
+        background: "Built teams at 3 unicorns.",
+        linkedinUrl: "https://linkedin.com/in/carolbrown",
+    },
+    {
+        firstName: "David",
+        lastName: "Davis",
+        title: "CFO",
+        gender: "male",
+        status: "qualified",
+        background: "IPO experience. M&A expertise.",
+        linkedinUrl: "https://linkedin.com/in/daviddavis",
+    },
+    {
+        firstName: "Eve",
+        lastName: "Miller",
+        title: "Product Manager",
+        gender: "female",
+        status: "lead",
+        background: "B2B SaaS product strategy.",
+        linkedinUrl: "https://linkedin.com/in/evemiller",
+    },
+    {
+        firstName: "Frank",
+        lastName: "Wilson",
+        title: "Account Executive",
+        gender: "male",
+        status: "customer",
+        background: "Top performer 3 years running.",
+        linkedinUrl: "https://linkedin.com/in/frankwilson",
+    },
 ];
-async function fillEmptyColumns(db, crmUserId) {
+async function fillEmptyColumns(db) {
     const existingCompanies = await db.select().from(schema.companies).limit(1);
     if (existingCompanies.length === 0)
         return;
-    console.log("[seed] Filling empty columns in existing data...");
+    log.info("Filling empty columns in existing data...");
     const companies = await db.select().from(schema.companies);
     const companyUpdates = [
-        { website: "https://acme.example.com", phoneNumber: "+1-555-0100", address: "123 Innovation Way", city: "San Francisco", stateAbbr: "CA", country: "USA", zipcode: "94102", description: "Leading provider of innovative solutions.", revenue: "$50M", linkedinUrl: "https://linkedin.com/company/acme" },
-        { website: "https://globex.com", phoneNumber: "+1-555-0101", address: "456 Industrial Blvd", city: "Chicago", stateAbbr: "IL", country: "USA", zipcode: "60601", description: "Global industrial manufacturing conglomerate.", revenue: "$200M", linkedinUrl: "https://linkedin.com/company/globex" },
-        { website: "https://initech.com", phoneNumber: "+1-555-0102", address: "789 Office Park", city: "Austin", stateAbbr: "TX", country: "USA", zipcode: "78701", description: "Software and consulting for enterprise.", revenue: "$10M", linkedinUrl: "https://linkedin.com/company/initech" },
-        { website: "https://umbrellacorp.com", phoneNumber: "+1-555-0103", address: "1 Research Plaza", city: "Raccoon City", stateAbbr: "CA", country: "USA", zipcode: "90210", description: "Pharmaceutical and biotechnology research.", revenue: "$500M", linkedinUrl: "https://linkedin.com/company/umbrella" },
-        { website: "https://starkindustries.com", phoneNumber: "+1-555-0104", address: "100 Tech Campus", city: "New York", stateAbbr: "NY", country: "USA", zipcode: "10001", description: "Advanced technology and defense.", revenue: "$1B", linkedinUrl: "https://linkedin.com/company/stark" },
-        { website: "https://wayne-ent.com", phoneNumber: "+1-555-0105", address: "200 Gotham Tower", city: "Gotham", stateAbbr: "NJ", country: "USA", zipcode: "07001", description: "Diversified holding company.", revenue: "$2B", linkedinUrl: "https://linkedin.com/company/wayne" },
-        { website: "https://cyberdyne.ai", phoneNumber: "+1-555-0106", address: "300 Silicon Valley Dr", city: "San Jose", stateAbbr: "CA", country: "USA", zipcode: "95101", description: "AI and robotics research.", revenue: "$25M", linkedinUrl: "https://linkedin.com/company/cyberdyne" },
-        { website: "https://wonka.com", phoneNumber: "+1-555-0107", address: "Factory Lane", city: "London", stateAbbr: null, country: "UK", zipcode: "SW1A 1AA", description: "Confectionery and chocolate manufacturer.", revenue: "$100M", linkedinUrl: "https://linkedin.com/company/wonka" },
+        {
+            website: "https://acme.example.com",
+            phoneNumber: "+1-555-0100",
+            address: "123 Innovation Way",
+            city: "San Francisco",
+            stateAbbr: "CA",
+            country: "USA",
+            zipcode: "94102",
+            description: "Leading provider of innovative solutions.",
+            revenue: "$50M",
+            linkedinUrl: "https://linkedin.com/company/acme",
+        },
+        {
+            website: "https://globex.com",
+            phoneNumber: "+1-555-0101",
+            address: "456 Industrial Blvd",
+            city: "Chicago",
+            stateAbbr: "IL",
+            country: "USA",
+            zipcode: "60601",
+            description: "Global industrial manufacturing conglomerate.",
+            revenue: "$200M",
+            linkedinUrl: "https://linkedin.com/company/globex",
+        },
+        {
+            website: "https://initech.com",
+            phoneNumber: "+1-555-0102",
+            address: "789 Office Park",
+            city: "Austin",
+            stateAbbr: "TX",
+            country: "USA",
+            zipcode: "78701",
+            description: "Software and consulting for enterprise.",
+            revenue: "$10M",
+            linkedinUrl: "https://linkedin.com/company/initech",
+        },
+        {
+            website: "https://umbrellacorp.com",
+            phoneNumber: "+1-555-0103",
+            address: "1 Research Plaza",
+            city: "Raccoon City",
+            stateAbbr: "CA",
+            country: "USA",
+            zipcode: "90210",
+            description: "Pharmaceutical and biotechnology research.",
+            revenue: "$500M",
+            linkedinUrl: "https://linkedin.com/company/umbrella",
+        },
+        {
+            website: "https://starkindustries.com",
+            phoneNumber: "+1-555-0104",
+            address: "100 Tech Campus",
+            city: "New York",
+            stateAbbr: "NY",
+            country: "USA",
+            zipcode: "10001",
+            description: "Advanced technology and defense.",
+            revenue: "$1B",
+            linkedinUrl: "https://linkedin.com/company/stark",
+        },
+        {
+            website: "https://wayne-ent.com",
+            phoneNumber: "+1-555-0105",
+            address: "200 Gotham Tower",
+            city: "Gotham",
+            stateAbbr: "NJ",
+            country: "USA",
+            zipcode: "07001",
+            description: "Diversified holding company.",
+            revenue: "$2B",
+            linkedinUrl: "https://linkedin.com/company/wayne",
+        },
+        {
+            website: "https://cyberdyne.ai",
+            phoneNumber: "+1-555-0106",
+            address: "300 Silicon Valley Dr",
+            city: "San Jose",
+            stateAbbr: "CA",
+            country: "USA",
+            zipcode: "95101",
+            description: "AI and robotics research.",
+            revenue: "$25M",
+            linkedinUrl: "https://linkedin.com/company/cyberdyne",
+        },
+        {
+            website: "https://wonka.com",
+            phoneNumber: "+1-555-0107",
+            address: "Factory Lane",
+            city: "London",
+            stateAbbr: null,
+            country: "UK",
+            zipcode: "SW1A 1AA",
+            description: "Confectionery and chocolate manufacturer.",
+            revenue: "$100M",
+            linkedinUrl: "https://linkedin.com/company/wonka",
+        },
     ];
     for (let i = 0; i < companies.length && i < companyUpdates.length; i++) {
         await db
@@ -195,14 +458,70 @@ async function fillEmptyColumns(db, crmUserId) {
     }
     const contacts = await db.select().from(schema.contacts);
     const contactUpdates = [
-        { gender: "female", status: "lead", background: "15 years in enterprise sales.", linkedinUrl: "https://linkedin.com/in/janesmith", phoneJsonb: [{ number: "+1-555-1000", type: "Work" }], hasNewsletter: true },
-        { gender: "male", status: "qualified", background: "Former startup founder. Tech leader.", linkedinUrl: "https://linkedin.com/in/johndoe", phoneJsonb: [{ number: "+1-555-1001", type: "Work" }], hasNewsletter: false },
-        { gender: "female", status: "lead", background: "Brand strategy and growth marketing.", linkedinUrl: "https://linkedin.com/in/alicejohnson", phoneJsonb: [{ number: "+1-555-1002", type: "Work" }], hasNewsletter: true },
-        { gender: "male", status: "qualified", background: "Supply chain and vendor management.", linkedinUrl: "https://linkedin.com/in/bobwilliams", phoneJsonb: [{ number: "+1-555-1003", type: "Work" }], hasNewsletter: false },
-        { gender: "female", status: "customer", background: "Built teams at 3 unicorns.", linkedinUrl: "https://linkedin.com/in/carolbrown", phoneJsonb: [{ number: "+1-555-1004", type: "Work" }], hasNewsletter: true },
-        { gender: "male", status: "qualified", background: "IPO experience. M&A expertise.", linkedinUrl: "https://linkedin.com/in/daviddavis", phoneJsonb: [{ number: "+1-555-1005", type: "Work" }], hasNewsletter: false },
-        { gender: "female", status: "lead", background: "B2B SaaS product strategy.", linkedinUrl: "https://linkedin.com/in/evemiller", phoneJsonb: [{ number: "+1-555-1006", type: "Work" }], hasNewsletter: true },
-        { gender: "male", status: "customer", background: "Top performer 3 years running.", linkedinUrl: "https://linkedin.com/in/frankwilson", phoneJsonb: [{ number: "+1-555-1007", type: "Work" }], hasNewsletter: false },
+        {
+            gender: "female",
+            status: "lead",
+            background: "15 years in enterprise sales.",
+            linkedinUrl: "https://linkedin.com/in/janesmith",
+            phoneJsonb: [{ number: "+1-555-1000", type: "Work" }],
+            hasNewsletter: true,
+        },
+        {
+            gender: "male",
+            status: "qualified",
+            background: "Former startup founder. Tech leader.",
+            linkedinUrl: "https://linkedin.com/in/johndoe",
+            phoneJsonb: [{ number: "+1-555-1001", type: "Work" }],
+            hasNewsletter: false,
+        },
+        {
+            gender: "female",
+            status: "lead",
+            background: "Brand strategy and growth marketing.",
+            linkedinUrl: "https://linkedin.com/in/alicejohnson",
+            phoneJsonb: [{ number: "+1-555-1002", type: "Work" }],
+            hasNewsletter: true,
+        },
+        {
+            gender: "male",
+            status: "qualified",
+            background: "Supply chain and vendor management.",
+            linkedinUrl: "https://linkedin.com/in/bobwilliams",
+            phoneJsonb: [{ number: "+1-555-1003", type: "Work" }],
+            hasNewsletter: false,
+        },
+        {
+            gender: "female",
+            status: "customer",
+            background: "Built teams at 3 unicorns.",
+            linkedinUrl: "https://linkedin.com/in/carolbrown",
+            phoneJsonb: [{ number: "+1-555-1004", type: "Work" }],
+            hasNewsletter: true,
+        },
+        {
+            gender: "male",
+            status: "qualified",
+            background: "IPO experience. M&A expertise.",
+            linkedinUrl: "https://linkedin.com/in/daviddavis",
+            phoneJsonb: [{ number: "+1-555-1005", type: "Work" }],
+            hasNewsletter: false,
+        },
+        {
+            gender: "female",
+            status: "lead",
+            background: "B2B SaaS product strategy.",
+            linkedinUrl: "https://linkedin.com/in/evemiller",
+            phoneJsonb: [{ number: "+1-555-1006", type: "Work" }],
+            hasNewsletter: true,
+        },
+        {
+            gender: "male",
+            status: "customer",
+            background: "Top performer 3 years running.",
+            linkedinUrl: "https://linkedin.com/in/frankwilson",
+            phoneJsonb: [{ number: "+1-555-1007", type: "Work" }],
+            hasNewsletter: false,
+        },
     ];
     for (let i = 0; i < contacts.length && i < contactUpdates.length; i++) {
         await db
@@ -216,10 +535,22 @@ async function fillEmptyColumns(db, crmUserId) {
     const in60 = new Date(now.getTime() + 60 * 86400000);
     const in90 = new Date(now.getTime() + 90 * 86400000);
     const dealUpdates = [
-        { description: "Full redesign of corporate website with new CMS.", expectedClosingDate: in30 },
-        { description: "Comprehensive UX audit and recommendations.", expectedClosingDate: in60 },
-        { description: "Homepage and landing page copy refresh.", expectedClosingDate: in90 },
-        { description: "Annual enterprise platform license.", expectedClosingDate: now },
+        {
+            description: "Full redesign of corporate website with new CMS.",
+            expectedClosingDate: in30,
+        },
+        {
+            description: "Comprehensive UX audit and recommendations.",
+            expectedClosingDate: in60,
+        },
+        {
+            description: "Homepage and landing page copy refresh.",
+            expectedClosingDate: in90,
+        },
+        {
+            description: "Annual enterprise platform license.",
+            expectedClosingDate: now,
+        },
     ];
     for (let i = 0; i < allDeals.length && i < dealUpdates.length; i++) {
         await db
@@ -227,16 +558,16 @@ async function fillEmptyColumns(db, crmUserId) {
             .set(dealUpdates[i])
             .where(eq(schema.deals.id, allDeals[i].id));
     }
-    console.log("[seed] Done filling empty columns!");
+    log.info("Done filling empty columns!");
 }
 async function seed(db, crmUserId) {
     const existingCompanies = await db.select().from(schema.companies).limit(1);
     if (existingCompanies.length > 0) {
-        console.log("[seed] CRM data already exists, filling empty columns...");
-        await fillEmptyColumns(db, crmUserId);
+        log.info("CRM data already exists, filling empty columns...");
+        await fillEmptyColumns(db);
         return;
     }
-    console.log("[seed] Inserting companies...");
+    log.info("Inserting companies...");
     const companies = await db
         .insert(schema.companies)
         .values(DEMO_COMPANIES.map((c) => ({
@@ -256,7 +587,7 @@ async function seed(db, crmUserId) {
         crmUserId,
     })))
         .returning();
-    console.log("[seed] Inserting contacts...");
+    log.info("Inserting contacts...");
     const contacts = await db
         .insert(schema.contacts)
         .values(DEMO_CONTACTS.map((c, i) => ({
@@ -269,12 +600,22 @@ async function seed(db, crmUserId) {
         linkedinUrl: c.linkedinUrl,
         companyId: companies[i % companies.length].id,
         crmUserId,
-        emailJsonb: [{ email: `${c.firstName.toLowerCase()}.${c.lastName.toLowerCase()}@example.com`, type: "Work" }],
-        phoneJsonb: [{ number: `+1-555-${String(1000 + i).padStart(4, "0")}`, type: "Work" }],
+        emailJsonb: [
+            {
+                email: `${c.firstName.toLowerCase()}.${c.lastName.toLowerCase()}@example.com`,
+                type: "Work",
+            },
+        ],
+        phoneJsonb: [
+            {
+                number: `+1-555-${String(1000 + i).padStart(4, "0")}`,
+                type: "Work",
+            },
+        ],
         hasNewsletter: i % 2 === 0,
     })))
         .returning();
-    console.log("[seed] Inserting deals...");
+    log.info("Inserting deals...");
     const now = new Date();
     const in30Days = new Date(now.getTime() + 30 * 86400000);
     const in60Days = new Date(now.getTime() + 60 * 86400000);
@@ -332,26 +673,52 @@ async function seed(db, crmUserId) {
         },
     ])
         .returning();
-    console.log("[seed] Inserting tasks...");
+    log.info("Inserting tasks...");
     await db.insert(schema.tasks).values([
-        { contactId: contacts[0].id, crmUserId, type: "call", text: "Follow up on proposal", dueDate: new Date(Date.now() + 86400000) },
-        { contactId: contacts[2].id, crmUserId, type: "meeting", text: "Discovery call", dueDate: new Date(Date.now() + 172800000) },
+        {
+            contactId: contacts[0].id,
+            crmUserId,
+            type: "call",
+            text: "Follow up on proposal",
+            dueDate: new Date(Date.now() + 86400000),
+        },
+        {
+            contactId: contacts[2].id,
+            crmUserId,
+            type: "meeting",
+            text: "Discovery call",
+            dueDate: new Date(Date.now() + 172800000),
+        },
     ]);
-    console.log("[seed] Inserting notes...");
+    log.info("Inserting notes...");
     await db.insert(schema.contactNotes).values([
-        { contactId: contacts[0].id, crmUserId, text: "Met at conference. Interested in Q2." },
-        { contactId: contacts[4].id, crmUserId, text: "Closed the deal. Great partnership." },
+        {
+            contactId: contacts[0].id,
+            crmUserId,
+            text: "Met at conference. Interested in Q2.",
+        },
+        {
+            contactId: contacts[4].id,
+            crmUserId,
+            text: "Closed the deal. Great partnership.",
+        },
     ]);
-    await db.insert(schema.dealNotes).values([
-        { dealId: deals[0].id, crmUserId, text: "Sent proposal. Awaiting feedback." },
+    await db
+        .insert(schema.dealNotes)
+        .values([
+        {
+            dealId: deals[0].id,
+            crmUserId,
+            text: "Sent proposal. Awaiting feedback.",
+        },
     ]);
-    console.log("[seed] Inserting tags...");
+    log.info("Inserting tags...");
     await db.insert(schema.tags).values([
         { name: "VIP", color: "#e88b7d" },
         { name: "Hot", color: "#e8cb7d" },
         { name: "Cold", color: "#7dbde8" },
     ]);
-    console.log("[seed] Updating configuration...");
+    log.info("Updating configuration...");
     const defaultConfig = {
         title: "Basics CRM",
         companySectors: [
@@ -380,12 +747,12 @@ async function seed(db, crmUserId) {
         target: schema.configuration.id,
         set: { config: defaultConfig },
     });
-    console.log("[seed] Done!");
-    console.log(`[seed] Login: ${DEMO_USER.email} / ${DEMO_USER.password}`);
+    log.info({ login: DEMO_USER.email }, "Done! Login with email / admin123");
 }
 async function main() {
-    const url = process.env.DATABASE_URL ?? "postgresql://postgres:postgres@localhost:5435/crm";
-    const db = createDb(url);
+    const url = process.env.DATABASE_URL ??
+        "postgresql://postgres:postgres@localhost:5435/crm";
+    const { db } = createDb(url);
     const crmUserId = await ensureAdminUser(db);
     await seed(db, crmUserId);
 }

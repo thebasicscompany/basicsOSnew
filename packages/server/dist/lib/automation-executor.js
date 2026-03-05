@@ -1,12 +1,13 @@
 import { topologicalSort } from "@basics-os/shared";
-import { executeEmail } from "./automation-actions/email.js";
-import { executeAI } from "./automation-actions/ai-task.js";
-import { executeWebSearch } from "./automation-actions/web-search.js";
-import { executeCrmAction } from "./automation-actions/crm-action.js";
-import { executeSlack } from "./automation-actions/slack.js";
-import { executeGmailRead } from "./automation-actions/gmail-read.js";
-import { executeGmailSend } from "./automation-actions/gmail-send.js";
-import { executeAIAgent } from "./automation-actions/ai-agent.js";
+import { executeEmail } from "../lib/automation-actions/email.js";
+import { executeAI } from "../lib/automation-actions/ai-task.js";
+import { executeWebSearch } from "../lib/automation-actions/web-search.js";
+import { executeCrmAction } from "../lib/automation-actions/crm-action.js";
+import { executeSlack } from "../lib/automation-actions/slack.js";
+import { executeGmailRead } from "../lib/automation-actions/gmail-read.js";
+import { executeGmailSend } from "../lib/automation-actions/gmail-send.js";
+import { executeAIAgent } from "../lib/automation-actions/ai-agent.js";
+import { resolveStoredApiKey } from "../lib/api-key-crypto.js";
 export async function executeWorkflow(workflowDef, triggerData, crmUser, db, env) {
     const { nodes, edges } = workflowDef;
     if (!nodes?.length)
@@ -16,7 +17,7 @@ export async function executeWorkflow(workflowDef, triggerData, crmUser, db, env
         trigger_data: triggerData,
         crm_user_id: crmUser.id,
     };
-    const apiKey = crmUser.basicsApiKey ?? "";
+    const apiKey = resolveStoredApiKey(crmUser) ?? "";
     for (const nodeId of order) {
         const node = nodes.find((n) => n.id === nodeId);
         if (!node)

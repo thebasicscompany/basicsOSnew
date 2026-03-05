@@ -1,4 +1,4 @@
-import type * as schema from "../../db/schema/index.js";
+import type * as schema from "@/db/schema/index.js";
 
 const VIEW_TYPE_TO_NUMBER: Record<string, number> = {
   grid: 3,

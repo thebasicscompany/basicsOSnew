@@ -1,7 +1,7 @@
 import { pgTable, bigserial, bigint, varchar, jsonb, text, timestamp, uuid, } from "drizzle-orm/pg-core";
-import { automationRules } from "./automation_rules.js";
-import { crmUsers } from "./crm_users.js";
-import { organizations } from "./organizations.js";
+import { automationRules } from "../../db/schema/automation_rules.js";
+import { crmUsers } from "../../db/schema/crm_users.js";
+import { organizations } from "../../db/schema/organizations.js";
 export const automationRuns = pgTable("automation_runs", {
     id: bigserial("id", { mode: "number" }).primaryKey(),
     ruleId: bigint("rule_id", { mode: "number" })
@@ -16,6 +16,8 @@ export const automationRuns = pgTable("automation_runs", {
     status: varchar("status", { length: 32 }).notNull(), // 'running' | 'success' | 'error'
     result: jsonb("result"),
     error: text("error"),
-    startedAt: timestamp("started_at", { withTimezone: true }).defaultNow().notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true })
+        .defaultNow()
+        .notNull(),
     finishedAt: timestamp("finished_at", { withTimezone: true }),
 });

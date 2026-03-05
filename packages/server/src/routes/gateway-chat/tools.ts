@@ -1,6 +1,6 @@
 import { and, desc, eq, ilike, isNull, or } from "drizzle-orm";
-import type { Db } from "../../db/client.js";
-import * as schema from "../../db/schema/index.js";
+import type { Db } from "@/db/client.js";
+import * as schema from "@/db/schema/index.js";
 import {
   completeTaskSchema,
   createCompanySchema,
@@ -18,7 +18,7 @@ import {
   searchDealsSchema,
   updateContactSchema,
   updateDealSchema,
-} from "./protocol.js";
+} from "@/routes/gateway-chat/protocol.js";
 
 export async function executeValidatedTool(
   db: Db,

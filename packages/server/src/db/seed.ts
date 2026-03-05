@@ -7,9 +7,9 @@ import "dotenv/config";
 import { randomUUID } from "crypto";
 import { hashPassword } from "better-auth/crypto";
 import { eq } from "drizzle-orm";
-import { createDb } from "./client.js";
-import * as schema from "./schema/index.js";
-import { logger } from "../lib/logger.js";
+import { createDb, type Db } from "@/db/client.js";
+import * as schema from "@/db/schema/index.js";
+import { logger } from "@/lib/logger.js";
 
 const log = logger.child({ component: "seed" });
 
@@ -22,9 +22,7 @@ const DEMO_USER = {
 
 const API_URL = process.env.SEED_API_URL ?? "http://localhost:3001";
 
-async function ensureAdminUser(
-  db: ReturnType<typeof createDb>,
-): Promise<number> {
+async function ensureAdminUser(db: Db): Promise<number> {
   const crmUserRows = await db.select().from(schema.crmUsers).limit(1);
 
   if (crmUserRows.length > 0) {
@@ -362,7 +360,7 @@ const DEMO_CONTACTS = [
   },
 ];
 
-async function fillEmptyColumns(db: ReturnType<typeof createDb>) {
+async function fillEmptyColumns(db: Db) {
   const existingCompanies = await db.select().from(schema.companies).limit(1);
   if (existingCompanies.length === 0) return;
 
@@ -581,7 +579,7 @@ async function fillEmptyColumns(db: ReturnType<typeof createDb>) {
   log.info("Done filling empty columns!");
 }
 
-async function seed(db: ReturnType<typeof createDb>, crmUserId: number) {
+async function seed(db: Db, crmUserId: number) {
   const existingCompanies = await db.select().from(schema.companies).limit(1);
   if (existingCompanies.length > 0) {
     log.info("CRM data already exists, filling empty columns...");
@@ -787,7 +785,7 @@ async function main() {
   const url =
     process.env.DATABASE_URL ??
     "postgresql://postgres:postgres@localhost:5435/crm";
-  const db = createDb(url);
+  const { db } = createDb(url);
   const crmUserId = await ensureAdminUser(db);
   await seed(db, crmUserId);
 }

@@ -11,8 +11,8 @@ import {
   unique,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
-import { crmUsers } from "./crm_users.js";
-import { organizations } from "./organizations.js";
+import { crmUsers } from "@/db/schema/crm_users.js";
+import { organizations } from "@/db/schema/organizations.js";
 
 export const objectConfig = pgTable("object_config", {
   id: bigserial("id", { mode: "number" }).primaryKey(),

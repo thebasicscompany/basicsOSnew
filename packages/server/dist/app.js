@@ -58,23 +58,29 @@ const rateLimitMiddleware = async (c, next) => {
 export function createApp(db, env) {
     const auth = createAuth(db, env.BETTER_AUTH_URL, env.BETTER_AUTH_SECRET);
     const app = new Hono();
+    const allowedOriginSet = new Set(env.ALLOWED_ORIGINS
+        ? env.ALLOWED_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean)
+        : []);
     app.use("/*", cors({
         origin: (origin) => {
-            // Allow localhost on any port (web dev, Electron dev server)
             if (!origin)
                 return null;
             try {
                 const url = new URL(origin);
-                const allowed = (url.hostname === "localhost" || url.hostname === "127.0.0.1") &&
+                const isLocalhost = (url.hostname === "localhost" || url.hostname === "127.0.0.1") &&
                     (url.protocol === "http:" || url.protocol === "https:");
-                return allowed ? origin : null;
+                if (isLocalhost)
+                    return origin;
+                if (allowedOriginSet.has(origin))
+                    return origin;
+                return null;
             }
             catch {
                 return null;
             }
         },
         allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allowHeaders: ["Content-Type", "Authorization", "x-basics-api-key"],
+        allowHeaders: ["Content-Type", "Authorization"],
         credentials: true,
     }));
     app.use("/*", async (c, next) => {

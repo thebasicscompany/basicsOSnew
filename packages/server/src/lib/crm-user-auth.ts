@@ -1,8 +1,8 @@
 import type { Context } from "hono";
 import { eq } from "drizzle-orm";
-import type { Db } from "../db/client.js";
-import * as schema from "../db/schema/index.js";
-import { resolveStoredApiKey } from "./api-key-crypto.js";
+import type { Db } from "@/db/client.js";
+import * as schema from "@/db/schema/index.js";
+import { resolveStoredApiKey } from "@/lib/api-key-crypto.js";
 
 export type CrmUserWithApiKey = {
   crmUser: typeof schema.crmUsers.$inferSelect;

@@ -8,8 +8,8 @@ import {
   bigint,
   uuid,
 } from "drizzle-orm/pg-core";
-import { crmUsers } from "./crm_users.js";
-import { organizations } from "./organizations.js";
+import { crmUsers } from "@/db/schema/crm_users.js";
+import { organizations } from "@/db/schema/organizations.js";
 
 export const automationRules = pgTable("automation_rules", {
   id: bigserial("id", { mode: "number" }).primaryKey(),

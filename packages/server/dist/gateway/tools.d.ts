@@ -1,4 +1,2 @@
-export declare function buildGatewayTools(): Record<string, import("ai").Tool<import("zod").ZodTypeAny | import("ai").Schema<any>, unknown> & {
-    execute: undefined;
-}>;
+export declare function buildGatewayTools(): Record<string, unknown>;
 //# sourceMappingURL=tools.d.ts.map

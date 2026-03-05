@@ -1,10 +1,11 @@
 import type { Hono } from "hono";
 import { eq } from "drizzle-orm";
-import type { Db } from "../../db/client.js";
-import * as schema from "../../db/schema/index.js";
-import { PERMISSIONS, requirePermission } from "../../lib/rbac.js";
-import { viewRowToNocoRaw } from "./mappers.js";
-import { getCrmUserId, getViewAndCheckOwnership } from "./shared.js";
+import type { Db } from "@/db/client.js";
+import { viewPatchSchema } from "@/schemas/views.js";
+import * as schema from "@/db/schema/index.js";
+import { PERMISSIONS, requirePermission } from "@/lib/rbac.js";
+import { viewRowToNocoRaw } from "@/routes/views/mappers.js";
+import { getCrmUserId, getViewAndCheckOwnership } from "@/routes/views/shared.js";
 
 export function registerViewItemRoutes(app: Hono, db: Db): void {
   app.patch("/view/:viewId", async (c) => {
@@ -25,14 +26,21 @@ export function registerViewItemRoutes(app: Hono, db: Db): void {
     );
     if (!view) return c.json({ error: "View not found" }, 404);
 
-    const body = await c.req.json<{ title?: string }>();
-    if (typeof body.title !== "string" || body.title.trim() === "") {
-      return c.json({ error: "title is required" }, 400);
+    let rawBody: unknown;
+    try {
+      rawBody = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON body" }, 400);
+    }
+    const parsed = viewPatchSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      const msg = parsed.error.issues[0]?.message ?? "Validation failed";
+      return c.json({ error: msg }, 400);
     }
 
     const [updated] = await db
       .update(schema.views)
-      .set({ title: body.title.trim() })
+      .set({ title: parsed.data.title })
       .where(eq(schema.views.id, viewId))
       .returning();
 

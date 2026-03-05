@@ -1,13 +1,18 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
-import { authMiddleware } from "../middleware/auth.js";
-import type { Db } from "../db/client.js";
-import type { Env } from "../env.js";
-import type { createAuth } from "../auth.js";
-import * as schema from "../db/schema/index.js";
+import { authMiddleware } from "@/middleware/auth.js";
+import {
+  favoritesPostSchema,
+  objectConfigPutSchema,
+  attributeOverridePostSchema,
+} from "@/schemas/object-config.js";
+import type { Db } from "@/db/client.js";
+import type { Env } from "@/env.js";
+import type { createAuth } from "@/auth.js";
+import * as schema from "@/db/schema/index.js";
 import { eq, and, asc, or, isNull, inArray } from "drizzle-orm";
-import { PERMISSIONS, requirePermission } from "../lib/rbac.js";
-import { writeAuditLogSafe } from "../lib/audit-log.js";
+import { PERMISSIONS, requirePermission } from "@/lib/rbac.js";
+import { writeAuditLogSafe } from "@/lib/audit-log.js";
 
 type BetterAuthInstance = ReturnType<typeof createAuth>;
 
@@ -103,14 +108,18 @@ export function createObjectConfigRoutes(
       const userId = session?.user?.id;
       if (!userId) return c.json({ error: "Unauthorized" }, 401);
 
-      const body = await c.req.json<{
-        objectSlug: string;
-        recordId: number;
-      }>();
-
-      if (!body.objectSlug || body.recordId == null) {
-        return c.json({ error: "objectSlug and recordId are required" }, 400);
+      let rawBody: unknown;
+      try {
+        rawBody = await c.req.json();
+      } catch {
+        return c.json({ error: "Invalid JSON body" }, 400);
       }
+      const parsed = favoritesPostSchema.safeParse(rawBody);
+      if (!parsed.success) {
+        const msg = parsed.error.issues[0]?.message ?? "Validation failed";
+        return c.json({ error: msg }, 400);
+      }
+      const body = parsed.data;
 
       // Look up the CRM user for this user
       const [crmUserRow] = await db
@@ -223,17 +232,18 @@ export function createObjectConfigRoutes(
     if (adminError) return adminError;
 
     try {
-      const body = await c.req.json<{
-        singularName?: string;
-        pluralName?: string;
-        icon?: string;
-        iconColor?: string;
-        tableName?: string;
-        type?: string;
-        isActive?: boolean;
-        position?: number;
-        settings?: Record<string, unknown>;
-      }>();
+      let rawBody: unknown;
+      try {
+        rawBody = await c.req.json();
+      } catch {
+        return c.json({ error: "Invalid JSON body" }, 400);
+      }
+      const parsed = objectConfigPutSchema.safeParse(rawBody);
+      if (!parsed.success) {
+        const msg = parsed.error.issues[0]?.message ?? "Validation failed";
+        return c.json({ error: msg }, 400);
+      }
+      const body = parsed.data;
 
       const [existing] = await db
         .select()
@@ -300,19 +310,18 @@ export function createObjectConfigRoutes(
     if (adminError) return adminError;
 
     try {
-      const body = await c.req.json<{
-        columnName: string;
-        displayName?: string | null;
-        uiType?: string | null;
-        icon?: string | null;
-        isPrimary?: boolean;
-        isHiddenByDefault?: boolean;
-        config?: Record<string, unknown>;
-      }>();
-
-      if (!body.columnName) {
-        return c.json({ error: "columnName is required" }, 400);
+      let rawBody: unknown;
+      try {
+        rawBody = await c.req.json();
+      } catch {
+        return c.json({ error: "Invalid JSON body" }, 400);
       }
+      const parsed = attributeOverridePostSchema.safeParse(rawBody);
+      if (!parsed.success) {
+        const msg = parsed.error.issues[0]?.message ?? "Validation failed";
+        return c.json({ error: msg }, 400);
+      }
+      const body = parsed.data;
 
       // Find the object config by slug
       const [objConfig] = await db

@@ -1,7 +1,10 @@
 import { PgBoss } from "pg-boss";
 import * as schema from "../db/schema/index.js";
 import { eq, and } from "drizzle-orm";
-import { executeWorkflow } from "./automation-executor.js";
+import { executeWorkflow } from "../lib/automation-executor.js";
+import { resolveStoredApiKey } from "../lib/api-key-crypto.js";
+import { logger } from "../lib/logger.js";
+const log = logger.child({ component: "automation-engine" });
 let _boss = null;
 let _db = null;
 let _env = null;
@@ -10,10 +13,9 @@ export async function startAutomationEngine(database, environment) {
     _env = environment;
     _boss = new PgBoss(environment.DATABASE_URL);
     _boss.on("error", (err) => {
-        console.error("[automation-engine] pg-boss error:", err);
+        log.error({ err }, "pg-boss error");
     });
     await _boss.start();
-    // pg-boss v12 requires creating the queue before workers can poll it
     await _boss.createQueue("run-automation");
     await _boss.work("run-automation", { localConcurrency: 3 }, async (jobs) => {
         for (const job of jobs) {
@@ -23,12 +25,26 @@ export async function startAutomationEngine(database, environment) {
     });
     // Load and register schedule-triggered rules
     await loadScheduleRules();
-    console.log("[automation-engine] started");
+    log.info("Automation engine started");
+}
+/** Gracefully stop the automation engine. Waits for in-flight jobs up to timeout. */
+export async function stopAutomationEngine() {
+    if (!_boss)
+        return;
+    try {
+        await _boss.stop({ graceful: true, timeout: 30_000 });
+        log.info("Automation engine stopped");
+    }
+    catch (err) {
+        log.error({ err }, "Automation engine stop error");
+    }
+    finally {
+        _boss = null;
+    }
 }
 async function loadScheduleRules() {
     if (!_db)
         return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const rules = await _db
         .select()
         .from(schema.automationRules)
@@ -58,7 +74,7 @@ async function registerScheduleRule(ruleId, crmUserId, cron) {
         });
     }
     catch (err) {
-        console.error(`[automation-engine] failed to register schedule for rule ${ruleId}:`, err);
+        log.error({ err, ruleId }, "Failed to register schedule for rule");
     }
 }
 export async function reloadRule(ruleId) {
@@ -71,7 +87,6 @@ export async function reloadRule(ruleId) {
     catch {
         // Schedule may not exist, ignore
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const rules = await _db
         .select()
         .from(schema.automationRules)
@@ -93,7 +108,6 @@ export async function fireEvent(event, payload, crmUserId) {
     if (!_boss || !_db)
         return;
     try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const rules = await _db
             .select()
             .from(schema.automationRules)
@@ -114,7 +128,7 @@ export async function fireEvent(event, payload, crmUserId) {
         }
     }
     catch (err) {
-        console.error("[automation-engine] fireEvent error:", err);
+        log.error({ err, event, crmUserId }, "fireEvent error");
     }
 }
 /** Trigger a manual run for a specific rule. Sends job to run-automation queue. */
@@ -130,14 +144,13 @@ export async function triggerRunNow(ruleId, crmUserId) {
         return true;
     }
     catch (err) {
-        console.error("[automation-engine] triggerRunNow error:", err);
+        log.error({ err, ruleId, crmUserId }, "triggerRunNow error");
         return false;
     }
 }
 async function runAutomation(ruleId, crmUserId, triggerData) {
     if (!_db || !_env)
         return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const db = _db;
     const [run] = await db
         .insert(schema.automationRuns)
@@ -160,7 +173,8 @@ async function runAutomation(ruleId, crmUserId, triggerData) {
         const crmUserRow = crmUserRows[0];
         if (!crmUserRow)
             throw new Error(`CRM user ${crmUserId} not found`);
-        const result = await executeWorkflow(rule.workflowDefinition, triggerData, { id: crmUserRow.id, basicsApiKey: crmUserRow.basicsApiKey }, _db, _env);
+        const apiKey = resolveStoredApiKey(crmUserRow);
+        const result = await executeWorkflow(rule.workflowDefinition, triggerData, { id: crmUserRow.id, basicsApiKey: apiKey }, _db, _env);
         await db
             .update(schema.automationRuns)
             .set({ status: "success", result, finishedAt: new Date() })
@@ -172,7 +186,7 @@ async function runAutomation(ruleId, crmUserId, triggerData) {
     }
     catch (err) {
         const error = err instanceof Error ? err.message : String(err);
-        console.error(`[automation-engine] run ${run?.id} failed:`, err);
+        log.error({ err, runId: run?.id, ruleId, crmUserId }, "Automation run failed");
         if (run?.id != null) {
             await (db)
                 .update(schema.automationRuns)

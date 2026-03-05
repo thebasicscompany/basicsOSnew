@@ -1,7 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import type { Context } from "hono";
-import type { Db } from "../db/client.js";
-import * as schema from "../db/schema/index.js";
+import type { Db } from "@/db/client.js";
+import * as schema from "@/db/schema/index.js";
 
 export const PERMISSIONS = {
   recordsRead: "records.read",

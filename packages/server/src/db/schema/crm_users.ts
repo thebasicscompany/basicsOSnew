@@ -7,8 +7,8 @@ import {
   jsonb,
   text,
 } from "drizzle-orm/pg-core";
-import { organizations } from "./organizations";
-import { user } from "./auth";
+import { organizations } from "@/db/schema/organizations";
+import { user } from "@/db/schema/auth";
 
 export const crmUsers = pgTable("crm_users", {
   id: bigserial("id", { mode: "number" }).primaryKey(),

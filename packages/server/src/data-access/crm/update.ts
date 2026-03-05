@@ -1,11 +1,11 @@
-import type { Db } from "../../db/client.js";
-import * as schema from "../../db/schema/index.js";
+import type { Db } from "@/db/client.js";
+import * as schema from "@/db/schema/index.js";
 import { eq, and } from "drizzle-orm";
 import {
   TABLE_MAP,
   hasOrganizationId,
   type Resource,
-} from "../../routes/crm/constants.js";
+} from "@/routes/crm/constants.js";
 
 export interface UpdateParams {
   resource: Resource;

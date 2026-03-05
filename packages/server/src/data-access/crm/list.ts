@@ -1,17 +1,17 @@
-import type { Db } from "../../db/client.js";
-import * as schema from "../../db/schema/index.js";
+import type { Db } from "@/db/client.js";
+import * as schema from "@/db/schema/index.js";
 import { eq, and, or, ilike, sql, desc, asc, type SQL } from "drizzle-orm";
 import {
   CRM_RESOURCES,
   TABLE_MAP,
   hasOrganizationId,
   type Resource,
-} from "../../routes/crm/constants.js";
+} from "@/routes/crm/constants.js";
 import {
   snakeToCamelField,
   buildGenericFilterCondition,
   type GenericFilter,
-} from "./utils.js";
+} from "@/data-access/crm/utils.js";
 
 export interface ListParams {
   resource: Resource;

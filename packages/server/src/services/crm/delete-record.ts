@@ -1,9 +1,9 @@
-import type { Db } from "../../db/client.js";
-import { getEntityType, deleteEntityEmbedding } from "../../lib/embeddings.js";
-import { fireEvent } from "../../lib/automation-engine.js";
-import { writeAuditLogSafe } from "../../lib/audit-log.js";
-import { archiveDeal, hardDeleteRecord } from "../../data-access/crm/delete.js";
-import type { Resource } from "../../routes/crm/constants.js";
+import type { Db } from "@/db/client.js";
+import { getEntityType, deleteEntityEmbedding } from "@/lib/embeddings.js";
+import { fireEvent } from "@/lib/automation-engine.js";
+import { writeAuditLogSafe } from "@/lib/audit-log.js";
+import { archiveDeal, hardDeleteRecord } from "@/data-access/crm/delete.js";
+import type { Resource } from "@/routes/crm/constants.js";
 
 export interface DeleteRecordInput {
   resource: Resource;

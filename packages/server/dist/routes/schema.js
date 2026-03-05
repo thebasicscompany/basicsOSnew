@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { authMiddleware } from "../middleware/auth.js";
-import { sql, eq, asc } from "drizzle-orm";
+import { sql, eq, asc, and, or, isNull } from "drizzle-orm";
 import * as schema from "../db/schema/index.js";
 import { PERMISSIONS, requirePermission } from "../lib/rbac.js";
 const ALLOWED_TABLES = new Set([
@@ -108,6 +108,9 @@ export function createSchemaRoutes(db, auth) {
         const authz = await requirePermission(c, db, PERMISSIONS.recordsRead);
         if (!authz.ok)
             return authz.response;
+        const orgId = authz.crmUser.organizationId;
+        if (!orgId)
+            return c.json({ error: "Organization not found" }, 404);
         const tableName = c.req.param("tableName");
         if (!ALLOWED_TABLES.has(tableName)) {
             return c.json({ error: "Table not found" }, 404);
@@ -117,7 +120,9 @@ export function createSchemaRoutes(db, auth) {
           FROM information_schema.columns
           WHERE table_schema = 'public' AND table_name = ${baseTable}
           ORDER BY ordinal_position`);
-        const raw = Array.isArray(result) ? result : result.rows ?? [];
+        const raw = Array.isArray(result)
+            ? result
+            : (result.rows ?? []);
         const rows = raw;
         const extraCols = [];
         if (tableName === "contacts_summary") {
@@ -156,7 +161,7 @@ export function createSchemaRoutes(db, auth) {
         const customRows = await db
             .select()
             .from(schema.customFieldDefs)
-            .where(eq(schema.customFieldDefs.resource, resourceForCustom))
+            .where(and(eq(schema.customFieldDefs.resource, resourceForCustom), or(eq(schema.customFieldDefs.organizationId, orgId), isNull(schema.customFieldDefs.organizationId))))
             .orderBy(asc(schema.customFieldDefs.position), asc(schema.customFieldDefs.id));
         for (const def of customRows) {
             const uidt = FIELD_TYPE_TO_UIDT[def.fieldType] ?? "SingleLineText";

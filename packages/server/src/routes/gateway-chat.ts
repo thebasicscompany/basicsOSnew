@@ -1,11 +1,11 @@
 ﻿import { Hono } from "hono";
-import { authMiddleware } from "../middleware/auth.js";
-import type { Db } from "../db/client.js";
-import type { Env } from "../env.js";
-import type { createAuth } from "../auth.js";
-import { buildCrmSummary, retrieveRelevantContext } from "../lib/context.js";
-import { resolveCrmUserWithApiKey } from "../lib/crm-user-auth.js";
-import { PERMISSIONS, requirePermission } from "../lib/rbac.js";
+import { authMiddleware } from "@/middleware/auth.js";
+import type { Db } from "@/db/client.js";
+import type { Env } from "@/env.js";
+import type { createAuth } from "@/auth.js";
+import { buildCrmSummary, retrieveRelevantContext } from "@/lib/context.js";
+import { resolveCrmUserWithApiKey } from "@/lib/crm-user-auth.js";
+import { PERMISSIONS, requirePermission } from "@/lib/rbac.js";
 import {
   BASE_SYSTEM_PROMPT,
   OPENAI_TOOL_DEFS,
@@ -14,9 +14,9 @@ import {
   sdkPart,
   toolFallbackText,
   toOpenAIMessages,
-} from "./gateway-chat/protocol.js";
-import { ensureThread, persistMessage } from "./gateway-chat/storage.js";
-import { executeValidatedTool } from "./gateway-chat/tools.js";
+} from "@/routes/gateway-chat/protocol.js";
+import { ensureThread, persistMessage } from "@/routes/gateway-chat/storage.js";
+import { executeValidatedTool } from "@/routes/gateway-chat/tools.js";
 
 type BetterAuthInstance = ReturnType<typeof createAuth>;
 

@@ -1,10 +1,10 @@
-import type { Db } from "../../db/client.js";
+import type { Db } from "@/db/client.js";
 import {
   TABLE_MAP,
   hasCrmUserId,
   hasOrganizationId,
   type Resource,
-} from "../../routes/crm/constants.js";
+} from "@/routes/crm/constants.js";
 
 export interface CreateParams {
   resource: Resource;

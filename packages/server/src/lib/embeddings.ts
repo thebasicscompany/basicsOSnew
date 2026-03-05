@@ -1,6 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
-import type { Db } from "../db/client.js";
-import * as schema from "../db/schema/index.js";
+import type { Db } from "@/db/client.js";
+import * as schema from "@/db/schema/index.js";
 
 export const EMBEDDABLE_RESOURCES = new Set([
   "contacts",

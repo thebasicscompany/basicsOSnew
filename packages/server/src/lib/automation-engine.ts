@@ -1,11 +1,11 @@
 import { PgBoss, type Job } from "pg-boss";
-import type { Db } from "../db/client.js";
-import type { Env } from "../env.js";
-import * as schema from "../db/schema/index.js";
+import type { Db } from "@/db/client.js";
+import type { Env } from "@/env.js";
+import * as schema from "@/db/schema/index.js";
 import { eq, and } from "drizzle-orm";
-import { executeWorkflow } from "./automation-executor.js";
-import { resolveStoredApiKey } from "./api-key-crypto.js";
-import { logger } from "./logger.js";
+import { executeWorkflow } from "@/lib/automation-executor.js";
+import { resolveStoredApiKey } from "@/lib/api-key-crypto.js";
+import { logger } from "@/lib/logger.js";
 
 const log = logger.child({ component: "automation-engine" });
 

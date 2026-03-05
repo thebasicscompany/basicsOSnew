@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { authMiddleware } from "../middleware/auth.js";
+import { runPostSchema, runsListQuerySchema, } from "../schemas/automation-runs.js";
 import * as schema from "../db/schema/index.js";
 import { eq, and, desc } from "drizzle-orm";
 import { triggerRunNow } from "../lib/automation-engine.js";
@@ -12,10 +13,19 @@ export function createAutomationRunsRoutes(db, auth, _env) {
         const authz = await requirePermission(c, db, PERMISSIONS.recordsWrite);
         if (!authz.ok)
             return authz.response;
-        const body = await c.req.json().catch(() => ({}));
-        const ruleId = body?.ruleId;
-        if (typeof ruleId !== "number")
-            return c.json({ error: "ruleId required" }, 400);
+        let rawBody;
+        try {
+            rawBody = await c.req.json();
+        }
+        catch {
+            return c.json({ error: "Invalid JSON body" }, 400);
+        }
+        const parsed = runPostSchema.safeParse(rawBody);
+        if (!parsed.success) {
+            const msg = parsed.error.issues[0]?.message ?? "Validation failed";
+            return c.json({ error: msg }, 400);
+        }
+        const ruleId = parsed.data.ruleId;
         const session = c.get("session");
         const [crmUserRow] = await db
             .select()
@@ -41,10 +51,15 @@ export function createAutomationRunsRoutes(db, auth, _env) {
         const authz = await requirePermission(c, db, PERMISSIONS.recordsRead);
         if (!authz.ok)
             return authz.response;
-        const ruleIdParam = c.req.query("ruleId");
-        if (!ruleIdParam)
-            return c.json({ error: "ruleId query param required" }, 400);
-        const ruleId = parseInt(ruleIdParam, 10);
+        const queryParsed = runsListQuerySchema.safeParse({
+            ruleId: c.req.query("ruleId"),
+            limit: c.req.query("limit"),
+        });
+        if (!queryParsed.success) {
+            const msg = queryParsed.error.issues[0]?.message ?? "ruleId query param required";
+            return c.json({ error: msg }, 400);
+        }
+        const ruleId = parseInt(queryParsed.data.ruleId, 10);
         if (isNaN(ruleId))
             return c.json({ error: "Invalid ruleId" }, 400);
         const session = c.get("session");
@@ -63,8 +78,7 @@ export function createAutomationRunsRoutes(db, auth, _env) {
             .limit(1);
         if (!rule)
             return c.json({ error: "Rule not found" }, 404);
-        const limitParam = c.req.query("limit");
-        const limit = limitParam ? Math.min(parseInt(limitParam, 10) || 20, 100) : 20;
+        const limit = queryParsed.data.limit;
         const runs = await db
             .select()
             .from(schema.automationRuns)

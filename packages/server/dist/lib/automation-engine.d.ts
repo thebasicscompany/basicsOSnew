@@ -17,6 +17,8 @@ export interface WorkflowDefinition {
     }>;
 }
 export declare function startAutomationEngine(database: Db, environment: Env): Promise<void>;
+/** Gracefully stop the automation engine. Waits for in-flight jobs up to timeout. */
+export declare function stopAutomationEngine(): Promise<void>;
 export declare function reloadRule(ruleId: number): Promise<void>;
 export declare function fireEvent(event: string, payload: Record<string, unknown>, crmUserId: number): Promise<void>;
 /** Trigger a manual run for a specific rule. Sends job to run-automation queue. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasPermission, wouldRemoveLastManager } from "./rbac.js";
+import { hasPermission, wouldRemoveLastManager } from "@/lib/rbac.js";
 
 describe("hasPermission", () => {
   it("returns true for exact permission", () => {

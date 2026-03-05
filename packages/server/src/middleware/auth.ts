@@ -1,7 +1,7 @@
 import type { Context, Next } from "hono";
 import { eq } from "drizzle-orm";
-import type { Db } from "../db/client.js";
-import * as schema from "../db/schema/index.js";
+import type { Db } from "@/db/client.js";
+import * as schema from "@/db/schema/index.js";
 
 type AuthWithApi = {
   handler: (req: Request) => Promise<Response>;

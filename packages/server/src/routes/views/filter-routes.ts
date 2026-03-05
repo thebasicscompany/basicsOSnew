@@ -1,10 +1,11 @@
 import type { Hono } from "hono";
 import { and, eq } from "drizzle-orm";
-import type { Db } from "../../db/client.js";
-import * as schema from "../../db/schema/index.js";
-import { PERMISSIONS, requirePermission } from "../../lib/rbac.js";
-import { filterRowToNocoRaw } from "./mappers.js";
-import { getCrmUserId, getViewAndCheckOwnership } from "./shared.js";
+import type { Db } from "@/db/client.js";
+import { filterPostSchema } from "@/schemas/views.js";
+import * as schema from "@/db/schema/index.js";
+import { PERMISSIONS, requirePermission } from "@/lib/rbac.js";
+import { filterRowToNocoRaw } from "@/routes/views/mappers.js";
+import { getCrmUserId, getViewAndCheckOwnership } from "@/routes/views/shared.js";
 
 export function registerFilterRoutes(app: Hono, db: Db): void {
   app.get("/view/:viewId/filters", async (c) => {
@@ -51,12 +52,18 @@ export function registerFilterRoutes(app: Hono, db: Db): void {
     );
     if (!view) return c.json({ error: "View not found" }, 404);
 
-    const body = await c.req.json<{
-      fk_column_id: string;
-      comparison_op: string;
-      value: unknown;
-      logical_op?: "and" | "or";
-    }>();
+    let rawBody: unknown;
+    try {
+      rawBody = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON body" }, 400);
+    }
+    const parsed = filterPostSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      const msg = parsed.error.issues[0]?.message ?? "Validation failed";
+      return c.json({ error: msg }, 400);
+    }
+    const body = parsed.data;
 
     const [inserted] = await db
       .insert(schema.viewFilters)
@@ -65,7 +72,7 @@ export function registerFilterRoutes(app: Hono, db: Db): void {
         fieldId: body.fk_column_id,
         comparisonOp: body.comparison_op,
         value: body.value != null ? String(body.value) : null,
-        logicalOp: body.logical_op ?? "and",
+        logicalOp: body.logical_op,
       })
       .returning();
 

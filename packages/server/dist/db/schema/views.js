@@ -1,7 +1,7 @@
 import { pgTable, text, varchar, boolean, smallint, timestamp, bigint, uuid, unique, index, } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
-import { crmUsers } from "./crm_users.js";
-import { organizations } from "./organizations.js";
+import { crmUsers } from "../../db/schema/crm_users.js";
+import { organizations } from "../../db/schema/organizations.js";
 export const views = pgTable("views", {
     id: text("id")
         .primaryKey()
@@ -21,7 +21,10 @@ export const views = pgTable("views", {
     createdAt: timestamp("created_at", { withTimezone: true })
         .notNull()
         .defaultNow(),
-}, (t) => [index("views_slug_crm_user").on(t.objectSlug, t.crmUserId), index("views_object_slug_org_idx").on(t.objectSlug, t.organizationId)]);
+}, (t) => [
+    index("views_slug_crm_user").on(t.objectSlug, t.crmUserId),
+    index("views_object_slug_org_idx").on(t.objectSlug, t.organizationId),
+]);
 export const viewColumns = pgTable("view_columns", {
     id: text("id")
         .primaryKey()

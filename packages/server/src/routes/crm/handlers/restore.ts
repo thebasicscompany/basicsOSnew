@@ -1,7 +1,7 @@
 import type { Context } from "hono";
-import type { Db } from "../../../db/client.js";
-import { PERMISSIONS, requirePermission } from "../../../lib/rbac.js";
-import { restoreDealService } from "../../../services/crm/restore-deal.js";
+import type { Db } from "@/db/client.js";
+import { PERMISSIONS, requirePermission } from "@/lib/rbac.js";
+import { restoreDealService } from "@/services/crm/restore-deal.js";
 
 export function createRestoreHandler(db: Db) {
   return async (c: Context) => {

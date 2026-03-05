@@ -1,8 +1,8 @@
 import { generateText, tool } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { z } from "zod";
-import type { Db } from "../../db/client.js";
-import * as schema from "../../db/schema/index.js";
+import type { Db } from "@/db/client.js";
+import * as schema from "@/db/schema/index.js";
 import { and, eq, like, or } from "drizzle-orm";
 
 export async function executeAIAgent(

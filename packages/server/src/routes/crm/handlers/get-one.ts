@@ -1,8 +1,8 @@
 import type { Context } from "hono";
-import type { Db } from "../../../db/client.js";
-import { PERMISSIONS, requirePermission } from "../../../lib/rbac.js";
-import { getOneRecord } from "../../../data-access/crm/get-one.js";
-import { CRM_RESOURCES, type Resource } from "../constants.js";
+import type { Db } from "@/db/client.js";
+import { PERMISSIONS, requirePermission } from "@/lib/rbac.js";
+import { getOneRecord } from "@/data-access/crm/get-one.js";
+import { CRM_RESOURCES, type Resource } from "@/routes/crm/constants.js";
 
 export function createGetOneHandler(db: Db) {
   return async (c: Context) => {

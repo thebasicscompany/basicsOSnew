@@ -1,12 +1,16 @@
 import type { Hono } from "hono";
 import { eq } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
-import type { Db } from "../../db/client.js";
-import type { createAuth } from "../../auth.js";
-import * as schema from "../../db/schema/index.js";
-import { PERMISSIONS, requirePermission } from "../../lib/rbac.js";
-import { writeAuditLogSafe } from "../../lib/audit-log.js";
-import { authMiddleware } from "../../middleware/auth.js";
+import type { Db } from "@/db/client.js";
+import type { createAuth } from "@/auth.js";
+import * as schema from "@/db/schema/index.js";
+import { PERMISSIONS, requirePermission } from "@/lib/rbac.js";
+import { writeAuditLogSafe } from "@/lib/audit-log.js";
+import { authMiddleware } from "@/middleware/auth.js";
+import {
+  signupBodySchema,
+  invitesBodySchema,
+} from "@/schemas/auth.js";
 
 function generateInviteToken(): string {
   return randomBytes(24).toString("hex");
@@ -23,22 +27,24 @@ export function registerInitSignupInviteRoutes(
   });
 
   app.post("/signup", async (c) => {
-    const body = await c.req.json<{
-      email: string;
-      password: string;
-      first_name: string;
-      last_name: string;
-      invite_token?: string;
-    }>();
-
-    const { email, password, first_name, last_name, invite_token } = body;
-    if (!email || !password || !first_name || !last_name) {
-      return c.json({ error: "Missing required fields" }, 400);
+    let rawBody: unknown;
+    try {
+      rawBody = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON body" }, 400);
     }
+    const parsed = signupBodySchema.safeParse(rawBody);
+    if (!parsed.success) {
+      const msg = parsed.error.issues[0]?.message ?? "Validation failed";
+      return c.json({ error: msg }, 400);
+    }
+    const { email, password, first_name, last_name, invite_token } =
+      parsed.data;
 
     const orgs = await db.select().from(schema.organizations).limit(1);
     const isFirstUser = orgs.length === 0;
     let organizationId: string | null = null;
+    const inviteTokenParsed = invite_token?.trim();
 
     if (isFirstUser) {
       const [org] = await db
@@ -51,8 +57,7 @@ export function registerInitSignupInviteRoutes(
       }
       organizationId = org.id;
     } else {
-      const inviteToken = invite_token?.trim();
-      if (!inviteToken) {
+      if (!inviteTokenParsed) {
         return c.json(
           {
             error:
@@ -65,7 +70,7 @@ export function registerInitSignupInviteRoutes(
       const inviteRows = await db
         .select()
         .from(schema.invites)
-        .where(eq(schema.invites.token, inviteToken))
+        .where(eq(schema.invites.token, inviteTokenParsed))
         .limit(1);
       const invite = inviteRows[0];
       if (!invite) {
@@ -153,10 +158,10 @@ export function registerInitSignupInviteRoutes(
       }
     }
 
-    if (!isFirstUser && invite_token?.trim()) {
+    if (!isFirstUser && inviteTokenParsed) {
       await db
         .delete(schema.invites)
-        .where(eq(schema.invites.token, invite_token.trim()));
+        .where(eq(schema.invites.token, inviteTokenParsed));
     }
 
     return c.json({
@@ -172,18 +177,21 @@ export function registerInitSignupInviteRoutes(
     if (!crmUser.organizationId)
       return c.json({ error: "No organization found" }, 400);
 
-    const rawBody = await c.req.json().catch(() => null);
-    const body = (rawBody ?? {}) as {
-      email?: string | null;
-      expiresInHours?: number;
-    };
-
-    const expiresInHoursRaw = body.expiresInHours;
-    const expiresInHours = Number.isFinite(expiresInHoursRaw)
-      ? Math.min(Math.max(Math.floor(expiresInHoursRaw as number), 1), 24 * 30)
-      : 24 * 7;
-
-    const email = body.email?.trim() ? body.email.trim().toLowerCase() : null;
+    let rawBody: unknown;
+    try {
+      rawBody = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON body" }, 400);
+    }
+    const parsed = invitesBodySchema.safeParse(rawBody ?? {});
+    if (!parsed.success) {
+      const msg = parsed.error.issues[0]?.message ?? "Validation failed";
+      return c.json({ error: msg }, 400);
+    }
+    const { email, expiresInHours } = parsed.data;
+    const emailNormalized = email?.trim()
+      ? email.trim().toLowerCase()
+      : null;
     const token = generateInviteToken();
     const expiresAt = new Date(Date.now() + expiresInHours * 60 * 60 * 1000);
 
@@ -192,7 +200,7 @@ export function registerInitSignupInviteRoutes(
       .values({
         token,
         organizationId: crmUser.organizationId,
-        email,
+        email: emailNormalized,
         expiresAt,
       })
       .returning();

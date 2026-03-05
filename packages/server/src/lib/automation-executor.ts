@@ -1,16 +1,16 @@
-import type { Db } from "../db/client.js";
-import type { Env } from "../env.js";
-import type { WorkflowDefinition } from "./automation-engine.js";
+import type { Db } from "@/db/client.js";
+import type { Env } from "@/env.js";
+import type { WorkflowDefinition } from "@/lib/automation-engine.js";
 import { topologicalSort } from "@basics-os/shared";
-import { executeEmail } from "./automation-actions/email.js";
-import { executeAI } from "./automation-actions/ai-task.js";
-import { executeWebSearch } from "./automation-actions/web-search.js";
-import { executeCrmAction } from "./automation-actions/crm-action.js";
-import { executeSlack } from "./automation-actions/slack.js";
-import { executeGmailRead } from "./automation-actions/gmail-read.js";
-import { executeGmailSend } from "./automation-actions/gmail-send.js";
-import { executeAIAgent } from "./automation-actions/ai-agent.js";
-import { resolveStoredApiKey } from "./api-key-crypto.js";
+import { executeEmail } from "@/lib/automation-actions/email.js";
+import { executeAI } from "@/lib/automation-actions/ai-task.js";
+import { executeWebSearch } from "@/lib/automation-actions/web-search.js";
+import { executeCrmAction } from "@/lib/automation-actions/crm-action.js";
+import { executeSlack } from "@/lib/automation-actions/slack.js";
+import { executeGmailRead } from "@/lib/automation-actions/gmail-read.js";
+import { executeGmailSend } from "@/lib/automation-actions/gmail-send.js";
+import { executeAIAgent } from "@/lib/automation-actions/ai-agent.js";
+import { resolveStoredApiKey } from "@/lib/api-key-crypto.js";
 
 type CrmUserRow = { id: number; basicsApiKey?: string | null; basicsApiKeyEnc?: string | null };
 

@@ -8,9 +8,9 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
-import { automationRules } from "./automation_rules.js";
-import { crmUsers } from "./crm_users.js";
-import { organizations } from "./organizations.js";
+import { automationRules } from "@/db/schema/automation_rules.js";
+import { crmUsers } from "@/db/schema/crm_users.js";
+import { organizations } from "@/db/schema/organizations.js";
 
 export const automationRuns = pgTable("automation_runs", {
   id: bigserial("id", { mode: "number" }).primaryKey(),

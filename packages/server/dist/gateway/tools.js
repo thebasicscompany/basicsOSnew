@@ -10,10 +10,22 @@ const CRM_TOOL_SCHEMAS = [
         parameters: {
             type: "object",
             properties: {
-                query: { type: "string", description: "Free-text search across first name, last name, email, and company name" },
-                status: { type: "string", description: "Filter by contact status (e.g. lead, prospect, customer)" },
-                company_id: { type: "number", description: "Filter by company ID" },
-                limit: { type: "number", description: "Max number of results (default 25)" },
+                query: {
+                    type: "string",
+                    description: "Free-text search across first name, last name, email, and company name",
+                },
+                status: {
+                    type: "string",
+                    description: "Filter by contact status (e.g. lead, prospect, customer)",
+                },
+                company_id: {
+                    type: "number",
+                    description: "Filter by company ID",
+                },
+                limit: {
+                    type: "number",
+                    description: "Max number of results (default 25)",
+                },
             },
             required: [],
         },
@@ -23,7 +35,9 @@ const CRM_TOOL_SCHEMAS = [
         description: "Fetch a single contact by ID. Use when you need full details for a specific contact.",
         parameters: {
             type: "object",
-            properties: { id: { type: "number", description: "Contact ID" } },
+            properties: {
+                id: { type: "number", description: "Contact ID" },
+            },
             required: ["id"],
         },
     },
@@ -36,7 +50,10 @@ const CRM_TOOL_SCHEMAS = [
                 first_name: { type: "string", description: "First name" },
                 last_name: { type: "string", description: "Last name" },
                 email: { type: "string", description: "Email address" },
-                company_id: { type: "number", description: "Company ID to link" },
+                company_id: {
+                    type: "number",
+                    description: "Company ID to link",
+                },
                 status: { type: "string", description: "Contact status" },
             },
             required: [],
@@ -63,11 +80,26 @@ const CRM_TOOL_SCHEMAS = [
         parameters: {
             type: "object",
             properties: {
-                query: { type: "string", description: "Free-text search on deal name" },
-                stage: { type: "string", description: "Filter by deal stage (e.g. qualification, proposal, negotiation)" },
-                category: { type: "string", description: "Filter by deal category" },
-                company_id: { type: "number", description: "Filter by company ID" },
-                limit: { type: "number", description: "Max number of results (default 25)" },
+                query: {
+                    type: "string",
+                    description: "Free-text search on deal name",
+                },
+                stage: {
+                    type: "string",
+                    description: "Filter by deal stage (e.g. qualification, proposal, negotiation)",
+                },
+                category: {
+                    type: "string",
+                    description: "Filter by deal category",
+                },
+                company_id: {
+                    type: "number",
+                    description: "Filter by company ID",
+                },
+                limit: {
+                    type: "number",
+                    description: "Max number of results (default 25)",
+                },
             },
             required: [],
         },
@@ -90,9 +122,18 @@ const CRM_TOOL_SCHEMAS = [
                 name: { type: "string", description: "Deal name" },
                 stage: { type: "string", description: "Deal stage" },
                 category: { type: "string", description: "Deal category" },
-                company_id: { type: "number", description: "Company ID to link" },
-                amount: { type: "number", description: "Deal amount in cents" },
-                description: { type: "string", description: "Deal description" },
+                company_id: {
+                    type: "number",
+                    description: "Company ID to link",
+                },
+                amount: {
+                    type: "number",
+                    description: "Deal amount in cents",
+                },
+                description: {
+                    type: "string",
+                    description: "Deal description",
+                },
             },
             required: ["name"],
         },
@@ -107,8 +148,14 @@ const CRM_TOOL_SCHEMAS = [
                 name: { type: "string", description: "Deal name" },
                 stage: { type: "string", description: "Deal stage" },
                 category: { type: "string", description: "Deal category" },
-                amount: { type: "number", description: "Deal amount in cents" },
-                description: { type: "string", description: "Deal description" },
+                amount: {
+                    type: "number",
+                    description: "Deal amount in cents",
+                },
+                description: {
+                    type: "string",
+                    description: "Deal description",
+                },
             },
             required: ["id"],
         },
@@ -119,9 +166,18 @@ const CRM_TOOL_SCHEMAS = [
         parameters: {
             type: "object",
             properties: {
-                query: { type: "string", description: "Free-text search across company name, city, and sector" },
-                sector: { type: "string", description: "Filter by sector/industry" },
-                limit: { type: "number", description: "Max number of results (default 25)" },
+                query: {
+                    type: "string",
+                    description: "Free-text search across company name, city, and sector",
+                },
+                sector: {
+                    type: "string",
+                    description: "Filter by sector/industry",
+                },
+                limit: {
+                    type: "number",
+                    description: "Max number of results (default 25)",
+                },
             },
             required: [],
         },
@@ -146,8 +202,14 @@ const CRM_TOOL_SCHEMAS = [
         parameters: {
             type: "object",
             properties: {
-                contact_id: { type: "number", description: "Contact ID to list tasks for" },
-                limit: { type: "number", description: "Max number of results (default 25)" },
+                contact_id: {
+                    type: "number",
+                    description: "Contact ID to list tasks for",
+                },
+                limit: {
+                    type: "number",
+                    description: "Max number of results (default 25)",
+                },
             },
             required: ["contact_id"],
         },
@@ -158,10 +220,22 @@ const CRM_TOOL_SCHEMAS = [
         parameters: {
             type: "object",
             properties: {
-                contact_id: { type: "number", description: "Contact ID to attach the task to" },
-                text: { type: "string", description: "Task description or title" },
-                type: { type: "string", description: "Task type (e.g. call, email, meeting)" },
-                due_date: { type: "string", description: "Due date in ISO format (e.g. 2025-03-01)" },
+                contact_id: {
+                    type: "number",
+                    description: "Contact ID to attach the task to",
+                },
+                text: {
+                    type: "string",
+                    description: "Task description or title",
+                },
+                type: {
+                    type: "string",
+                    description: "Task type (e.g. call, email, meeting)",
+                },
+                due_date: {
+                    type: "string",
+                    description: "Due date in ISO format (e.g. 2025-03-01)",
+                },
             },
             required: ["contact_id", "text"],
         },
@@ -171,7 +245,9 @@ const CRM_TOOL_SCHEMAS = [
         description: "Mark a task as done. Use when the user wants to complete or finish a task.",
         parameters: {
             type: "object",
-            properties: { id: { type: "number", description: "Task ID to complete" } },
+            properties: {
+                id: { type: "number", description: "Task ID to complete" },
+            },
             required: ["id"],
         },
     },
@@ -181,8 +257,14 @@ const CRM_TOOL_SCHEMAS = [
         parameters: {
             type: "object",
             properties: {
-                contact_id: { type: "number", description: "Contact ID to list notes for" },
-                limit: { type: "number", description: "Max number of results (default 25)" },
+                contact_id: {
+                    type: "number",
+                    description: "Contact ID to list notes for",
+                },
+                limit: {
+                    type: "number",
+                    description: "Max number of results (default 25)",
+                },
             },
             required: ["contact_id"],
         },
@@ -193,9 +275,15 @@ const CRM_TOOL_SCHEMAS = [
         parameters: {
             type: "object",
             properties: {
-                contact_id: { type: "number", description: "Contact ID to add the note to" },
+                contact_id: {
+                    type: "number",
+                    description: "Contact ID to add the note to",
+                },
                 text: { type: "string", description: "Note content" },
-                type: { type: "string", description: "Note type (e.g. call, meeting, email)" },
+                type: {
+                    type: "string",
+                    description: "Note type (e.g. call, meeting, email)",
+                },
             },
             required: ["contact_id", "text"],
         },

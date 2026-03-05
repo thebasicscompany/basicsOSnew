@@ -1,12 +1,12 @@
 ﻿import { Hono } from "hono";
-import { authMiddleware } from "../middleware/auth.js";
-import type { Db } from "../db/client.js";
-import type { createAuth } from "../auth.js";
-import { registerColumnRoutes } from "./views/column-routes.js";
-import { registerFilterRoutes } from "./views/filter-routes.js";
-import { registerObjectViewRoutes } from "./views/object-routes.js";
-import { registerSortRoutes } from "./views/sort-routes.js";
-import { registerViewItemRoutes } from "./views/view-item-routes.js";
+import { authMiddleware } from "@/middleware/auth.js";
+import type { Db } from "@/db/client.js";
+import type { createAuth } from "@/auth.js";
+import { registerColumnRoutes } from "@/routes/views/column-routes.js";
+import { registerFilterRoutes } from "@/routes/views/filter-routes.js";
+import { registerObjectViewRoutes } from "@/routes/views/object-routes.js";
+import { registerSortRoutes } from "@/routes/views/sort-routes.js";
+import { registerViewItemRoutes } from "@/routes/views/view-item-routes.js";
 
 type BetterAuthInstance = ReturnType<typeof createAuth>;
 

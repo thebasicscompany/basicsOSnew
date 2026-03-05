@@ -1,10 +1,11 @@
 import { Hono } from "hono";
-import { authMiddleware } from "../middleware/auth.js";
+import { authMiddleware } from "@/middleware/auth.js";
+import { customFieldCreateSchema } from "@/schemas/custom-fields.js";
 import { eq, asc, and, or, isNull } from "drizzle-orm";
-import * as schema from "../db/schema/index.js";
-import type { Db } from "../db/client.js";
-import type { createAuth } from "../auth.js";
-import { PERMISSIONS, requirePermission } from "../lib/rbac.js";
+import * as schema from "@/db/schema/index.js";
+import type { Db } from "@/db/client.js";
+import type { createAuth } from "@/auth.js";
+import { PERMISSIONS, requirePermission } from "@/lib/rbac.js";
 
 type BetterAuthInstance = ReturnType<typeof createAuth>;
 
@@ -45,19 +46,18 @@ export function createCustomFieldRoutes(db: Db, auth: BetterAuthInstance) {
     const authz = await requirePermission(c, db, PERMISSIONS.objectConfigWrite);
     if (!authz.ok) return authz.response;
 
-    const body = await c.req.json<{
-      resource: string;
-      name: string;
-      label: string;
-      fieldType: string;
-      options?: string[];
-    }>();
-    if (!body.resource || !body.name || !body.label || !body.fieldType) {
-      return c.json(
-        { error: "resource, name, label, fieldType are required" },
-        400,
-      );
+    let rawBody: unknown;
+    try {
+      rawBody = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON body" }, 400);
     }
+    const parsed = customFieldCreateSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      const msg = parsed.error.issues[0]?.message ?? "Validation failed";
+      return c.json({ error: msg }, 400);
+    }
+    const body = parsed.data;
     const safeName = body.name.toLowerCase().replace(/[^a-z0-9_]/g, "_");
     const [row] = await db
       .insert(schema.customFieldDefs)

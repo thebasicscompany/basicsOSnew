@@ -1,12 +1,12 @@
 import { Hono } from "hono";
-import { authMiddleware } from "../middleware/auth.js";
-import type { Db } from "../db/client.js";
-import type { Env } from "../env.js";
-import * as schema from "../db/schema/index.js";
+import { authMiddleware } from "@/middleware/auth.js";
+import type { Db } from "@/db/client.js";
+import type { Env } from "@/env.js";
+import * as schema from "@/db/schema/index.js";
 import { eq } from "drizzle-orm";
-import { PERMISSIONS, requirePermission } from "../lib/rbac.js";
-import { resolveStoredApiKey } from "../lib/api-key-crypto.js";
-import type { createAuth } from "../auth.js";
+import { PERMISSIONS, requirePermission } from "@/lib/rbac.js";
+import { resolveStoredApiKey } from "@/lib/api-key-crypto.js";
+import type { createAuth } from "@/auth.js";
 
 type Auth = ReturnType<typeof createAuth>;
 

@@ -4,12 +4,16 @@
  */
 
 import { Hono } from "hono";
-import { authMiddleware } from "../middleware/auth.js";
-import type { Db } from "../db/client.js";
-import type { Env } from "../env.js";
-import type { createAuth } from "../auth.js";
-import { resolveCrmUserWithApiKey } from "../lib/crm-user-auth.js";
-import { PERMISSIONS, requirePermission } from "../lib/rbac.js";
+import { authMiddleware } from "@/middleware/auth.js";
+import type { Db } from "@/db/client.js";
+import type { Env } from "@/env.js";
+import type { createAuth } from "@/auth.js";
+import { resolveCrmUserWithApiKey } from "@/lib/crm-user-auth.js";
+import { PERMISSIONS, requirePermission } from "@/lib/rbac.js";
+import {
+  transcriptionsPostSchema,
+  speechPostSchema,
+} from "@/schemas/voice-proxy.js";
 
 type BetterAuthInstance = ReturnType<typeof createAuth>;
 
@@ -36,16 +40,18 @@ export function createVoiceProxyRoutes(
     if (!crmUserAuth.ok) return crmUserAuth.response;
     const { apiKey } = crmUserAuth.data;
 
-    let body: { audio?: string; mime_type?: string };
+    let rawBody: unknown;
     try {
-      body = (await c.req.json()) as { audio?: string; mime_type?: string };
+      rawBody = await c.req.json();
     } catch {
       return c.json({ error: "Invalid JSON body" }, 400);
     }
-
-    if (!body.audio) {
-      return c.json({ error: "audio (base64) is required" }, 400);
+    const parsed = transcriptionsPostSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      const msg = parsed.error.issues[0]?.message ?? "Validation failed";
+      return c.json({ error: msg }, 400);
     }
+    const { audio, mime_type } = parsed.data;
 
     const proxyRes = await fetch(
       `${env.BASICOS_API_URL}/v1/audio/transcriptions`,
@@ -56,8 +62,8 @@ export function createVoiceProxyRoutes(
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          audio: body.audio,
-          mime_type: body.mime_type ?? "audio/webm",
+          audio,
+          mime_type,
         }),
       },
     );
@@ -90,17 +96,18 @@ export function createVoiceProxyRoutes(
     if (!crmUserAuth.ok) return crmUserAuth.response;
     const { apiKey } = crmUserAuth.data;
 
-    let body: { text?: string };
+    let rawBody: unknown;
     try {
-      body = (await c.req.json()) as { text?: string };
+      rawBody = await c.req.json();
     } catch {
       return c.json({ error: "Invalid JSON body" }, 400);
     }
-
-    const text = body.text?.trim();
-    if (!text) {
-      return c.json({ error: "text is required" }, 400);
+    const parsed = speechPostSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      const msg = parsed.error.issues[0]?.message ?? "Validation failed";
+      return c.json({ error: msg }, 400);
     }
+    const { text } = parsed.data;
 
     const proxyRes = await fetch(`${env.BASICOS_API_URL}/v1/audio/speech`, {
       method: "POST",

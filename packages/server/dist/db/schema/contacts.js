@@ -1,7 +1,7 @@
 import { pgTable, bigserial, varchar, text, boolean, timestamp, bigint, uuid, jsonb, index, } from "drizzle-orm/pg-core";
-import { companies } from "./companies";
-import { crmUsers } from "./crm_users";
-import { organizations } from "./organizations";
+import { companies } from "../../db/schema/companies";
+import { crmUsers } from "../../db/schema/crm_users";
+import { organizations } from "../../db/schema/organizations";
 export const contacts = pgTable("contacts", {
     id: bigserial("id", { mode: "number" }).primaryKey(),
     firstName: varchar("first_name", { length: 255 }),
@@ -26,7 +26,10 @@ export const contacts = pgTable("contacts", {
         onDelete: "cascade",
     }),
     linkedinUrl: varchar("linkedin_url", { length: 512 }),
-    customFields: jsonb("custom_fields").$type().default({}).notNull(),
+    customFields: jsonb("custom_fields")
+        .$type()
+        .default({})
+        .notNull(),
 }, (t) => [
     index("contacts_crm_user_id_idx").on(t.crmUserId),
     index("contacts_org_idx").on(t.organizationId),

@@ -1,12 +1,12 @@
-import type { Db } from "../../db/client.js";
-import type { Env } from "../../env.js";
-import { buildEntityText, getEntityType, upsertEntityEmbedding } from "../../lib/embeddings.js";
-import { fireEvent, reloadRule } from "../../lib/automation-engine.js";
-import { resolveStoredApiKey } from "../../lib/api-key-crypto.js";
-import { insertRecord } from "../../data-access/crm/create.js";
-import { getWriteAllowlist } from "../../routes/crm/handlers/field-allowlists.js";
-import { validateWritePayload } from "../../schemas/crm/write-payloads.js";
-import type { Resource } from "../../routes/crm/constants.js";
+import type { Db } from "@/db/client.js";
+import type { Env } from "@/env.js";
+import { buildEntityText, getEntityType, upsertEntityEmbedding } from "@/lib/embeddings.js";
+import { fireEvent, reloadRule } from "@/lib/automation-engine.js";
+import { resolveStoredApiKey } from "@/lib/api-key-crypto.js";
+import { insertRecord } from "@/data-access/crm/create.js";
+import { getWriteAllowlist } from "@/routes/crm/handlers/field-allowlists.js";
+import { validateWritePayload } from "@/schemas/crm/write-payloads.js";
+import type { Resource } from "@/routes/crm/constants.js";
 
 export interface CreateRecordInput {
   resource: Resource;

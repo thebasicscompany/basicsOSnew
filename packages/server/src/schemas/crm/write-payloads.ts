@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Resource } from "../../routes/crm/constants.js";
+import type { Resource } from "@/routes/crm/constants.js";
 
 const nullableString = z.string().trim().nullable();
 const nullableNumber = z.number().nullable();

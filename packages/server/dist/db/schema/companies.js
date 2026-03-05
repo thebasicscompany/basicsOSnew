@@ -1,9 +1,11 @@
 import { pgTable, bigserial, varchar, text, smallint, json, jsonb, timestamp, bigint, uuid, index, } from "drizzle-orm/pg-core";
-import { crmUsers } from "./crm_users";
-import { organizations } from "./organizations";
+import { crmUsers } from "../../db/schema/crm_users";
+import { organizations } from "../../db/schema/organizations";
 export const companies = pgTable("companies", {
     id: bigserial("id", { mode: "number" }).primaryKey(),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+        .defaultNow()
+        .notNull(),
     name: varchar("name", { length: 255 }).notNull(),
     sector: varchar("sector", { length: 255 }),
     size: smallint("size"),
@@ -24,7 +26,10 @@ export const companies = pgTable("companies", {
         onDelete: "cascade",
     }),
     contextLinks: json("context_links"),
-    customFields: jsonb("custom_fields").$type().default({}).notNull(),
+    customFields: jsonb("custom_fields")
+        .$type()
+        .default({})
+        .notNull(),
 }, (t) => [
     index("companies_crm_user_id_idx").on(t.crmUserId),
     index("companies_org_idx").on(t.organizationId),

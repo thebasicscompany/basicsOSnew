@@ -1,14 +1,14 @@
 import type { Context } from "hono";
-import type { Db } from "../../../db/client.js";
-import type { Env } from "../../../env.js";
-import { PERMISSIONS, requirePermission } from "../../../lib/rbac.js";
-import { createRecord } from "../../../services/crm/create-record.js";
-import { snakeToCamel } from "../utils.js";
+import type { Db } from "@/db/client.js";
+import type { Env } from "@/env.js";
+import { PERMISSIONS, requirePermission } from "@/lib/rbac.js";
+import { createRecord } from "@/services/crm/create-record.js";
+import { snakeToCamel } from "@/routes/crm/utils.js";
 import {
   CRM_RESOURCES,
   TABLE_MAP,
   type Resource,
-} from "../constants.js";
+} from "@/routes/crm/constants.js";
 
 export function createCreateHandler(db: Db, env: Env) {
   return async (c: Context) => {
@@ -33,7 +33,12 @@ export function createCreateHandler(db: Db, env: Env) {
       return c.json({ error: "Unknown resource" }, 404);
     }
 
-    const rawBody = (await c.req.json()) as Record<string, unknown>;
+    let rawBody: Record<string, unknown>;
+    try {
+      rawBody = (await c.req.json()) as Record<string, unknown>;
+    } catch {
+      return c.json({ error: "Invalid JSON body" }, 400);
+    }
     const body = snakeToCamel(rawBody) as Record<string, unknown>;
 
     const result = await createRecord(db, env, {

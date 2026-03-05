@@ -7,10 +7,10 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import { deals } from "./deals";
-import { contacts } from "./contacts";
-import { organizations } from "./organizations";
-import { crmUsers } from "./crm_users";
+import { deals } from "@/db/schema/deals";
+import { contacts } from "@/db/schema/contacts";
+import { organizations } from "@/db/schema/organizations";
+import { crmUsers } from "@/db/schema/crm_users";
 
 export const dealContacts = pgTable(
   "deal_contacts",

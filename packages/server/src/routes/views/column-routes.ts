@@ -1,14 +1,15 @@
 import type { Hono } from "hono";
 import { and, asc, eq } from "drizzle-orm";
-import type { Db } from "../../db/client.js";
-import * as schema from "../../db/schema/index.js";
-import { PERMISSIONS, requirePermission } from "../../lib/rbac.js";
-import { columnRowToNocoRaw } from "./mappers.js";
+import type { Db } from "@/db/client.js";
+import { columnPostSchema, columnPatchSchema } from "@/schemas/views.js";
+import * as schema from "@/db/schema/index.js";
+import { PERMISSIONS, requirePermission } from "@/lib/rbac.js";
+import { columnRowToNocoRaw } from "@/routes/views/mappers.js";
 import {
   formatColumnTitle,
   getCrmUserId,
   getViewAndCheckOwnership,
-} from "./shared.js";
+} from "@/routes/views/shared.js";
 
 export function registerColumnRoutes(app: Hono, db: Db): void {
   app.post("/view/:viewId/columns", async (c) => {
@@ -29,16 +30,19 @@ export function registerColumnRoutes(app: Hono, db: Db): void {
     );
     if (!view) return c.json({ error: "View not found" }, 404);
 
-    const body = await c.req.json<{
-      fk_column_id: string;
-      title?: string;
-      show?: boolean;
-      order?: number;
-    }>();
-    const fieldId = body.fk_column_id;
-    if (!fieldId || typeof fieldId !== "string") {
-      return c.json({ error: "fk_column_id is required" }, 400);
+    let rawBody: unknown;
+    try {
+      rawBody = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON body" }, 400);
     }
+    const parsed = columnPostSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      const msg = parsed.error.issues[0]?.message ?? "Validation failed";
+      return c.json({ error: msg }, 400);
+    }
+    const body = parsed.data;
+    const fieldId = body.fk_column_id;
 
     const existing = await db
       .select()
@@ -133,11 +137,18 @@ export function registerColumnRoutes(app: Hono, db: Db): void {
     );
     if (!view) return c.json({ error: "View not found" }, 404);
 
-    const body = await c.req.json<{
-      show?: boolean;
-      order?: number;
-      width?: string;
-    }>();
+    let rawBody: unknown;
+    try {
+      rawBody = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON body" }, 400);
+    }
+    const parsed = columnPatchSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      const msg = parsed.error.issues[0]?.message ?? "Validation failed";
+      return c.json({ error: msg }, 400);
+    }
+    const body = parsed.data;
     const updates: Partial<typeof schema.viewColumns.$inferInsert> = {};
     if (typeof body.show === "boolean") updates.show = body.show;
     if (typeof body.order === "number") updates.displayOrder = body.order;

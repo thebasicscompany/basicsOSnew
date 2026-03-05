@@ -1,4 +1,4 @@
-import * as schema from "../../db/schema/index.js";
+import * as schema from "@/db/schema/index.js";
 import type { PgTableWithColumns } from "drizzle-orm/pg-core";
 
 export const CRM_RESOURCES = [

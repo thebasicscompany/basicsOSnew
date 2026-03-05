@@ -9,6 +9,15 @@ export async function executeAIAgent(config, _context, db, crmUserId, apiKey, en
         baseURL: `${env.BASICOS_API_URL}/v1`,
         apiKey,
     });
+    const [crmUser] = await db
+        .select({ organizationId: schema.crmUsers.organizationId })
+        .from(schema.crmUsers)
+        .where(eq(schema.crmUsers.id, crmUserId))
+        .limit(1);
+    const organizationId = crmUser?.organizationId;
+    if (!organizationId) {
+        throw new Error("Organization not found for CRM user");
+    }
     const { text } = await generateText({
         model: openai(model),
         maxSteps,
@@ -24,7 +33,7 @@ export async function executeAIAgent(config, _context, db, crmUserId, apiKey, en
                     return db
                         .select()
                         .from(schema.contacts)
-                        .where(and(eq(schema.contacts.crmUserId, crmUserId), or(like(schema.contacts.firstName, `%${query}%`), like(schema.contacts.lastName, `%${query}%`), like(schema.contacts.email, `%${query}%`))))
+                        .where(and(eq(schema.contacts.crmUserId, crmUserId), eq(schema.contacts.organizationId, organizationId), or(like(schema.contacts.firstName, `%${query}%`), like(schema.contacts.lastName, `%${query}%`), like(schema.contacts.email, `%${query}%`))))
                         .limit(10);
                 },
             }),
@@ -37,7 +46,7 @@ export async function executeAIAgent(config, _context, db, crmUserId, apiKey, en
                     return db
                         .select()
                         .from(schema.deals)
-                        .where(and(eq(schema.deals.crmUserId, crmUserId), like(schema.deals.name, `%${query}%`)))
+                        .where(and(eq(schema.deals.crmUserId, crmUserId), eq(schema.deals.organizationId, organizationId), like(schema.deals.name, `%${query}%`)))
                         .limit(10);
                 },
             }),
@@ -52,14 +61,14 @@ export async function executeAIAgent(config, _context, db, crmUserId, apiKey, en
                     const [contact] = await db
                         .select({ id: schema.contacts.id })
                         .from(schema.contacts)
-                        .where(and(eq(schema.contacts.id, contactId), eq(schema.contacts.crmUserId, crmUserId)))
+                        .where(and(eq(schema.contacts.id, contactId), eq(schema.contacts.crmUserId, crmUserId), eq(schema.contacts.organizationId, organizationId)))
                         .limit(1);
                     if (!contact) {
                         throw new Error("Contact not found");
                     }
                     const [task] = await db
                         .insert(schema.tasks)
-                        .values({ crmUserId, text, contactId, type })
+                        .values({ crmUserId, organizationId, text, contactId, type })
                         .returning();
                     return task;
                 },
@@ -74,7 +83,7 @@ export async function executeAIAgent(config, _context, db, crmUserId, apiKey, en
                     const [deal] = await db
                         .update(schema.deals)
                         .set({ stage })
-                        .where(and(eq(schema.deals.id, dealId), eq(schema.deals.crmUserId, crmUserId)))
+                        .where(and(eq(schema.deals.id, dealId), eq(schema.deals.crmUserId, crmUserId), eq(schema.deals.organizationId, organizationId)))
                         .returning();
                     if (!deal) {
                         throw new Error("Deal not found");

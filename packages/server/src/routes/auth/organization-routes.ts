@@ -1,11 +1,12 @@
 import type { Hono } from "hono";
 import { eq } from "drizzle-orm";
-import type { Db } from "../../db/client.js";
-import type { createAuth } from "../../auth.js";
-import * as schema from "../../db/schema/index.js";
-import { PERMISSIONS, requirePermission } from "../../lib/rbac.js";
-import { writeAuditLogSafe } from "../../lib/audit-log.js";
-import { authMiddleware } from "../../middleware/auth.js";
+import type { Db } from "@/db/client.js";
+import type { createAuth } from "@/auth.js";
+import * as schema from "@/db/schema/index.js";
+import { PERMISSIONS, requirePermission } from "@/lib/rbac.js";
+import { writeAuditLogSafe } from "@/lib/audit-log.js";
+import { authMiddleware } from "@/middleware/auth.js";
+import { organizationPatchSchema } from "@/schemas/auth.js";
 
 export function registerOrganizationRoutes(
   app: Hono,
@@ -47,11 +48,18 @@ export function registerOrganizationRoutes(
     if (!crmUser.organizationId)
       return c.json({ error: "No organization found" }, 404);
 
-    const rawBody = await c.req.json().catch(() => null);
-    const body = (rawBody ?? {}) as {
-      name?: string;
-      logo?: { src?: string } | null;
-    };
+    let rawBody: unknown;
+    try {
+      rawBody = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON body" }, 400);
+    }
+    const parsed = organizationPatchSchema.safeParse(rawBody ?? {});
+    if (!parsed.success) {
+      const msg = parsed.error.issues[0]?.message ?? "Validation failed";
+      return c.json({ error: msg }, 400);
+    }
+    const body = parsed.data;
 
     const updates: Partial<{
       name: string;
@@ -59,18 +67,14 @@ export function registerOrganizationRoutes(
       updatedAt: Date;
     }> = {};
 
-    if (typeof body.name === "string") {
-      const name = body.name.trim();
-      if (!name)
-        return c.json({ error: "Organization name cannot be empty" }, 400);
-      updates.name = name.slice(0, 255);
+    if (body.name !== undefined) {
+      updates.name = body.name;
     }
-
-    if (body.logo === null) {
-      updates.logo = null;
-    } else if (body.logo && typeof body.logo.src === "string") {
-      const src = body.logo.src.trim();
-      updates.logo = src ? { src } : null;
+    if (body.logo !== undefined) {
+      updates.logo =
+        body.logo === null || !body.logo?.src
+          ? null
+          : { src: body.logo.src };
     }
 
     if (Object.keys(updates).length === 0) {

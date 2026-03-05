@@ -1,21 +1,21 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import type { Context, Next } from "hono";
-import { createAuth } from "./auth.js";
-import type { Db } from "./db/client.js";
-import type { Env } from "./env.js";
-import { createAuthRoutes } from "./routes/auth.js";
-import { createAutomationRunsRoutes } from "./routes/automation-runs.js";
-import { createCrmRoutes } from "./routes/crm/index.js";
-import { createCustomFieldRoutes } from "./routes/custom-fields.js";
-import { createConnectionsRoutes } from "./routes/connections.js";
-import { createGatewayChatRoutes } from "./routes/gateway-chat.js";
-import { createObjectConfigRoutes } from "./routes/object-config.js";
-import { createSchemaRoutes } from "./routes/schema.js";
-import { createViewRoutes } from "./routes/views.js";
-import { createVoiceProxyRoutes } from "./routes/voice-proxy.js";
-import { createStreamAssistantRoutes } from "./routes/stream-assistant.js";
-import { createRbacRoutes } from "./routes/rbac.js";
+import { createAuth } from "@/auth.js";
+import type { Db } from "@/db/client.js";
+import type { Env } from "@/env.js";
+import { createAuthRoutes } from "@/routes/auth.js";
+import { createAutomationRunsRoutes } from "@/routes/automation-runs.js";
+import { createCrmRoutes } from "@/routes/crm/index.js";
+import { createCustomFieldRoutes } from "@/routes/custom-fields.js";
+import { createConnectionsRoutes } from "@/routes/connections.js";
+import { createGatewayChatRoutes } from "@/routes/gateway-chat.js";
+import { createObjectConfigRoutes } from "@/routes/object-config.js";
+import { createSchemaRoutes } from "@/routes/schema.js";
+import { createViewRoutes } from "@/routes/views.js";
+import { createVoiceProxyRoutes } from "@/routes/voice-proxy.js";
+import { createStreamAssistantRoutes } from "@/routes/stream-assistant.js";
+import { createRbacRoutes } from "@/routes/rbac.js";
 
 type RateBucket = {
   count: number;
@@ -78,18 +78,25 @@ export function createApp(db: Db, env: Env) {
 
   const app = new Hono();
 
+  const allowedOriginSet = new Set(
+    env.ALLOWED_ORIGINS
+      ? env.ALLOWED_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean)
+      : []
+  );
+
   app.use(
     "/*",
     cors({
       origin: (origin) => {
-        // Allow localhost on any port (web dev, Electron dev server)
         if (!origin) return null;
         try {
           const url = new URL(origin);
-          const allowed =
+          const isLocalhost =
             (url.hostname === "localhost" || url.hostname === "127.0.0.1") &&
             (url.protocol === "http:" || url.protocol === "https:");
-          return allowed ? origin : null;
+          if (isLocalhost) return origin;
+          if (allowedOriginSet.has(origin)) return origin;
+          return null;
         } catch {
           return null;
         }

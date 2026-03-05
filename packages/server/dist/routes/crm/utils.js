@@ -1,45 +1,15 @@
-import { eq, ne, not, ilike, gt, lt, gte, lte, isNull, isNotNull, } from "drizzle-orm";
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2})?/;
+/**
+ * Converts snake_case keys to camelCase. Used for request body parsing (HTTP concern).
+ */
 export function snakeToCamel(obj) {
     const result = {};
     for (const [k, v] of Object.entries(obj)) {
         if (v === undefined)
             continue;
         const camel = k.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
-        result[camel] = typeof v === "string" && ISO_DATE_RE.test(v) ? new Date(v) : v;
+        result[camel] =
+            typeof v === "string" && ISO_DATE_RE.test(v) ? new Date(v) : v;
     }
     return result;
-}
-export function snakeToCamelField(field) {
-    return field.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
-}
-export function buildGenericFilterCondition(table, f) {
-    const col = table[snakeToCamelField(f.field)];
-    if (!col || typeof col.getSQL !== "function")
-        return null;
-    const c = col;
-    switch (f.op) {
-        case "eq":
-            return eq(c, f.value);
-        case "neq":
-            return ne(c, f.value);
-        case "like":
-            return ilike(c, `%${f.value}%`);
-        case "nlike":
-            return not(ilike(c, `%${f.value}%`));
-        case "gt":
-            return gt(c, f.value);
-        case "lt":
-            return lt(c, f.value);
-        case "gte":
-            return gte(c, f.value);
-        case "lte":
-            return lte(c, f.value);
-        case "blank":
-            return isNull(c);
-        case "notblank":
-            return isNotNull(c);
-        default:
-            return null;
-    }
 }

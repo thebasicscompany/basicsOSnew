@@ -13,6 +13,9 @@ const envSchema = z.object({
   API_KEY_ENCRYPTION_KEY: z.string().optional(),
   API_KEY_ENCRYPTION_KEY_PREVIOUS: z.string().optional(),
   API_KEY_HASH_SECRET: z.string().optional(),
+  // Comma-separated origins for CORS (e.g. https://app.example.com,https://admin.example.com)
+  // If set, used in addition to localhost. If empty, only localhost is allowed.
+  ALLOWED_ORIGINS: z.string().optional().default(""),
 });
 
 export type Env = z.infer<typeof envSchema>;

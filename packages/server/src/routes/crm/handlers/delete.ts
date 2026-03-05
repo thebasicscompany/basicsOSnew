@@ -1,12 +1,12 @@
 import type { Context } from "hono";
-import type { Db } from "../../../db/client.js";
-import { PERMISSIONS, getCrmUserFromSession, getPermissionSetForUser, hasPermission } from "../../../lib/rbac.js";
-import { deleteRecord } from "../../../services/crm/delete-record.js";
+import type { Db } from "@/db/client.js";
+import { PERMISSIONS, getCrmUserFromSession, getPermissionSetForUser, hasPermission } from "@/lib/rbac.js";
+import { deleteRecord } from "@/services/crm/delete-record.js";
 import {
   CRM_RESOURCES,
   TABLE_MAP,
   type Resource,
-} from "../constants.js";
+} from "@/routes/crm/constants.js";
 
 export function createDeleteHandler(db: Db) {
   return async (c: Context) => {

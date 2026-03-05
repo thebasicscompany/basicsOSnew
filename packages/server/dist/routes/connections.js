@@ -3,15 +3,19 @@ import { authMiddleware } from "../middleware/auth.js";
 import * as schema from "../db/schema/index.js";
 import { eq } from "drizzle-orm";
 import { PERMISSIONS, requirePermission } from "../lib/rbac.js";
+import { resolveStoredApiKey } from "../lib/api-key-crypto.js";
 export function createConnectionsRoutes(db, auth, env) {
     const app = new Hono();
     async function getCrmUserApiKey(userId) {
         const rows = await db
-            .select({ basicsApiKey: schema.crmUsers.basicsApiKey })
+            .select({
+            basicsApiKey: schema.crmUsers.basicsApiKey,
+            basicsApiKeyEnc: schema.crmUsers.basicsApiKeyEnc,
+        })
             .from(schema.crmUsers)
             .where(eq(schema.crmUsers.userId, userId))
             .limit(1);
-        return rows[0]?.basicsApiKey ?? null;
+        return rows[0] ? resolveStoredApiKey(rows[0]) : null;
     }
     // List all connections for the authenticated user
     app.get("/", authMiddleware(auth, db), async (c) => {

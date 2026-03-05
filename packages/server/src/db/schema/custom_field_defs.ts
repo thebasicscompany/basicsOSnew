@@ -7,7 +7,7 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
-import { organizations } from "./organizations";
+import { organizations } from "@/db/schema/organizations";
 
 export const customFieldDefs = pgTable("custom_field_defs", {
   id: bigserial("id", { mode: "number" }).primaryKey(),

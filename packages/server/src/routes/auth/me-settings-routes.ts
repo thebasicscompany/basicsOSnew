@@ -1,20 +1,24 @@
 import type { Hono } from "hono";
 import { eq } from "drizzle-orm";
-import type { Db } from "../../db/client.js";
-import type { createAuth } from "../../auth.js";
-import * as schema from "../../db/schema/index.js";
+import type { Db } from "@/db/client.js";
+import type { createAuth } from "@/auth.js";
+import * as schema from "@/db/schema/index.js";
 import {
   getPermissionSetForUser,
   hasPermission,
   PERMISSIONS,
-} from "../../lib/rbac.js";
+} from "@/lib/rbac.js";
+import {
+  mePatchSchema,
+  settingsPatchSchema,
+} from "@/schemas/auth.js";
 import {
   encryptApiKey,
   hashApiKey,
   hasApiKeyEncryptionConfigured,
-} from "../../lib/api-key-crypto.js";
-import { writeAuditLogSafe } from "../../lib/audit-log.js";
-import { authMiddleware } from "../../middleware/auth.js";
+} from "@/lib/api-key-crypto.js";
+import { writeAuditLogSafe } from "@/lib/audit-log.js";
+import { authMiddleware } from "@/middleware/auth.js";
 
 export function registerMeSettingsRoutes(
   app: Hono,
@@ -59,12 +63,20 @@ export function registerMeSettingsRoutes(
     const userId = session?.user?.id;
     if (!userId) return c.json({ error: "Unauthorized" }, 401);
 
-    const body = await c.req.json<{ firstName?: string; lastName?: string }>();
+    let rawBody: unknown;
+    try {
+      rawBody = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON body" }, 400);
+    }
+    const parsed = mePatchSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      const msg = parsed.error.issues[0]?.message ?? "Validation failed";
+      return c.json({ error: msg }, 400);
+    }
     const updates: Partial<{ firstName: string; lastName: string }> = {};
-    if (typeof body.firstName === "string" && body.firstName.trim())
-      updates.firstName = body.firstName.trim();
-    if (typeof body.lastName === "string" && body.lastName.trim())
-      updates.lastName = body.lastName.trim();
+    if (parsed.data.firstName) updates.firstName = parsed.data.firstName;
+    if (parsed.data.lastName) updates.lastName = parsed.data.lastName;
 
     if (Object.keys(updates).length === 0)
       return c.json({ error: "No valid fields to update" }, 400);
@@ -82,8 +94,18 @@ export function registerMeSettingsRoutes(
     const userId = session?.user?.id;
     if (!userId) return c.json({ error: "Unauthorized" }, 401);
 
-    const body = await c.req.json<{ basicsApiKey?: string | null }>();
-    const key = body.basicsApiKey?.trim() || null;
+    let rawBody: unknown;
+    try {
+      rawBody = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON body" }, 400);
+    }
+    const parsed = settingsPatchSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      const msg = parsed.error.issues[0]?.message ?? "Validation failed";
+      return c.json({ error: msg }, 400);
+    }
+    const key = parsed.data.basicsApiKey?.trim() || null;
 
     if (key && !hasApiKeyEncryptionConfigured()) {
       return c.json(

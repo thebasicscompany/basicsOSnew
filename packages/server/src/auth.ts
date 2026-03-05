@@ -1,6 +1,6 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import type { Db } from "./db/client.js";
+import type { Db } from "@/db/client.js";
 
 export function createAuth(db: Db, baseUrl: string, secret: string) {
   return betterAuth({

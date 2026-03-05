@@ -1,12 +1,17 @@
 import type { Context } from "hono";
-import type { Db } from "../../../db/client.js";
-import { PERMISSIONS, requirePermission } from "../../../lib/rbac.js";
-import { mergeContacts } from "../../../data-access/crm/merge-contacts.js";
-import { mergeContactsBodySchema } from "../../../schemas/crm/merge-contacts.js";
+import type { Db } from "@/db/client.js";
+import { PERMISSIONS, requirePermission } from "@/lib/rbac.js";
+import { mergeContacts } from "@/data-access/crm/merge-contacts.js";
+import { mergeContactsBodySchema } from "@/schemas/crm/merge-contacts.js";
 
 export function createMergeContactsHandler(db: Db) {
   return async (c: Context) => {
-    const rawBody = await c.req.json();
+    let rawBody: unknown;
+    try {
+      rawBody = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON body" }, 400);
+    }
     const parsed = mergeContactsBodySchema.safeParse(rawBody);
     if (!parsed.success) {
       return c.json({ error: "loserId and winnerId required" }, 400);
