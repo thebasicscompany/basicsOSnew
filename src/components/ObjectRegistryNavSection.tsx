@@ -6,7 +6,6 @@ import {
   SidebarGroupContent,
   SidebarGroupLabel,
   SidebarMenu,
-  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
@@ -29,7 +28,6 @@ export function ObjectRegistryNavSection() {
       <SidebarGroupAction
         title="New record"
         onClick={() => {
-          // Navigate to the first object with create param
           if (objects.length > 0) {
             navigate(`/objects/${objects[0].slug}?create=true`);
           }
@@ -63,7 +61,6 @@ function ObjectNavItem({
   iconSlug: string;
 }) {
   const location = useLocation();
-  const navigate = useNavigate();
   const objectPath = `/objects/${slug}`;
   const isActive = location.pathname.startsWith(objectPath);
   const IconComponent = getObjectIcon(iconSlug);
@@ -76,16 +73,6 @@ function ObjectNavItem({
           {label}
         </Link>
       </SidebarMenuButton>
-      <SidebarMenuAction
-        showOnHover
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          navigate(`${objectPath}?create=true`);
-        }}
-      >
-        <PlusIcon className="size-4" />
-      </SidebarMenuAction>
     </SidebarMenuItem>
   );
 }

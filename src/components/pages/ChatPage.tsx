@@ -1,7 +1,9 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
+import { useParams } from "react-router";
 import { toast } from "sonner";
+import type { Message } from "@ai-sdk/react";
 import { usePageTitle } from "@/contexts/page-header";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import {
@@ -16,7 +18,7 @@ import {
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
 import {
-  Message,
+  Message as MessageEl,
   MessageContent,
   MessageResponse,
 } from "@/components/ai-elements/message";
@@ -39,6 +41,7 @@ import { usePromptInputAttachments } from "@/components/ai-elements/prompt-input
 import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import { useGatewayChat } from "@/hooks/useGatewayChat";
 import { useGateway } from "@/hooks/useGateway";
+import { useThreadMessages } from "@/hooks/use-threads";
 
 function getTextContent(msg: {
   content?: unknown;
@@ -89,10 +92,24 @@ function PromptInputAttachmentsDisplay() {
   );
 }
 
-export function ChatPage() {
+function ChatPageInner({ threadId }: { threadId?: string }) {
   usePageTitle("AI Chat");
   const { hasKey } = useGateway();
-  const { messages, append, status, stop } = useGatewayChat();
+  const { data: savedMessages } = useThreadMessages(threadId);
+
+  const initialMessages = useMemo<Message[] | undefined>(() => {
+    if (!savedMessages || savedMessages.length === 0) return undefined;
+    return savedMessages.map((m) => ({
+      id: String(m.id),
+      role: m.role as "user" | "assistant",
+      content: m.content ?? "",
+    }));
+  }, [savedMessages]);
+
+  const { messages, append, status, stop } = useGatewayChat({
+    initialThreadId: threadId,
+    initialMessages,
+  });
 
   const handleSubmit = useCallback(
     async (
@@ -157,18 +174,18 @@ export function ChatPage() {
               </div>
             )}
             {displayMessages.map((m) => (
-              <Message key={m.id} from={m.role as "user" | "assistant"}>
+              <MessageEl key={m.id} from={m.role as "user" | "assistant"}>
                 <MessageContent>
                   <MessageResponse>{getTextContent(m)}</MessageResponse>
                 </MessageContent>
-              </Message>
+              </MessageEl>
             ))}
             {isThinking && (
-              <Message from="assistant">
+              <MessageEl from="assistant">
                 <MessageContent>
                   <Shimmer className="text-[13px]">Thinking...</Shimmer>
                 </MessageContent>
-              </Message>
+              </MessageEl>
             )}
           </ConversationContent>
           <ConversationScrollButton />
@@ -208,4 +225,10 @@ export function ChatPage() {
       </PromptInputProvider>
     </div>
   );
+}
+
+export function ChatPage() {
+  const { threadId } = useParams<{ threadId?: string }>();
+  // Key forces remount when switching threads
+  return <ChatPageInner key={threadId ?? "new"} threadId={threadId} />;
 }

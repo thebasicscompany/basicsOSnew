@@ -155,7 +155,7 @@ function createMainWindow(): void {
     autoHideMenuBar: true,
     icon: iconPath,
     titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 20, y: 22 },
+    trafficLightPosition: { x: 20, y: 18 },
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.cjs"),
       sandbox: true,
@@ -165,6 +165,7 @@ function createMainWindow(): void {
   });
 
   mainWindow.on("ready-to-show", () => {
+    mainWindow?.maximize();
     mainWindow?.show();
   });
 

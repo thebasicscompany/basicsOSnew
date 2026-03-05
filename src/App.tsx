@@ -22,7 +22,7 @@ import { ErrorFallback } from "@/components/error-fallback";
 import { ProtectedRoute } from "@/lib/auth";
 import { StartPage } from "@/components/auth/start-page";
 import { SignupPage } from "@/components/auth/signup-page";
-import { DashboardPage } from "@/components/pages/DashboardPage";
+import { HomePage } from "@/components/pages/HomePage";
 import { ProfilePage } from "@/components/pages/ProfilePage";
 import { SettingsPage } from "@/components/pages/SettingsPage";
 import { ImportPage } from "@/components/pages/ImportPage";
@@ -85,7 +85,7 @@ function AppRoutes() {
               </ProtectedRoute>
             }
           >
-            <Route path={ROUTES.CRM} element={<DashboardPage />} />
+            <Route path={ROUTES.CRM} element={<HomePage />} />
             <Route
               path={`${ROUTES.AUTOMATIONS}/*`}
               element={<AutomationsApp />}
@@ -93,6 +93,7 @@ function AppRoutes() {
             <Route path={ROUTES.VOICE} element={<VoiceApp />} />
             <Route path={ROUTES.MCP} element={<MCPViewerApp />} />
             <Route path={ROUTES.CHAT} element={<ChatPage />} />
+            <Route path={ROUTES.CHAT_THREAD} element={<ChatPage />} />
             <Route path={ROUTES.PROFILE} element={<ProfilePage />} />
             <Route path={ROUTES.SETTINGS} element={<SettingsPage />} />
             <Route
@@ -108,6 +109,12 @@ function AppRoutes() {
             <Route
               path="/objects/:objectSlug/:recordId"
               element={<RecordDetailPage />}
+            />
+
+            {/* Legacy dashboard redirect */}
+            <Route
+              path="/dashboard"
+              element={<Navigate to="/home" replace />}
             />
 
             {/* Redirects: old CRM routes → new objects routes */}

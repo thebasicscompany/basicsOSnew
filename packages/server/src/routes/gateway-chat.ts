@@ -15,7 +15,12 @@ import {
   toolFallbackText,
   toOpenAIMessages,
 } from "@/routes/gateway-chat/protocol.js";
-import { ensureThread, persistMessage } from "@/routes/gateway-chat/storage.js";
+import {
+  ensureThread,
+  persistMessage,
+  updateThreadTitle,
+  touchThread,
+} from "@/routes/gateway-chat/storage.js";
 import { executeValidatedTool } from "@/routes/gateway-chat/tools.js";
 
 type BetterAuthInstance = ReturnType<typeof createAuth>;
@@ -69,6 +74,13 @@ export function createGatewayChatRoutes(
       parsed.data.channel,
     );
     await persistMessage(db, threadId, "user", queryText);
+
+    // Auto-title thread with first user message (truncated to 80 chars)
+    if (!parsed.data.threadId?.trim()) {
+      const title =
+        queryText.length > 80 ? queryText.slice(0, 77) + "..." : queryText;
+      await updateThreadTitle(db, threadId, title);
+    }
 
     const [crmSummary, ragContext] = await Promise.all([
       buildCrmSummary(db, crmUser.organizationId),
@@ -194,6 +206,7 @@ export function createGatewayChatRoutes(
     if (!finalContent)
       finalContent = "I could not complete that request. Please try again.";
     await persistMessage(db, threadId, "assistant", finalContent);
+    await touchThread(db, threadId);
 
     const encoder = new TextEncoder();
     const parts = finalContent.match(/.{1,140}/g) ?? [finalContent];

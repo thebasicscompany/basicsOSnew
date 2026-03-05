@@ -92,3 +92,6 @@ storybook-static/
 package-lock.json
 packages/*/package-lock.json
 packages/*/.package-lock.json
+
+# Screen recordings
+recordings/

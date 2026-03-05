@@ -193,18 +193,21 @@ export function ObjectListPage() {
 
   const headerActionsNode = useMemo(() => {
     if (!obj) return null;
-    const showTableActions = !(objectSlug === "deals" && layout === "kanban");
     return (
-      <ObjectListHeaderActions
-        singularName={obj.singularName}
-        attributes={attributes}
-        columnItems={columnItems}
-        viewState={viewState}
-        onAddSort={handleAddSort}
-        onAddFilter={handleAddFilter}
-        onCreateRecord={() => setCreateOpen(true)}
-        showTableActions={showTableActions}
-      />
+      <>
+        {isDeals && (
+          <DealsLayoutToggle layout={layout} onLayoutChange={setLayout} />
+        )}
+        <ObjectListHeaderActions
+          singularName={obj.singularName}
+          attributes={attributes}
+          columnItems={columnItems}
+          viewState={viewState}
+          onAddSort={handleAddSort}
+          onAddFilter={handleAddFilter}
+          onCreateRecord={() => setCreateOpen(true)}
+        />
+      </>
     );
   }, [
     obj,
@@ -215,6 +218,8 @@ export function ObjectListPage() {
     handleAddFilter,
     objectSlug,
     layout,
+    isDeals,
+    setLayout,
   ]);
 
   const headerActionsPortal = usePageHeaderActions(headerActionsNode);
@@ -272,10 +277,6 @@ export function ObjectListPage() {
     <>
       {headerActionsPortal}
       <div className="flex min-h-0 flex-1 flex-col gap-3 pt-4">
-        {isDeals && (
-          <DealsLayoutToggle layout={layout} onLayoutChange={setLayout} />
-        )}
-
         {views.length > 0 && layout !== "kanban" && (
           <ObjectListViewTabs
             views={views}

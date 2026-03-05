@@ -14,6 +14,7 @@ import {
 } from "@/hooks/use-records";
 import { useToggleFavorite, useIsFavorite } from "@/hooks/use-favorites";
 import { useRecentItems, type RecentItem } from "@/hooks/use-recent-items";
+import { trackRecentRoute } from "@/lib/recent-routes";
 import {
   usePageTitle,
   usePageHeaderBreadcrumb,
@@ -214,6 +215,7 @@ export function useRecordDetail(): UseRecordDetailReturn {
 
   useEffect(() => {
     if (!record || !obj || !recordId) return;
+    if (!displayName || displayName === "\u2026") return;
     const slugToType: Record<string, "contact" | "company" | "deal"> = {
       contacts: "contact",
       companies: "company",
@@ -231,6 +233,11 @@ export function useRecordDetail(): UseRecordDetailReturn {
         name: displayName,
       } as RecentItem);
     }
+    trackRecentRoute({
+      path: `/objects/${objectSlug}/${recordId}`,
+      title: displayName,
+      objectType: objectSlug,
+    });
   }, [record, obj, recordId, objectSlug, displayName, addRecentItem]);
 
   useEffect(() => {

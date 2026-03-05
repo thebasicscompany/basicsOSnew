@@ -43,7 +43,6 @@ function PageErrorFallback({
 function LayoutHeader() {
   const title = usePageHeaderTitle();
   const titleSlotInUse = useTitleSlotInUse();
-  const registerActionsContainer = useRegisterActionsContainer();
   const registerBreadcrumbContainer = useRegisterBreadcrumbContainer();
   const registerTitleSlotContainer = useRegisterTitleSlotContainer();
   return (
@@ -65,28 +64,35 @@ function LayoutHeader() {
           className="min-w-0 flex-1 overflow-hidden [&>*]:truncate"
         />
       </div>
-      {/* Portal mount point — page components render their header actions here */}
-      <div
-        ref={registerActionsContainer}
-        className="flex shrink-0 items-center gap-2 pr-4"
-      />
     </header>
   );
 }
 
 function LayoutContent() {
   const location = useLocation();
+  const title = usePageHeaderTitle();
+  const registerActionsContainer = useRegisterActionsContainer();
   const isBuilder = /^\/automations\/(create|\d+)/.test(location.pathname);
   return (
     <div className="flex flex-1 min-h-0 flex-col">
       <div
         className={
           isBuilder
-            ? "flex w-full flex-1 flex-col min-h-0 pl-0 pr-14 pt-6"
-            : "flex w-full flex-1 flex-col px-14 pt-6 min-h-0"
+            ? "flex w-full flex-1 flex-col min-h-0 pl-0 pr-14 pt-4"
+            : "flex w-full flex-1 flex-col px-14 pt-4 min-h-0"
         }
         id="main-content"
       >
+        {/* Page title + actions bar */}
+        <div className="flex shrink-0 items-center gap-2.5 pb-4 empty:hidden">
+          {title && (
+            <h1 className="text-lg font-semibold">{title}</h1>
+          )}
+          <div
+            ref={registerActionsContainer}
+            className="flex flex-1 items-center justify-end gap-2.5 empty:hidden"
+          />
+        </div>
         <ErrorBoundary
           key={location.pathname}
           fallbackRender={({ error, resetErrorBoundary }) => (
