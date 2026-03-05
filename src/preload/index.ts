@@ -1,5 +1,4 @@
 import { contextBridge, ipcRenderer } from "electron";
-import { electronAPI as toolkitAPI } from "@electron-toolkit/preload";
 import type {
   ActivationMode,
   OverlaySettings,
@@ -122,11 +121,4 @@ const overlayAPI = {
   },
 };
 
-if (process.contextIsolated) {
-  contextBridge.exposeInMainWorld("electron", toolkitAPI);
-  contextBridge.exposeInMainWorld("electronAPI", overlayAPI);
-} else {
-  (window as unknown as { electron: typeof toolkitAPI }).electron = toolkitAPI;
-  (window as unknown as { electronAPI: typeof overlayAPI }).electronAPI =
-    overlayAPI;
-}
+contextBridge.exposeInMainWorld("electronAPI", overlayAPI);

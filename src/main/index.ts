@@ -7,10 +7,13 @@ import {
   session,
   globalShortcut,
   shell,
+  systemPreferences,
+  dialog,
 } from "electron";
-import { autoUpdater } from "electron-updater";
+import pkg from "electron-updater";
+const { autoUpdater } = pkg;
 import path from "path";
-import { exec } from "child_process";
+import { exec, execSync } from "child_process";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import { getOverlaySettings, setOverlaySettings } from "./settings-store";
 import { createShortcutManager } from "./shortcut-manager";
@@ -106,12 +109,31 @@ const deactivateOverlay = (): void => {
 const detectNotch = () => {
   const primaryDisplay = screen.getPrimaryDisplay();
   const menuBarHeight = primaryDisplay.workArea.y;
-  return {
+
+  const info = {
     hasNotch: false,
     notchHeight: 0,
     menuBarHeight: menuBarHeight > 0 ? menuBarHeight : 25,
     windowWidth: PILL_WIDTH,
   };
+
+  if (process.platform !== "darwin") return info;
+
+  try {
+    const result = execSync(
+      `swift -e 'import AppKit; if let s = NSScreen.main { print(s.safeAreaInsets.top) } else { print(0) }'`,
+      { timeout: 3000, encoding: "utf8" },
+    ).trim();
+    const insetTop = parseFloat(result);
+    if (insetTop > 0) {
+      info.hasNotch = true;
+      info.notchHeight = Math.round(insetTop);
+    }
+  } catch {
+    // Swift not available or failed — assume no notch
+  }
+
+  return info;
 };
 
 function createMainWindow(): void {
@@ -125,7 +147,7 @@ function createMainWindow(): void {
     autoHideMenuBar: true,
     icon: iconPath,
     webPreferences: {
-      preload: path.join(__dirname, "../preload/index.mjs"),
+      preload: path.join(__dirname, "../preload/index.cjs"),
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
@@ -175,8 +197,11 @@ function createOverlayWindow(): void {
     show: false,
     resizable: false,
     movable: false,
+    roundedCorners: false,
+    hiddenInMissionControl: true,
+    enableLargerThanScreen: true,
     webPreferences: {
-      preload: path.join(__dirname, "../preload/index.mjs"),
+      preload: path.join(__dirname, "../preload/index.cjs"),
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
@@ -186,6 +211,7 @@ function createOverlayWindow(): void {
   });
 
   overlayWindow.setAlwaysOnTop(true, "screen-saver");
+  overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
   const overlayUrl =
     is.dev && process.env["ELECTRON_RENDERER_URL"]
@@ -449,7 +475,7 @@ const registerMeetingShortcut = (accelerator: string): void => {
   if (ok) registeredMeetingAccelerator = accelerator;
 };
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   electronApp.setAppUserModelId("com.basics-hub");
 
   // Auto-update (skip in dev)
@@ -457,6 +483,20 @@ app.whenReady().then(() => {
     autoUpdater.checkForUpdatesAndNotify().catch(() => {
       // Ignore update errors (e.g. no network, no publish configured)
     });
+  }
+
+  // Ensure Accessibility permission (required for globalShortcut on macOS)
+  if (process.platform === "darwin") {
+    const trusted = systemPreferences.isTrustedAccessibilityClient(true);
+    if (!trusted) {
+      await dialog.showMessageBox({
+        type: "warning",
+        title: "Accessibility Permission Required",
+        message:
+          "BasicsOS needs Accessibility permission for keyboard shortcuts.\n\n" +
+          "Please grant access in System Settings → Privacy & Security → Accessibility, then restart the app.",
+      });
+    }
   }
 
   app.on("browser-window-created", (_, window) => {
@@ -512,6 +552,7 @@ app.whenReady().then(() => {
   registerMeetingShortcut(settings.shortcuts.meetingToggle);
 
   createMainWindow();
+  createOverlayWindow();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {

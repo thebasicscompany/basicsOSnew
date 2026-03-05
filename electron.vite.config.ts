@@ -9,9 +9,15 @@ export default defineConfig({
       alias: { "@": path.resolve(__dirname, "src") },
     },
   },
-  // With "type": "module", electron-vite outputs preload as index.mjs and rewrites
-  // the main process preload path accordingly. Do not override to index.js.
   preload: {
+    build: {
+      rollupOptions: {
+        output: {
+          format: "cjs",
+          entryFileNames: "[name].cjs",
+        },
+      },
+    },
     resolve: {
       alias: { "@": path.resolve(__dirname, "src") },
     },
