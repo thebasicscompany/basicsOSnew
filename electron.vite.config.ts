@@ -1,5 +1,5 @@
 import path from "node:path";
-import { defineConfig } from "electron-vite";
+import { defineConfig, externalizeDepsPlugin } from "electron-vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
@@ -9,7 +9,14 @@ export default defineConfig({
       alias: { "@": path.resolve(__dirname, "src") },
     },
   },
+  // Preload must be CommonJS: Electron's sandbox runs it in a context that doesn't support ESM.
+  // @electron-toolkit/preload must be bundled (not externalized) because the sandboxed
+  // preload context has no access to node_modules at runtime.
   preload: {
+    plugins: [externalizeDepsPlugin({ exclude: ["@electron-toolkit/preload"] })],
+    resolve: {
+      alias: { "@": path.resolve(__dirname, "src") },
+    },
     build: {
       rollupOptions: {
         output: {
@@ -17,9 +24,6 @@ export default defineConfig({
           entryFileNames: "[name].cjs",
         },
       },
-    },
-    resolve: {
-      alias: { "@": path.resolve(__dirname, "src") },
     },
   },
   renderer: {

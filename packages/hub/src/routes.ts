@@ -14,6 +14,8 @@ export const ROUTES = {
   PROFILE: "/profile",
   SETTINGS: "/settings",
   IMPORT: "/import",
+  // Admin
+  ADMIN_USAGE: "/admin/usage",
   // Records (dynamic /objects/:slug)
   OBJECTS: "/objects",
   OBJECTS_SLUG: "/objects/:slug",

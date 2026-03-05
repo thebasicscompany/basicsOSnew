@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
+import { electronAPI as toolkitAPI } from "@electron-toolkit/preload";
 import type {
   ActivationMode,
   OverlaySettings,
@@ -33,6 +34,8 @@ const overlayAPI = {
     ipcRenderer.send("set-ignore-mouse", ignore),
   navigateMain: (path: string) => ipcRenderer.send("navigate-main", path),
   injectText: (text: string) => ipcRenderer.invoke("inject-text", text),
+  copyToClipboard: (text: string) =>
+    ipcRenderer.invoke("copy-to-clipboard", text) as Promise<void>,
   getApiUrl: () => ipcRenderer.invoke("get-api-url") as Promise<string>,
   proxyOverlayRequest: (req: {
     path: string;
@@ -50,6 +53,11 @@ const overlayAPI = {
     }>,
   getOverlaySettings: () =>
     ipcRenderer.invoke("get-overlay-settings") as Promise<OverlaySettings>,
+  updateOverlaySettings: (partial: Partial<OverlaySettings>) =>
+    ipcRenderer.invoke(
+      "update-overlay-settings",
+      partial,
+    ) as Promise<OverlaySettings>,
   onHoldStart: (cb: () => void) => {
     ipcRenderer.on("dictation-hold-start", cb);
   },
@@ -121,4 +129,19 @@ const overlayAPI = {
   },
 };
 
-contextBridge.exposeInMainWorld("electronAPI", overlayAPI);
+if (process.contextIsolated) {
+  try {
+    contextBridge.exposeInMainWorld("electron", toolkitAPI);
+  } catch (e) {
+    console.error("[preload] Failed to expose electron toolkit API:", e);
+  }
+  try {
+    contextBridge.exposeInMainWorld("electronAPI", overlayAPI);
+  } catch (e) {
+    console.error("[preload] Failed to expose electronAPI:", e);
+  }
+} else {
+  (window as unknown as { electron: typeof toolkitAPI }).electron = toolkitAPI;
+  (window as unknown as { electronAPI: typeof overlayAPI }).electronAPI =
+    overlayAPI;
+}

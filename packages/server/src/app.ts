@@ -17,6 +17,7 @@ import { createVoiceProxyRoutes } from "@/routes/voice-proxy.js";
 import { createStreamAssistantRoutes } from "@/routes/stream-assistant.js";
 import { createThreadsRoutes } from "@/routes/threads.js";
 import { createRbacRoutes } from "@/routes/rbac.js";
+import { createAdminRoutes } from "@/routes/admin.js";
 import { sql } from "drizzle-orm";
 
 type RateBucket = {
@@ -172,6 +173,9 @@ export function createApp(db: Db, env: Env) {
 
   // RBAC management APIs
   app.route("/api/rbac", createRbacRoutes(db, auth));
+
+  // Admin APIs (AI config, usage tracking)
+  app.route("/api/admin", createAdminRoutes(db, auth, env));
 
   // CRM REST API
   app.route("/api", createCrmRoutes(db, auth, env));

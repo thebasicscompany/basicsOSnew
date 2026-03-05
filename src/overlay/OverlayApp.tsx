@@ -7,7 +7,7 @@ import {
 } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import type { OverlaySettings, NotchInfo } from "@/shared-overlay/types";
-import { FLASH_SHORT_MS } from "@/shared-overlay/constants";
+import { FLASH_SHORT_MS, FLASH_LONG_MS } from "@/shared-overlay/constants";
 import { setIgnoreMouse } from "./lib/ipc";
 import { speak, cancel as cancelTTS } from "./lib/tts";
 import {
@@ -51,9 +51,10 @@ const DEFAULT_SETTINGS: OverlaySettings = {
   },
   voice: {
     language: "en-US",
-    silenceTimeoutMs: 2000,
+    silenceTimeoutMs: 3000,
     ttsEnabled: true,
     ttsRate: 1.05,
+    audioInputDeviceId: null,
   },
   behavior: {
     doubleTapWindowMs: 400,
@@ -135,18 +136,32 @@ export const OverlayApp = () => {
     const s = speechRef.current;
     if (p.interactionMode !== "assistant" || p.state !== "listening" || !s)
       return;
-    void s.stopListening().then((transcript) => {
-      if (transcript) {
-        dispatch({ type: "LISTENING_COMPLETE", transcript });
-      } else {
+    dispatch({ type: "TRANSCRIBING_START" });
+    s.stopListening()
+      .then((transcript) => {
+        if (transcript) {
+          dispatch({ type: "LISTENING_COMPLETE", transcript });
+        } else {
+          dismissRef.current();
+        }
+      })
+      .catch(() => {
         dismissRef.current();
-      }
-    });
+      });
   }, []);
 
   const speech = useSpeechRecognition({
     onSilence: handleSilence,
     silenceTimeoutMs: settings.voice.silenceTimeoutMs,
+    preferredDeviceId: settings.voice.audioInputDeviceId ?? undefined,
+    onMicError: (msg) =>
+      flash.show(
+        msg.includes("denied") || msg.includes("Permission")
+          ? "Microphone access denied — check app permissions"
+          : msg,
+        FLASH_LONG_MS,
+      ),
+    onTranscriptionError: (msg) => flash.show(msg, FLASH_LONG_MS),
   });
   speechRef.current = speech;
 
@@ -280,7 +295,8 @@ export const OverlayApp = () => {
     }
     if (
       (pill.interactionMode === "dictation" ||
-        pill.interactionMode === "transcribe") &&
+        pill.interactionMode === "transcribe" ||
+        pill.interactionMode === "assistant") &&
       speech.interimText
     ) {
       return speech.interimText;
@@ -472,7 +488,7 @@ export const OverlayApp = () => {
                     </span>
                   )}
                 </div>
-                <Waveform />
+                <Waveform level={speech.audioLevel} />
               </motion.div>
             )}
 
