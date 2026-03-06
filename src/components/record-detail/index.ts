@@ -1,4 +1,12 @@
 export { NotesTabContent } from "./NotesTabContent";
+export { NoteCard } from "./NoteCard";
+export { NoteEditorDialog } from "./NoteEditorDialog";
+export { EmailsTabContent } from "./EmailsTabContent";
+export { EmailViewDialog } from "./EmailViewDialog";
+export { CallsTabContent } from "./CallsTabContent";
+export { CallViewDialog } from "./CallViewDialog";
+export { TasksTabContent } from "./TasksTabContent";
+export { ActivityTabContent } from "./ActivityTabContent";
 export { DetailSkeleton } from "./DetailSkeleton";
 export { EditableRecordName } from "./EditableRecordName";
 export { RecordDetailHeaderActions } from "./RecordDetailHeaderActions";

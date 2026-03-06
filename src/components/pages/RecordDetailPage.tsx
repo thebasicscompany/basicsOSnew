@@ -2,8 +2,8 @@ import { useParams, Link, useNavigate } from "react-router";
 import {
   ArrowLeftIcon,
   NoteIcon,
-  ClockIcon,
   CheckCircleIcon,
+  EnvelopeSimpleIcon,
   CaretRightIcon,
   CaretLeftIcon,
   DotsThreeIcon,
@@ -17,16 +17,22 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getRecordValue } from "@/lib/crm/field-mapper";
 import {
   DetailSkeleton,
   EditableRecordName,
   NotesTabContent,
+  EmailsTabContent,
+  CallsTabContent,
+  TasksTabContent,
+  ActivityTabContent,
   RecordDetailDetailsSidebar,
   RecordDetailDeleteDialog,
   useRecordDetail,
 } from "@/components/record-detail";
+import { getMockEmails } from "@/components/record-detail/mock-data/emails";
+import { getMockCalls } from "@/components/record-detail/mock-data/calls";
 
 export function RecordDetailPage() {
   const { objectSlug = "" } = useParams<{ objectSlug: string }>();
@@ -53,7 +59,6 @@ export function RecordDetailPage() {
     visibleEditableAttributes,
     systemAttributes,
     hiddenCount,
-    emptyFieldsCount,
     breadcrumbPortal,
     headerActionsPortal,
     handleNameSave,
@@ -67,6 +72,15 @@ export function RecordDetailPage() {
     onNext,
     deleteRecord,
   } = useRecordDetail();
+
+  const emailCount = useMemo(
+    () => getMockEmails(numericRecordId).length,
+    [numericRecordId],
+  );
+  const callCount = useMemo(
+    () => getMockCalls(numericRecordId).length,
+    [numericRecordId],
+  );
 
   if (!obj) {
     return (
@@ -186,26 +200,48 @@ export function RecordDetailPage() {
             <TabsList>
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="activity">Activity</TabsTrigger>
+              <TabsTrigger value="emails" className="gap-1">
+                Emails
+                {emailCount > 0 && (
+                  <span className="text-[10px] text-muted-foreground">
+                    {emailCount}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="calls" className="gap-1">
+                Calls
+                {callCount > 0 && (
+                  <span className="text-[10px] text-muted-foreground">
+                    {callCount}
+                  </span>
+                )}
+              </TabsTrigger>
               <TabsTrigger value="notes">Notes</TabsTrigger>
               <TabsTrigger value="tasks">Tasks</TabsTrigger>
             </TabsList>
 
             {/* Overview: recent activity feed + quick links */}
             <TabsContent value="overview" className="mt-4 space-y-5">
-              {/* Recent Activity */}
+              {/* Recent Emails */}
               <div>
                 <button
                   type="button"
-                  onClick={() => setActiveTab("activity")}
+                  onClick={() => setActiveTab("emails")}
                   className="group mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground"
                 >
-                  <ClockIcon className="size-3.5" />
-                  Activity
+                  <EnvelopeSimpleIcon className="size-3.5" />
+                  Emails
                   <CaretRightIcon className="size-3 opacity-0 transition-opacity group-hover:opacity-100" />
                 </button>
-                <div className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
-                  No recent activity.
-                </div>
+                {emailCount > 0 ? (
+                  <div className="rounded-lg border p-3 text-xs text-muted-foreground">
+                    {emailCount} email{emailCount !== 1 ? "s" : ""} in thread
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
+                    No emails yet.
+                  </div>
+                )}
               </div>
 
               {/* Recent Notes */}
@@ -242,9 +278,23 @@ export function RecordDetailPage() {
             </TabsContent>
 
             <TabsContent value="activity" className="mt-4">
-              <div className="rounded-lg border border-dashed py-12 text-center text-sm text-muted-foreground">
-                No activity yet.
-              </div>
+              <ActivityTabContent
+                objectSlug={objSlug}
+                recordId={numericRecordId}
+                onSwitchToTab={setActiveTab}
+              />
+            </TabsContent>
+
+            <TabsContent value="emails" className="mt-4">
+              <EmailsTabContent recordId={numericRecordId} />
+            </TabsContent>
+
+            <TabsContent value="calls" className="mt-4">
+              <CallsTabContent
+                recordId={numericRecordId}
+                objectSlug={objSlug}
+                onSwitchToTab={setActiveTab}
+              />
             </TabsContent>
 
             <TabsContent value="notes" className="mt-4">
@@ -255,9 +305,10 @@ export function RecordDetailPage() {
             </TabsContent>
 
             <TabsContent value="tasks" className="mt-4">
-              <div className="rounded-lg border border-dashed py-12 text-center text-sm text-muted-foreground">
-                No tasks yet.
-              </div>
+              <TasksTabContent
+                objectSlug={objSlug}
+                recordId={numericRecordId}
+              />
             </TabsContent>
           </Tabs>
 

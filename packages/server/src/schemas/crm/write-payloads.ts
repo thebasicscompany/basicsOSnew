@@ -70,6 +70,7 @@ const dealsWriteSchema = z
 const contactNotesWriteSchema = z
   .object({
     contactId: z.number().int().positive(),
+    title: nullableString.optional(),
     text: nullableString.optional(),
     date: timestampValue.nullable().optional(),
     status: nullableString.optional(),
@@ -80,6 +81,7 @@ const contactNotesWriteSchema = z
 const dealNotesWriteSchema = z
   .object({
     dealId: z.number().int().positive(),
+    title: nullableString.optional(),
     type: nullableString.optional(),
     text: nullableString.optional(),
     date: timestampValue.nullable().optional(),
@@ -87,11 +89,25 @@ const dealNotesWriteSchema = z
   })
   .strict();
 
+const companyNotesWriteSchema = z
+  .object({
+    companyId: z.number().int().positive(),
+    title: nullableString.optional(),
+    text: nullableString.optional(),
+    date: timestampValue.nullable().optional(),
+    status: nullableString.optional(),
+    attachments: z.array(attachmentSchema).nullable().optional(),
+  })
+  .strict();
+
 const tasksWriteSchema = z
   .object({
-    contactId: z.number().int().positive(),
+    contactId: z.number().int().positive().nullable().optional(),
+    companyId: z.number().int().positive().nullable().optional(),
+    assigneeId: z.number().int().positive().nullable().optional(),
     type: nullableString.optional(),
     text: nullableString.optional(),
+    description: nullableString.optional(),
     dueDate: timestampValue.nullable().optional(),
     doneDate: timestampValue.nullable().optional(),
   })
@@ -127,6 +143,7 @@ const createSchemaByResource: Partial<
   deals: dealsWriteSchema,
   contact_notes: contactNotesWriteSchema,
   deal_notes: dealNotesWriteSchema,
+  company_notes: companyNotesWriteSchema,
   tasks: tasksWriteSchema,
   tags: tagsWriteSchema,
   configuration: configurationWriteSchema,
@@ -141,6 +158,7 @@ const updateSchemaByResource: Partial<
   deals: dealsWriteSchema.partial().strict(),
   contact_notes: contactNotesWriteSchema.partial().strict(),
   deal_notes: dealNotesWriteSchema.partial().strict(),
+  company_notes: companyNotesWriteSchema.partial().strict(),
   tasks: tasksWriteSchema.partial().strict(),
   tags: tagsWriteSchema.partial().strict(),
   configuration: configurationWriteSchema.partial().strict(),

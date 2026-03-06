@@ -66,6 +66,21 @@ export function EditableRecordName({
     setIsEditing(true);
   };
 
+  const handleBlur = useCallback(
+    (e: React.FocusEvent) => {
+      // If focus is moving to another element within the same container, don't close
+      if (
+        containerRef.current &&
+        e.relatedTarget instanceof Node &&
+        containerRef.current.contains(e.relatedTarget)
+      ) {
+        return;
+      }
+      commitAndClose();
+    },
+    [commitAndClose],
+  );
+
   useEffect(() => {
     if (!isEditing) return;
 
@@ -106,13 +121,14 @@ export function EditableRecordName({
             value={draftFirstName}
             placeholder="First name"
             onChange={(event) => setDraftFirstName(event.target.value)}
-            onBlur={commitAndClose}
+            onBlur={handleBlur}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
                 commitAndClose();
               }
               if (e.key === "Escape") {
+                e.stopPropagation();
                 setDraftFirstName(firstName);
                 setDraftLastName(lastName);
                 setIsEditing(false);
@@ -123,13 +139,14 @@ export function EditableRecordName({
             value={draftLastName}
             placeholder="Last name"
             onChange={(event) => setDraftLastName(event.target.value)}
-            onBlur={commitAndClose}
+            onBlur={handleBlur}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
                 commitAndClose();
               }
               if (e.key === "Escape") {
+                e.stopPropagation();
                 setDraftFirstName(firstName);
                 setDraftLastName(lastName);
                 setIsEditing(false);
@@ -143,13 +160,14 @@ export function EditableRecordName({
           value={draftSingleValue}
           placeholder={label}
           onChange={(event) => setDraftSingleValue(event.target.value)}
-          onBlur={commitAndClose}
+          onBlur={handleBlur}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
               commitAndClose();
             }
             if (e.key === "Escape") {
+              e.stopPropagation();
               setDraftSingleValue(singleValue);
               setIsEditing(false);
             }

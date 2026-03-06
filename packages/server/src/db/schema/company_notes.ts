@@ -9,17 +9,17 @@ import {
   jsonb,
   index,
 } from "drizzle-orm/pg-core";
-import { contacts } from "@/db/schema/contacts";
+import { companies } from "@/db/schema/companies";
 import { crmUsers } from "@/db/schema/crm_users";
 import { organizations } from "@/db/schema/organizations";
 
-export const contactNotes = pgTable(
-  "contact_notes",
+export const companyNotes = pgTable(
+  "company_notes",
   {
     id: bigserial("id", { mode: "number" }).primaryKey(),
-    contactId: bigint("contact_id", { mode: "number" })
+    companyId: bigint("company_id", { mode: "number" })
       .notNull()
-      .references(() => contacts.id, { onDelete: "cascade" }),
+      .references(() => companies.id, { onDelete: "cascade" }),
     title: varchar("title", { length: 512 }),
     text: text("text"),
     date: timestamp("date", { withTimezone: true }).defaultNow(),
@@ -39,8 +39,8 @@ export const contactNotes = pgTable(
       >(),
   },
   (t) => [
-    index("contact_notes_contact_id_idx").on(t.contactId),
-    index("contact_notes_crm_user_id_idx").on(t.crmUserId),
-    index("contact_notes_org_idx").on(t.organizationId),
+    index("company_notes_company_id_idx").on(t.companyId),
+    index("company_notes_crm_user_id_idx").on(t.crmUserId),
+    index("company_notes_org_idx").on(t.organizationId),
   ],
 );

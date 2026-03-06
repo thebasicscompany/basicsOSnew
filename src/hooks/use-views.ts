@@ -370,9 +370,10 @@ export function useViewState(viewId: string): UseViewStateReturn {
         return;
       }
       dispatch({ type: "UPDATE_COLUMN", columnId, updates });
-      // Immediately persist title/show/order changes to the server
-      if (updates.title !== undefined || updates.show !== undefined || updates.order !== undefined || updates.width !== undefined) {
-        void updateColumnMutation.mutateAsync({ columnId, ...updates });
+      // Immediately persist title/order/width changes to the server (but not show — that goes through save/discard)
+      const { show: _show, ...serverUpdates } = updates;
+      if (serverUpdates.title !== undefined || serverUpdates.order !== undefined || serverUpdates.width !== undefined) {
+        void updateColumnMutation.mutateAsync({ columnId, ...serverUpdates });
       }
     },
     [createColumnMutation, updateColumnMutation, localState.columns.length],
