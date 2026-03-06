@@ -3,6 +3,7 @@ import {
   ColumnsIcon,
   FunnelIcon,
   DotsThreeVerticalIcon,
+  PlusIcon,
 } from "@phosphor-icons/react";
 import * as React from "react";
 import {
@@ -191,6 +192,7 @@ export function ColumnsPopover({
   totalCount,
   onToggle,
   onReorder,
+  onAddColumn,
   triggerClassName,
 }: {
   items: ColumnItem[];
@@ -198,6 +200,7 @@ export function ColumnsPopover({
   totalCount: number;
   onToggle: (columnId: string, show: boolean) => void;
   onReorder?: (columnId: string, newOrder: number) => void;
+  onAddColumn?: () => void;
   triggerClassName?: string;
 }) {
   const sensors = useSensors(
@@ -272,6 +275,19 @@ export function ColumnsPopover({
             </SortableContext>
           </DndContext>
         </div>
+        {onAddColumn && (
+          <div className="border-t px-3 py-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 w-full justify-start gap-1.5 text-xs text-muted-foreground"
+              onClick={onAddColumn}
+            >
+              <PlusIcon className="size-3.5" />
+              Add column
+            </Button>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );

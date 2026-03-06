@@ -34,7 +34,12 @@ interface DataTableBodyProps<T extends Record<string, unknown>> {
   onRowExpand?: (recordId: number) => void;
   onRowDelete?: (recordId: number, record: T) => void;
   onCellClick: (rowIndex: number, colId: string, attribute: Attribute) => void;
-  onCellDoubleClick: (rowIndex: number, colId: string) => void;
+  onCellDoubleClick: (
+    rowIndex: number,
+    colId: string,
+    attribute: Attribute,
+    recordId: number,
+  ) => void;
 }
 
 export function DataTableBody<T extends Record<string, unknown>>({
@@ -76,12 +81,7 @@ export function DataTableBody<T extends Record<string, unknown>>({
           const rowContent = (
             <TableRow
               key={row.id}
-              onDoubleClick={
-                onRowExpand
-                  ? () => onRowExpand(recordId)
-                  : undefined
-              }
-              className={onRowExpand ? "cursor-pointer" : undefined}
+              className={onRowExpand ? "cursor-default" : undefined}
             >
               {row.getVisibleCells().map((cell) => {
               const colDef = cell.column.columnDef;
@@ -135,7 +135,12 @@ export function DataTableBody<T extends Record<string, unknown>>({
                   }}
                   onDoubleClick={() => {
                     if (matchedCol) {
-                      onCellDoubleClick(rowIndex, colId);
+                      onCellDoubleClick(
+                        rowIndex,
+                        colId,
+                        matchedCol.attribute,
+                        recordId,
+                      );
                     }
                   }}
                 >

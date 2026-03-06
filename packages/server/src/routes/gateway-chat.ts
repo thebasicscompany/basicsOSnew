@@ -4,8 +4,7 @@ import type { Db } from "@/db/client.js";
 import type { Env } from "@/env.js";
 import type { createAuth } from "@/auth.js";
 import { buildCrmSummary, retrieveRelevantContext } from "@/lib/context.js";
-import { resolveOrgAiConfig, buildGatewayHeaders } from "@/lib/org-ai-config.js";
-import { writeUsageLogSafe } from "@/lib/usage-log.js";
+import { resolveCrmUserWithApiKey } from "@/lib/crm-user-auth.js";
 import { PERMISSIONS, requirePermission } from "@/lib/rbac.js";
 import {
   BASE_SYSTEM_PROMPT,
@@ -37,10 +36,11 @@ export function createGatewayChatRoutes(
     const authz = await requirePermission(c, db, PERMISSIONS.recordsWrite);
     if (!authz.ok) return authz.response;
 
-    const aiResult = await resolveOrgAiConfig(c, db, env);
-    if (!aiResult.ok) return aiResult.response;
-    const { crmUser, aiConfig } = aiResult.data;
-    const gatewayHeaders = buildGatewayHeaders(aiConfig);
+    const crmUserAuth = await resolveCrmUserWithApiKey(c, db);
+    if (!crmUserAuth.ok) return crmUserAuth.response;
+    const { crmUser, apiKey } = crmUserAuth.data;
+    if (!crmUser.organizationId)
+      return c.json({ error: "Organization not found" }, 404);
 
     let body: unknown;
     try {
@@ -83,15 +83,13 @@ export function createGatewayChatRoutes(
     }
 
     const [crmSummary, ragContext] = await Promise.all([
-      buildCrmSummary(db, crmUser.organizationId!),
+      buildCrmSummary(db, crmUser.organizationId),
       retrieveRelevantContext(
         db,
         env.BASICSOS_API_URL,
-        gatewayHeaders,
-        crmUser.organizationId!,
+        apiKey,
+        crmUser.organizationId,
         queryText,
-        5,
-        crmUser.id,
       ),
     ]);
 
@@ -106,16 +104,15 @@ export function createGatewayChatRoutes(
     let finalContent = "";
     const latestToolOutputs: Array<{ name: string; result: unknown }> = [];
 
-    const requestStart = Date.now();
-    let totalInputTokens = 0;
-    let totalOutputTokens = 0;
-
     for (let i = 0; i < 5; i++) {
       let res: Response;
       try {
         res = await fetch(`${env.BASICSOS_API_URL}/v1/chat/completions`, {
           method: "POST",
-          headers: gatewayHeaders,
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
           body: JSON.stringify({
             model: "basics-chat-smart",
             messages: chatMessages,
@@ -156,11 +153,7 @@ export function createGatewayChatRoutes(
             }>;
           };
         }>;
-        usage?: { prompt_tokens?: number; completion_tokens?: number };
       };
-
-      totalInputTokens += json.usage?.prompt_tokens ?? 0;
-      totalOutputTokens += json.usage?.completion_tokens ?? 0;
 
       const aiMessage = json.choices?.[0]?.message;
       const toolCalls = aiMessage?.tool_calls ?? [];
@@ -214,16 +207,6 @@ export function createGatewayChatRoutes(
       finalContent = "I could not complete that request. Please try again.";
     await persistMessage(db, threadId, "assistant", finalContent);
     await touchThread(db, threadId);
-
-    writeUsageLogSafe(db, {
-      organizationId: crmUser.organizationId!,
-      crmUserId: crmUser.id,
-      feature: "chat",
-      model: "basics-chat-smart",
-      inputTokens: totalInputTokens,
-      outputTokens: totalOutputTokens,
-      durationMs: Date.now() - requestStart,
-    });
 
     const encoder = new TextEncoder();
     const parts = finalContent.match(/.{1,140}/g) ?? [finalContent];

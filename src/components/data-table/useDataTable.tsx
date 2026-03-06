@@ -5,14 +5,6 @@ import {
   type ColumnDef,
   type ColumnResizeMode,
 } from "@tanstack/react-table";
-import {
-  KeyboardSensor,
-  MouseSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
 import { getFieldType } from "@/field-types";
 import type { Attribute } from "@/field-types/types";
 import { getRecordValue } from "@/lib/crm/field-mapper";
@@ -36,7 +28,10 @@ export interface DataTableProps {
   onNewRecord?: () => void;
   onAddColumn?: () => void;
   onColumnResize?: (fieldId: string, width: number) => void;
-  onColumnReorder?: (fieldId: string, newOrder: number) => void;
+  onSwapColumns?: (fieldIdA: string, fieldIdB: string) => void;
+  onAddSort?: (fieldId: string, direction: "asc" | "desc") => void;
+  onHideColumn?: (fieldId: string) => void;
+  onRenameColumn?: (fieldId: string, title: string) => void;
   pagination: { page: number; perPage: number };
   onPaginationChange: (page: number, perPage: number) => void;
   sorts?: ViewSort[];
@@ -61,7 +56,10 @@ export function useDataTable(props: DataTableProps) {
     onNewRecord,
     onAddColumn,
     onColumnResize,
-    onColumnReorder,
+    onSwapColumns,
+    onAddSort,
+    onHideColumn,
+    onRenameColumn,
     pagination,
     onPaginationChange,
   } = props;
@@ -132,19 +130,22 @@ export function useDataTable(props: DataTableProps) {
         minSize: hasExplicitWidth ? 60 : 1,
         enableResizing: true,
         meta: { fitContent: !hasExplicitWidth } as Record<string, unknown>,
-        header: () => (
-          <div className="flex items-center gap-1.5 text-xs font-medium truncate">
-            <span className="text-muted-foreground">
-              {attribute.icon ??
-                (fieldType.icon ? (
-                  <fieldType.icon className="size-3.5" />
-                ) : null)}
-            </span>
-            <span className="truncate">
-              {viewColumn.title || attribute.name}
-            </span>
-          </div>
-        ),
+        header: () => {
+          const displayName = attribute.isPrimary
+            ? singularName
+            : (viewColumn.title || attribute.name);
+          return (
+            <div className="flex items-center gap-1.5 text-xs font-medium truncate">
+              <span className="text-muted-foreground">
+                {attribute.icon ??
+                  (fieldType.icon ? (
+                    <fieldType.icon className="size-3.5" />
+                  ) : null)}
+              </span>
+              <span className="truncate">{displayName}</span>
+            </div>
+          );
+        },
         cell: ({ row, column }) => {
           const rowIndex = row.index;
           const colId = column.id;
@@ -212,7 +213,7 @@ export function useDataTable(props: DataTableProps) {
     });
 
     return cols;
-  }, [visibleCols, hiddenEmptyCount, columnWidths, onCellUpdate, onAddColumn]);
+  }, [visibleCols, hiddenEmptyCount, columnWidths, onCellUpdate, onAddColumn, singularName]);
 
   const table = useReactTable({
     data,
@@ -288,6 +289,21 @@ export function useDataTable(props: DataTableProps) {
 
   React.useEffect(() => {
     const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target?.closest(
+          [
+            '[data-slot="popover-content"]',
+            '[data-slot="select-content"]',
+            '[data-slot="dropdown-menu-content"]',
+            '[data-slot="dialog-content"]',
+            '[data-slot="sheet-content"]',
+            '[data-slot="command"]',
+          ].join(","),
+        )
+      ) {
+        return;
+      }
       if (tableRef.current && !tableRef.current.contains(e.target as Node)) {
         setSelectedCell(null);
         setEditingCell(null);
@@ -299,49 +315,44 @@ export function useDataTable(props: DataTableProps) {
 
   const handleCellClick = React.useCallback(
     (rowIndex: number, colId: string, attribute: Attribute) => {
-      if (attribute.uiType === "Checkbox") return;
-
-      if (
-        selectedCell?.rowIndex === rowIndex &&
-        selectedCell?.colId === colId
-      ) {
-        setEditingCell({ rowIndex, colId });
-      } else {
-        setSelectedCell({ rowIndex, colId });
-        setEditingCell(null);
-      }
-    },
-    [selectedCell],
-  );
-
-  const handleCellDoubleClick = React.useCallback(
-    (rowIndex: number, colId: string) => {
+      if (getFieldType(attribute.uiType).editorStyle === "toggle") return;
       setSelectedCell({ rowIndex, colId });
-      setEditingCell({ rowIndex, colId });
+      setEditingCell(null);
     },
     [],
   );
 
-  const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, {
-      activationConstraint: { delay: 200, tolerance: 5 },
-    }),
-    useSensor(KeyboardSensor),
+  const handleCellDoubleClick = React.useCallback(
+    (
+      rowIndex: number,
+      colId: string,
+      attribute: Attribute,
+      recordId: number,
+    ) => {
+      setSelectedCell({ rowIndex, colId });
+      if (getFieldType(attribute.uiType).editorStyle === "toggle") {
+        onCellUpdate(recordId, attribute.columnName, !getRecordValue(data[rowIndex] ?? {}, attribute.columnName));
+        return;
+      }
+      if (attribute.isPrimary) {
+        onRowExpand?.(recordId);
+        return;
+      }
+      setEditingCell({ rowIndex, colId });
+    },
+    [data, onCellUpdate, onRowExpand],
   );
 
-  const handleDragEnd = React.useCallback(
-    (event: DragEndEvent) => {
-      const { active, over } = event;
-      if (!over || active.id === over.id || !onColumnReorder) return;
-
-      const oldIndex = sortableColumnIds.indexOf(String(active.id));
-      const newIndex = sortableColumnIds.indexOf(String(over.id));
-      if (oldIndex === -1 || newIndex === -1) return;
-
-      onColumnReorder(String(active.id), newIndex);
+  const handleMoveColumn = React.useCallback(
+    (fieldId: string, direction: "left" | "right") => {
+      const idx = sortableColumnIds.indexOf(fieldId);
+      if (idx === -1) return;
+      const newIdx = direction === "left" ? idx - 1 : idx + 1;
+      if (newIdx < 0 || newIdx >= sortableColumnIds.length) return;
+      const targetFieldId = sortableColumnIds[newIdx];
+      onSwapColumns?.(fieldId, targetFieldId);
     },
-    [sortableColumnIds, onColumnReorder],
+    [sortableColumnIds, onSwapColumns],
   );
 
   const handleColumnResize = React.useCallback(
@@ -368,9 +379,8 @@ export function useDataTable(props: DataTableProps) {
     handleKeyDown,
     handleCellClick,
     handleCellDoubleClick,
-    sensors,
-    handleDragEnd,
     handleColumnResize,
+    handleMoveColumn,
     totalPages,
     total,
     singularName,
@@ -379,5 +389,8 @@ export function useDataTable(props: DataTableProps) {
     onPaginationChange,
     onRowExpand,
     onNewRecord,
+    onAddSort,
+    onHideColumn,
+    onRenameColumn,
   };
 }

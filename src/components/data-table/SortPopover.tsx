@@ -18,6 +18,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import type { Attribute } from "@/field-types/types";
 import type { ViewSort } from "@/types/views";
 export interface SortPopoverProps {
@@ -38,6 +45,7 @@ export function SortPopover({
   children,
 }: SortPopoverProps) {
   const [open, setOpen] = React.useState(false);
+  const [isAddingSort, setIsAddingSort] = React.useState(false);
 
   // Attributes that are not already used in a sort
   const availableAttributes = React.useMemo(() => {
@@ -57,12 +65,19 @@ export function SortPopover({
         direction: "asc",
         order: sorts.length,
       });
+      setIsAddingSort(false);
     },
     [onAdd, sorts.length],
   );
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) setIsAddingSort(false);
+      }}
+    >
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent align="start" className="w-80 p-3">
         <div className="flex flex-col gap-3">
@@ -116,12 +131,12 @@ export function SortPopover({
                       {sort.direction === "asc" ? (
                         <>
                           <CaretUpIcon className="size-3" />
-                          A-Z
+                          Ascending
                         </>
                       ) : (
                         <>
                           <CaretDownIcon className="size-3" />
-                          Z-A
+                          Descending
                         </>
                       )}
                     </Button>
@@ -145,21 +160,39 @@ export function SortPopover({
           {availableAttributes.length > 0 && (
             <>
               <div className="border-t" />
-              <Select onValueChange={handleAddSort}>
-                <SelectTrigger className="h-7 text-xs text-muted-foreground">
-                  <div className="flex items-center gap-1.5">
+              {isAddingSort ? (
+                <div className="rounded-md border">
+                  <div className="flex items-center gap-1.5 border-b px-3 py-2 text-xs text-muted-foreground">
                     <PlusIcon className="size-3" />
                     <span>Add sort</span>
                   </div>
-                </SelectTrigger>
-                <SelectContent>
-                  {availableAttributes.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                  <Command>
+                    <CommandInput placeholder="Search fields..." />
+                    <CommandList className="max-h-48">
+                      <CommandEmpty>No fields found.</CommandEmpty>
+                      {availableAttributes.map((a) => (
+                        <CommandItem
+                          key={a.id}
+                          value={a.name}
+                          onSelect={() => handleAddSort(a.id)}
+                        >
+                          {a.name}
+                        </CommandItem>
+                      ))}
+                    </CommandList>
+                  </Command>
+                </div>
+              ) : (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-fit gap-1.5 text-xs"
+                  onClick={() => setIsAddingSort(true)}
+                >
+                  <PlusIcon className="size-3.5" />
+                  Add sort
+                </Button>
+              )}
             </>
           )}
         </div>

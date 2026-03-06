@@ -2,7 +2,11 @@ import { DotsThreeVerticalIcon, PlusIcon, XIcon } from "@phosphor-icons/react";
 import { useState } from "react";
 import type { TypeConfigProps, StatusOption } from "@/field-types/types";
 import { Input } from "@/components/ui/input";
-import { STATUS_DOT_COLORS } from "@/field-types/colors";
+import {
+  TAG_COLOR_PALETTE,
+  getNextAvailableColor,
+  getStatusDotClass,
+} from "@/field-types/colors";
 import { cn } from "@/lib/utils";
 export function StatusTypeConfig({ config, onChange }: TypeConfigProps) {
   const [newLabel, setNewLabel] = useState("");
@@ -10,10 +14,11 @@ export function StatusTypeConfig({ config, onChange }: TypeConfigProps) {
 
   const addOption = () => {
     if (newLabel.trim() === "") return;
+    const existingColors = options.map((option) => option.color ?? "gray");
     const newOption: StatusOption = {
       id: `status_${Date.now()}`,
       label: newLabel.trim(),
-      color: "gray",
+      color: getNextAvailableColor(existingColors),
       order: options.length,
     };
     onChange({ ...config, options: [...options, newOption] });
@@ -38,12 +43,20 @@ export function StatusTypeConfig({ config, onChange }: TypeConfigProps) {
     });
   };
 
+  const updateOptionColor = (id: string, color: string) => {
+    onChange({
+      ...config,
+      options: options.map((option) =>
+        option.id === id ? { ...option, color } : option,
+      ),
+    });
+  };
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-1.5">
         {options.map((option) => {
-          const dotColor =
-            STATUS_DOT_COLORS[option.label] ?? `bg-${option.color}-500`;
+          const dotColor = getStatusDotClass(option.label, option.color);
           return (
             <div key={option.id} className="flex items-center gap-2">
               <DotsThreeVerticalIcon className="text-muted-foreground h-4 w-4 shrink-0 cursor-grab" />
@@ -51,6 +64,21 @@ export function StatusTypeConfig({ config, onChange }: TypeConfigProps) {
                 className={cn("h-2.5 w-2.5 shrink-0 rounded-full", dotColor)}
               />
               <span className="flex-1 text-sm">{option.label}</span>
+              <div className="flex flex-wrap gap-1">
+                {TAG_COLOR_PALETTE.map((color) => (
+                  <button
+                    key={color.name}
+                    type="button"
+                    onClick={() => updateOptionColor(option.id, color.name)}
+                    className={cn(
+                      "h-4 w-4 rounded-full border",
+                      color.bg,
+                      color.border,
+                      option.color === color.name && "ring-primary ring-2 ring-offset-1",
+                    )}
+                  />
+                ))}
+              </div>
               <label className="flex items-center gap-1 text-xs">
                 <input
                   type="checkbox"

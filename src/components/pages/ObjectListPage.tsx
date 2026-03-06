@@ -14,6 +14,11 @@ import {
 } from "@/components/object-list";
 import { DealsKanbanBoard } from "@/components/deals/DealsKanbanBoard";
 import { getRecordValue } from "@/lib/crm/field-mapper";
+import {
+  buildAttributeWritePayload,
+  normalizeFilterOperator,
+  normalizeFilterValue,
+} from "@/lib/crm/field-utils";
 import { useObject, useAttributes } from "@/hooks/use-object-registry";
 import { useRecords, useUpdateRecord, useDeleteRecord } from "@/hooks/use-records";
 import { useViews, useViewState } from "@/hooks/use-views";
@@ -66,15 +71,20 @@ export function ObjectListPage() {
   );
   const isDeals = objectSlug === "deals";
 
-  const sortParam = useMemo(() => {
-    const firstSort = viewState.sorts[0];
-    if (!firstSort) return undefined;
-    const attr = attributes.find((a) => a.id === firstSort.fieldId);
-    return {
-      field: attr?.columnName ?? firstSort.fieldId,
-      order: firstSort.direction.toUpperCase() as "ASC" | "DESC",
-    };
-  }, [viewState.sorts, attributes]);
+  const sortParam = useMemo(
+    () =>
+      viewState.sorts
+        .slice()
+        .sort((a, b) => a.order - b.order)
+        .map((sort) => {
+          const attr = attributes.find((a) => a.id === sort.fieldId);
+          return {
+            field: attr?.columnName ?? sort.fieldId,
+            order: sort.direction.toUpperCase() as "ASC" | "DESC",
+          };
+        }),
+    [viewState.sorts, attributes],
+  );
 
   const viewFilterParams = useMemo(() => {
     if (!viewState.filters.length) return undefined;
@@ -83,8 +93,9 @@ export function ObjectListPage() {
       const colName = attr?.columnName ?? f.fieldId;
       return {
         field: colName,
-        op: f.operator || "eq",
-        value: String(f.value ?? ""),
+        op: attr ? normalizeFilterOperator(f.operator || "eq", attr) : f.operator || "eq",
+        value: attr ? normalizeFilterValue(f.operator || "eq", f.value, attr) : String(f.value ?? ""),
+        logicalOp: f.logicalOp,
       };
     });
   }, [viewState.filters, attributes]);
@@ -116,9 +127,15 @@ export function ObjectListPage() {
 
   const handleCellUpdate = useCallback(
     (recordId: number, columnName: string, value: unknown) => {
-      updateRecord.mutate({ id: recordId, data: { [columnName]: value } });
+      const attribute = attributes.find((attr) => attr.columnName === columnName);
+      if (!attribute) return;
+
+      updateRecord.mutate({
+        id: recordId,
+        data: buildAttributeWritePayload(attribute, value),
+      });
     },
-    [updateRecord],
+    [attributes, updateRecord],
   );
 
   const handleRowExpand = useCallback(
@@ -207,6 +224,7 @@ export function ObjectListPage() {
           onAddSort={handleAddSort}
           onAddFilter={handleAddFilter}
           onCreateRecord={() => setCreateOpen(true)}
+          onAddColumn={() => setAddColumnOpen(true)}
         />
       </>
     );
@@ -277,7 +295,7 @@ export function ObjectListPage() {
   return (
     <>
       {headerActionsPortal}
-      <div className="flex min-h-0 flex-1 flex-col gap-3 pt-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-4">
         {views.length > 0 && layout !== "kanban" && (
           <ObjectListViewTabs
             views={views}
@@ -332,7 +350,7 @@ export function ObjectListPage() {
               attributes={attributes}
               data={records}
               total={total}
-              isLoading={isPending}
+              isLoading={isPending || viewState.isLoading}
               viewColumns={viewState.columns}
               onCellUpdate={handleCellUpdate}
               onRowExpand={handleRowExpand}
@@ -343,9 +361,26 @@ export function ObjectListPage() {
                 const vc = viewState.columns.find((c) => c.fieldId === fieldId);
                 if (vc) viewState.updateColumn(vc.id, { width: String(width) });
               }}
-              onColumnReorder={(fieldId, newOrder) => {
+              onSwapColumns={(fieldIdA, fieldIdB) => {
+                const vcA = viewState.columns.find((c) => c.fieldId === fieldIdA);
+                const vcB = viewState.columns.find((c) => c.fieldId === fieldIdB);
+                if (vcA && vcB) {
+                  const orderA = vcA.order;
+                  const orderB = vcB.order;
+                  viewState.updateColumn(vcA.id, { order: orderB });
+                  viewState.updateColumn(vcB.id, { order: orderA });
+                }
+              }}
+              onAddSort={(fieldId, direction) => {
+                viewState.replaceSort(fieldId, direction);
+              }}
+              onHideColumn={(fieldId) => {
                 const vc = viewState.columns.find((c) => c.fieldId === fieldId);
-                if (vc) viewState.updateColumn(vc.id, { order: newOrder });
+                if (vc) viewState.updateColumn(vc.id, { show: false });
+              }}
+              onRenameColumn={(fieldId, title) => {
+                const vc = viewState.columns.find((c) => c.fieldId === fieldId);
+                if (vc) viewState.updateColumn(vc.id, { title });
               }}
               pagination={{ page, perPage }}
               onPaginationChange={handlePaginationChange}
@@ -367,6 +402,12 @@ export function ObjectListPage() {
           resource={objectSlug}
           open={addColumnOpen}
           onOpenChange={setAddColumnOpen}
+          onCreated={(column) => {
+            viewState.updateColumn(`virtual-${column.id}`, {
+              show: true,
+              title: column.title,
+            });
+          }}
         />
 
         <RecordDetailDeleteDialog

@@ -30,6 +30,7 @@ import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { getFieldType } from "@/field-types";
 import type { Attribute } from "@/field-types/types";
+import { buildRecordWritePayload } from "@/lib/crm/field-utils";
 import { useCreateRecord } from "@/hooks/use-records";
 import { RecordForm } from "./RecordForm";
 
@@ -117,7 +118,8 @@ export function CreateRecordModal({
     if (!validate()) return;
 
     try {
-      const record = await createRecord.mutateAsync(values);
+      const payload = buildRecordWritePayload(attributes, values);
+      const record = await createRecord.mutateAsync(payload);
       onCreated?.(record);
 
       if (createMore) {

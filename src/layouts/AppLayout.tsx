@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router";
 import { ErrorBoundary } from "react-error-boundary";
 import {
@@ -14,6 +15,8 @@ import {
   useRegisterTitleSlotContainer,
   useTitleSlotInUse,
 } from "@/contexts/page-header";
+import { useRecentPages, type RecentPage } from "@/hooks/use-recent-pages";
+import { useObjects } from "@/hooks/use-object-registry";
 
 function PageErrorFallback({
   error,
@@ -78,15 +81,15 @@ function LayoutContent() {
       <div
         className={
           isBuilder
-            ? "flex w-full flex-1 flex-col min-h-0 pl-0 pr-14 pt-4"
-            : "flex w-full flex-1 flex-col px-14 pt-4 min-h-0"
+            ? "flex w-full flex-1 flex-col min-h-0 pl-0 pr-14 pt-8"
+            : "flex w-full flex-1 flex-col px-14 pt-8 min-h-0"
         }
         id="main-content"
       >
         {/* Page title + actions bar */}
-        <div className="flex shrink-0 items-center gap-2.5 pb-4 empty:hidden">
+        <div className="flex shrink-0 items-center gap-2.5 pb-6 empty:hidden">
           {title && (
-            <h1 className="text-lg font-semibold">{title}</h1>
+            <h1 className="text-2xl font-medium tracking-tight">{title}</h1>
           )}
           <div
             ref={registerActionsContainer}
@@ -109,7 +112,83 @@ function LayoutContent() {
   );
 }
 
+/** Well-known pages that aren't object-registry backed */
+const STATIC_PAGES: Record<string, { label: string; icon: string }> = {
+  "/chat": { label: "Chat", icon: "chat" },
+  "/automations": { label: "Automations", icon: "automations" },
+  "/tasks": { label: "Tasks", icon: "tasks" },
+  "/notes": { label: "Notes", icon: "notes" },
+  "/voice": { label: "Voice", icon: "voice" },
+  "/mcp": { label: "MCP", icon: "mcp" },
+  "/settings": { label: "Settings", icon: "settings" },
+};
+
+function useTrackPageVisits() {
+  const { pathname } = useLocation();
+  const objects = useObjects();
+  const [, addRecentPage] = useRecentPages();
+
+  useEffect(() => {
+    // Skip home page itself and record detail pages
+    if (pathname === "/home" || pathname === "/") return;
+
+    // Check for chat thread pages → track as "Chat"
+    if (pathname.startsWith("/chat")) {
+      addRecentPage({ key: "/chat", label: "Chat", path: "/chat", icon: "chat", visitedAt: Date.now() });
+      return;
+    }
+
+    // Check for automations sub-pages → track as "Automations"
+    if (pathname.startsWith("/automations")) {
+      addRecentPage({ key: "/automations", label: "Automations", path: "/automations", icon: "automations", visitedAt: Date.now() });
+      return;
+    }
+
+    // Check for object list pages (e.g. /objects/contacts, /objects/deals)
+    const objectMatch = pathname.match(/^\/objects\/([^/]+)$/);
+    if (objectMatch) {
+      const slug = objectMatch[1];
+      const obj = objects.find((o) => o.slug === slug);
+      if (obj) {
+        addRecentPage({
+          key: `/objects/${slug}`,
+          label: obj.pluralName,
+          path: `/objects/${slug}`,
+          icon: obj.icon,
+          visitedAt: Date.now(),
+        });
+      }
+      return;
+    }
+
+    // Check for record detail pages → track the parent object list
+    const detailMatch = pathname.match(/^\/objects\/([^/]+)\/[^/]+$/);
+    if (detailMatch) {
+      const slug = detailMatch[1];
+      const obj = objects.find((o) => o.slug === slug);
+      if (obj) {
+        addRecentPage({
+          key: `/objects/${slug}`,
+          label: obj.pluralName,
+          path: `/objects/${slug}`,
+          icon: obj.icon,
+          visitedAt: Date.now(),
+        });
+      }
+      return;
+    }
+
+    // Static pages
+    const staticPage = STATIC_PAGES[pathname];
+    if (staticPage) {
+      addRecentPage({ key: pathname, label: staticPage.label, path: pathname, icon: staticPage.icon, visitedAt: Date.now() });
+    }
+  }, [pathname, objects, addRecentPage]);
+}
+
 export function AppLayout() {
+  useTrackPageVisits();
+
   return (
     <SidebarProvider>
       <PageHeaderProvider>

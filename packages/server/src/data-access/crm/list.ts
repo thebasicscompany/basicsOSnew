@@ -18,8 +18,7 @@ export interface ListParams {
   orgId: string;
   start: number;
   end: number;
-  sort: string | null;
-  order: string | null;
+  sorts: Array<{ field: string; order: "ASC" | "DESC" }>;
   filter: Record<string, unknown>;
   genericFilters: GenericFilter[];
 }
@@ -29,8 +28,55 @@ export interface ListResult {
   total: number;
 }
 
+function buildGenericFilterExpression(
+  table: typeof schema.companies,
+  genericFilters: GenericFilter[],
+): SQL | null {
+  let expression: SQL | null = null;
+
+  for (const gf of genericFilters) {
+    const cond = buildGenericFilterCondition(table, gf);
+    if (!cond) continue;
+
+    if (!expression) {
+      expression = cond;
+      continue;
+    }
+
+    expression =
+      gf.logicalOp === "or" ? (or(expression, cond) as SQL) : and(expression, cond);
+  }
+
+  return expression;
+}
+
+function buildOrderByExpression(
+  table: typeof schema.companies,
+  sort: { field: string; order: "ASC" | "DESC" },
+): SQL | null {
+  const sortParamCamel = snakeToCamelField(sort.field);
+  const orderByCol = (table as Record<string, unknown>)[sortParamCamel];
+  const orderDir = sort.order === "DESC" ? desc : asc;
+
+  if (orderByCol) {
+    return orderDir(orderByCol as SQL);
+  }
+
+  const customFieldsColumn = (table as Record<string, unknown>).customFields;
+  if (
+    customFieldsColumn &&
+    typeof (customFieldsColumn as { getSQL?: unknown }).getSQL === "function"
+  ) {
+    return orderDir(
+      sql`(${customFieldsColumn as SQL} ->> ${sort.field})`,
+    );
+  }
+
+  return null;
+}
+
 export async function listRecords(db: Db, params: ListParams): Promise<ListResult> {
-  const { resource, orgId, start, end, filter, genericFilters, sort: sortParam, order: orderParam } = params;
+  const { resource, orgId, start, end, filter, genericFilters, sorts } = params;
   const limit = Math.max(0, end - start + 1);
   const offset = start;
   const q = typeof filter.q === "string" ? filter.q.trim() : null;
@@ -183,16 +229,19 @@ export async function listRecords(db: Db, params: ListParams): Promise<ListResul
     conditions.push(eq(schema.dealNotes.dealId, Number(filter.deal_id)));
   }
 
-  for (const gf of genericFilters) {
-    const cond = buildGenericFilterCondition(table, gf);
-    if (cond) conditions.push(cond);
+  const genericExpression = buildGenericFilterExpression(
+    table as typeof schema.companies,
+    genericFilters,
+  );
+  if (genericExpression) {
+    conditions.push(genericExpression);
   }
 
-  const sortParamCamel = sortParam ? snakeToCamelField(sortParam) : null;
-  const orderByCol = sortParamCamel
-    ? (table as Record<string, unknown>)[sortParamCamel]
-    : null;
-  const orderDir = orderParam === "DESC" ? desc : asc;
+  const orderByExpressions = sorts
+    .map((sort) =>
+      buildOrderByExpression(table as typeof schema.companies, sort),
+    )
+    .filter((expr): expr is SQL => expr !== null);
 
   const countResult = await (conditions.length > 0
     ? db
@@ -209,8 +258,8 @@ export async function listRecords(db: Db, params: ListParams): Promise<ListResul
           .from(table)
           .where(and(...conditions))
       : db.select().from(table);
-  const finalQuery = orderByCol
-    ? baseQuery.orderBy(orderDir(orderByCol as SQL))
+  const finalQuery = orderByExpressions.length > 0
+    ? baseQuery.orderBy(...orderByExpressions)
     : baseQuery;
   const rows = await finalQuery.limit(limit).offset(offset);
 

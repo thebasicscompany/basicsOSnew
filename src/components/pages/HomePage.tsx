@@ -1,9 +1,6 @@
-import { useCallback, useRef, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useNavigate, Link } from "react-router";
-import {
-  ArrowUpIcon,
-  ChatCircleIcon,
-} from "@phosphor-icons/react";
+import { ChatCircleIcon } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { useMe } from "@/hooks/use-me";
 import { useGateway } from "@/hooks/useGateway";
@@ -12,8 +9,15 @@ import {
   RecentsSection,
   RecentRecordsSection,
   RecentChatsSection,
-  RecentRecordsFallbackSection,
 } from "@/components/home/home-sections";
+import {
+  PromptInput,
+  PromptInputBody,
+  PromptInputTextarea,
+  PromptInputFooter,
+  PromptInputSubmit,
+  type PromptInputMessage,
+} from "@/components/ai-elements/prompt-input";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "";
 
@@ -55,7 +59,6 @@ function getGreeting(name: string) {
 
 const HOME_SECTIONS = [
   { id: "recent-records", component: RecentRecordsSection },
-  { id: "records-fallback", component: RecentRecordsFallbackSection },
   { id: "recents", component: RecentsSection },
   { id: "recent-chats", component: RecentChatsSection },
 ] as const;
@@ -69,26 +72,22 @@ export function HomePage() {
   const { hasKey } = useGateway();
   const { data: threads } = useThreads(1);
   const navigate = useNavigate();
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const submittingRef = useRef(false);
 
   const firstName = me?.firstName || me?.fullName?.split(" ")[0] || "there";
   const greeting = useMemo(() => getGreeting(firstName), [firstName]);
   const recentThread = threads?.[0] ?? null;
 
-  const submitMessage = useCallback(async () => {
-    const text = textareaRef.current?.value?.trim();
-    if (!text) return;
-    if (!hasKey) {
-      toast.error(
-        "Add your Basics API key in Settings to use the assistant",
-      );
-      return;
-    }
-    if (submittingRef.current) return;
-    submittingRef.current = true;
+  const handleSubmit = useCallback(
+    async (message: PromptInputMessage) => {
+      const text = message.text.trim();
+      if (!text) return;
+      if (!hasKey) {
+        toast.error(
+          "Add your Basics API key in Settings to use the assistant",
+        );
+        return;
+      }
 
-    try {
       const res = await fetch(`${API_URL}/api/gateway-chat`, {
         method: "POST",
         credentials: "include",
@@ -100,25 +99,13 @@ export function HomePage() {
       });
       const threadId = res.headers.get("X-Thread-Id");
       navigate(threadId ? `/chat/${threadId}` : "/chat");
-    } catch {
-      toast.error("Failed to start chat");
-      submittingRef.current = false;
-    }
-  }, [hasKey, navigate]);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        submitMessage();
-      }
     },
-    [submitMessage],
+    [hasKey, navigate],
   );
 
   return (
     <div className="flex h-full flex-col overflow-auto">
-      <div className="mx-auto w-full max-w-3xl px-6 pt-10 pb-16">
+      <div className="mx-auto w-full max-w-3xl px-6 pt-2 pb-16">
         {/* Greeting */}
         <h1 className="text-2xl font-semibold tracking-tight">{greeting}</h1>
 
@@ -140,24 +127,18 @@ export function HomePage() {
           )}
 
           {/* Chat input */}
-          <div className="relative rounded-xl border border-border bg-card shadow-sm focus-within:border-ring focus-within:ring-1 focus-within:ring-ring">
-            <textarea
-              ref={textareaRef}
-              placeholder="Ask anything..."
-              rows={3}
-              onKeyDown={handleKeyDown}
-              className="w-full resize-none rounded-xl bg-transparent px-4 pt-3 pb-12 text-sm placeholder:text-muted-foreground focus:outline-none"
-            />
-            <div className="absolute right-3 bottom-3 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={submitMessage}
-                className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-opacity hover:opacity-80"
-              >
-                <ArrowUpIcon className="size-4" weight="bold" />
-              </button>
-            </div>
-          </div>
+          <PromptInput
+            onSubmit={handleSubmit}
+            className="rounded-xl"
+          >
+            <PromptInputBody>
+              <PromptInputTextarea placeholder="Ask anything..." />
+            </PromptInputBody>
+            <PromptInputFooter>
+              <div />
+              <PromptInputSubmit />
+            </PromptInputFooter>
+          </PromptInput>
         </div>
 
         {/* Dynamic sections */}

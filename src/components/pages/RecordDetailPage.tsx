@@ -3,6 +3,7 @@ import { ArrowLeftIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DetailField } from "@/components/cells";
+import { getRecordValue } from "@/lib/crm/field-mapper";
 import {
   DetailSkeleton,
   NotesTabContent,
@@ -95,7 +96,7 @@ export function RecordDetailPage() {
                   <DetailField
                     key={attr.id}
                     attribute={attr}
-                    value={rec[attr.columnName]}
+                    value={getRecordValue(rec, attr.columnName)}
                     onSave={handleFieldSave(attr)}
                   />
                 ))}

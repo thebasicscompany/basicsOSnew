@@ -3,6 +3,12 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router";
 import { toast } from "sonner";
 import { showError } from "@/lib/show-error";
+import { getFieldType } from "@/field-types";
+import { getRecordValue } from "@/lib/crm/field-mapper";
+import {
+  buildAttributeWritePayload,
+  buildRecordWritePayload,
+} from "@/lib/crm/field-utils";
 import { useObject, useAttributes } from "@/hooks/use-object-registry";
 import type { Attribute } from "@/types/objects";
 import {
@@ -142,16 +148,19 @@ export function useRecordDetail(): UseRecordDetailReturn {
     const data: Record<string, unknown> = {};
     for (const attr of attributes) {
       if (attr.isSystem || attr.columnName === "Id") continue;
-      if (rec[attr.columnName] != null) {
-        data[attr.columnName] = rec[attr.columnName];
+      const value = getRecordValue(rec, attr.columnName);
+      if (value != null) {
+        data[attr.columnName] = value;
       }
     }
-    const primaryVal = rec[primaryAttr.columnName];
+    const primaryVal = getRecordValue(rec, primaryAttr.columnName);
     if (typeof primaryVal === "string") {
       data[primaryAttr.columnName] = `${primaryVal} (copy)`;
     }
     try {
-      const created = await createRecord.mutateAsync(data);
+      const created = await createRecord.mutateAsync(
+        buildRecordWritePayload(attributes, data),
+      );
       const newId = (created as Record<string, unknown>).Id;
       if (newId != null) {
         navigate(`/objects/${objectSlug}/${newId}`);
@@ -263,7 +272,7 @@ export function useRecordDetail(): UseRecordDetailReturn {
     (attr: Attribute) => (value: unknown) => {
       if (!recordId) return;
       updateRecord.mutate(
-        { id: recordId, data: { [attr.columnName]: value } },
+        { id: recordId, data: buildAttributeWritePayload(attr, value) },
         {
           onError: () => {
             toast.error("Failed to save field");
@@ -304,7 +313,10 @@ export function useRecordDetail(): UseRecordDetailReturn {
   );
 
   const isValueEmpty = useCallback(
-    (val: unknown) => val == null || val === "" || val === false,
+    (attr: Attribute, val: unknown) => {
+      const fieldType = getFieldType(attr.uiType);
+      return fieldType.isEmpty(val);
+    },
     [],
   );
 
@@ -313,7 +325,7 @@ export function useRecordDetail(): UseRecordDetailReturn {
     return editableAttributes.filter((attr) => {
       if (!record) return true;
       const rec = record as Record<string, unknown>;
-      return !isValueEmpty(rec[attr.columnName]);
+      return !isValueEmpty(attr, getRecordValue(rec, attr.columnName));
     });
   }, [editableAttributes, record, showAllFields, isValueEmpty]);
 
@@ -321,7 +333,7 @@ export function useRecordDetail(): UseRecordDetailReturn {
     if (!record) return 0;
     const rec = record as Record<string, unknown>;
     return editableAttributes.filter((attr) =>
-      isValueEmpty(rec[attr.columnName]),
+      isValueEmpty(attr, getRecordValue(rec, attr.columnName)),
     ).length;
   }, [editableAttributes, record, isValueEmpty]);
 

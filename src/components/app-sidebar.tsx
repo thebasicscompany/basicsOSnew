@@ -6,16 +6,15 @@ import {
   PlusIcon,
   CaretRightIcon,
   HardDrivesIcon,
-  ChartBarIcon,
+  HouseIcon,
+  MicrophoneIcon,
+  NotePencilIcon,
 } from "@phosphor-icons/react";
-import { ROUTES } from "@basics-os/hub";
-import { NavGroup } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
 import { ObjectRegistryNavSection } from "@/components/ObjectRegistryNavSection";
 import { useOrganization } from "@/hooks/use-organization";
 import { useThreads } from "@/hooks/use-threads";
-import { useMe } from "@/hooks/use-me";
-import { SIDEBAR_NAV_APPS } from "@/config/sidebar-nav";
+import { ROUTES } from "@basics-os/hub";
 import { Kbd } from "@/components/ui/kbd";
 import {
   dispatchCommandPaletteShortcut,
@@ -53,11 +52,9 @@ function ChatThreadsNav() {
       <SidebarGroup>
         <div className="flex items-center">
           <SidebarGroupLabel asChild className="flex-1">
-            <CollapsibleTrigger className="flex w-full items-center">
+            <CollapsibleTrigger className="flex w-full items-center gap-1">
+              <CaretRightIcon className="size-3 shrink-0 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
               Chats
-              {hasThreads && (
-                <CaretRightIcon className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-              )}
             </CollapsibleTrigger>
           </SidebarGroupLabel>
           <SidebarGroupAction title="New Chat" asChild>
@@ -120,53 +117,54 @@ function AutomationsNav() {
   const isActive =
     pathname === ROUTES.AUTOMATIONS ||
     pathname.startsWith(ROUTES.AUTOMATIONS + "/");
+  const [open, setOpen] = useState(true);
 
   return (
-    <SidebarGroup>
-      <SidebarGroupLabel className="text-xs font-medium text-muted-foreground">
-        Automations
-      </SidebarGroupLabel>
-      <SidebarGroupAction title="New automation" asChild>
-        <Link to={`${ROUTES.AUTOMATIONS}/create`}>
-          <PlusIcon className="size-4" />
-        </Link>
-      </SidebarGroupAction>
-      <SidebarGroupContent>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild isActive={isActive} tooltip="Hub">
-              <Link to={ROUTES.AUTOMATIONS}>
-                <HardDrivesIcon className="size-4" />
-                <span>Hub</span>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarGroupContent>
-    </SidebarGroup>
+    <Collapsible open={open} onOpenChange={setOpen} className="group/collapsible">
+      <SidebarGroup>
+        <div className="flex items-center">
+          <SidebarGroupLabel asChild className="flex-1">
+            <CollapsibleTrigger className="flex w-full items-center gap-1">
+              <CaretRightIcon className="size-3 shrink-0 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+              Automations
+            </CollapsibleTrigger>
+          </SidebarGroupLabel>
+          <SidebarGroupAction title="New automation" asChild>
+            <Link to={`${ROUTES.AUTOMATIONS}/create`}>
+              <PlusIcon className="size-4" />
+            </Link>
+          </SidebarGroupAction>
+        </div>
+        <CollapsibleContent>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={isActive} tooltip="Hub">
+                  <Link to={ROUTES.AUTOMATIONS}>
+                    <HardDrivesIcon className="size-4" />
+                    <span>Hub</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </CollapsibleContent>
+      </SidebarGroup>
+    </Collapsible>
   );
 }
 
 export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
   const { data: organization } = useOrganization();
-  const { data: me } = useMe();
   const { pathname } = useLocation();
   const shortcutLabel = getCommandPaletteShortcutLabel();
-  const isAdmin = Boolean(me?.administrator);
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <div className="flex h-8 min-w-0 shrink-0 items-center gap-2 overflow-hidden rounded-md px-2 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-2">
-              {organization?.logo?.src ? (
-                <img
-                  src={organization.logo.src}
-                  alt=""
-                  className="size-6 shrink-0 rounded object-contain"
-                />
-              ) : null}
-              <span className="truncate font-semibold text-sm group-data-[collapsible=icon]:hidden">
+            <div className="flex h-8 min-w-0 shrink-0 items-center overflow-hidden rounded-md px-2 group-data-[collapsible=icon]:hidden">
+              <span className="truncate font-semibold text-sm">
                 {organization?.name ?? "Basics Hub"}
               </span>
             </div>
@@ -189,31 +187,39 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavGroup {...SIDEBAR_NAV_APPS} />
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === ROUTES.CRM} tooltip="Home">
+                  <Link to={ROUTES.CRM}>
+                    <HouseIcon className="size-4" />
+                    <span>Home</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === ROUTES.VOICE} tooltip="Voice">
+                  <Link to={ROUTES.VOICE}>
+                    <MicrophoneIcon className="size-4" />
+                    <span>Voice</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === ROUTES.NOTES} tooltip="Notes">
+                  <Link to={ROUTES.NOTES}>
+                    <NotePencilIcon className="size-4" />
+                    <span>Notes</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
         <ChatThreadsNav />
         <ObjectRegistryNavSection />
         <AutomationsNav />
-        {isAdmin && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Admin</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname.startsWith(ROUTES.ADMIN_USAGE)}
-                    tooltip="AI Usage"
-                  >
-                    <Link to={ROUTES.ADMIN_USAGE}>
-                      <ChartBarIcon className="size-4" />
-                      <span>AI Usage</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
       </SidebarContent>
       <SidebarFooter>
         <NavUser />

@@ -3,7 +3,6 @@ import type { ComponentType } from "react";
 import {
   HouseIcon,
   MicrophoneIcon,
-  PlugIcon,
   HardDrivesIcon,
   NotePencilIcon,
 } from "@phosphor-icons/react";
@@ -20,7 +19,7 @@ export const SIDEBAR_NAV_APPS: NavGroupConfig = {
   items: [
     { title: "Home", path: ROUTES.CRM, icon: HouseIcon },
     { title: "Voice", path: ROUTES.VOICE, icon: MicrophoneIcon },
-    { title: "MCP", path: ROUTES.MCP, icon: PlugIcon },
+
     { title: "Notes", path: ROUTES.NOTES, icon: NotePencilIcon },
   ],
 };

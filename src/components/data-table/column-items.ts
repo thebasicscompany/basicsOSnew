@@ -10,7 +10,18 @@ export function buildColumnItems(
   viewColumns: ViewColumn[] | undefined,
   attributes: Attribute[],
 ): ColumnItem[] {
-  if (!viewColumns?.length) return [];
+  if (!viewColumns?.length) {
+    return attributes.map((attr, index) => ({
+      vc: {
+        id: `virtual-${attr.id}`,
+        fieldId: attr.id,
+        title: attr.name,
+        show: !attr.isHiddenByDefault && !attr.isSystem,
+        order: index,
+      } as ViewColumn,
+      attr,
+    }));
+  }
   const attrMap = new Map(attributes.map((a) => [a.id, a]));
   const vcMap = new Map(viewColumns.map((vc) => [vc.fieldId, vc]));
   const matched: ColumnItem[] = [];
