@@ -55,13 +55,7 @@ function LayoutHeader() {
   const isRecordDetail = /^\/objects\/[^/]+\/\d+/.test(location.pathname);
   return (
     <header className="drag-region flex h-[52px] shrink-0 items-center gap-3 bg-surface-canvas">
-      <div
-        className={
-          state === "collapsed"
-            ? "flex w-(--sidebar-width-icon) shrink-0 items-center justify-center"
-            : "flex w-(--sidebar-width) shrink-0 items-center pl-[92px]"
-        }
-      >
+      <div className="flex shrink-0 items-center pl-[92px]">
         <SidebarTrigger className="size-8 shrink-0" />
       </div>
       <div

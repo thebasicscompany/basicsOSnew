@@ -54,7 +54,7 @@ export function DealsKanbanBoard() {
   const stageAttr = useMemo(
     () =>
       attributes.find(
-        (a) => a.columnName === "stage" || a.columnName === "Stage",
+        (a) => a.columnName === "status" || a.columnName === "Status",
       ),
     [attributes],
   );
@@ -86,7 +86,7 @@ export function DealsKanbanBoard() {
     const ordered = [...configuredStageIds];
     const known = new Set(ordered);
     for (const d of deals) {
-      const s = (d.stage ?? d.Stage) as string | undefined;
+      const s = (d.status ?? d.Status) as string | undefined;
       if (s && !known.has(s)) {
         ordered.push(s);
         known.add(s);
@@ -99,7 +99,7 @@ export function DealsKanbanBoard() {
     const map: Record<string, typeof deals> = {};
     for (const s of allStageIds) map[s] = [];
     for (const d of deals) {
-      const s = ((d.stage ?? d.Stage) as string) || allStageIds[0] || "new";
+      const s = ((d.status ?? d.Status) as string) || allStageIds[0] || "new";
       if (!map[s]) map[s] = [];
       map[s].push(d);
     }
@@ -123,7 +123,7 @@ export function DealsKanbanBoard() {
         return;
       }
 
-      updateRecord.mutate({ id, data: { stage: targetStage } });
+      updateRecord.mutate({ id, data: { status: targetStage } });
     },
     [updateRecord],
   );
@@ -137,7 +137,7 @@ export function DealsKanbanBoard() {
     if (!slug) return;
 
     if (pendingDealId != null) {
-      updateRecord.mutate({ id: pendingDealId, data: { stage: slug } });
+      updateRecord.mutate({ id: pendingDealId, data: { status: slug } });
     }
 
     const alreadyExists = stageOptions.some((o) => o.id === slug);
@@ -148,7 +148,7 @@ export function DealsKanbanBoard() {
       ];
       upsertOverride.mutate(
         {
-          columnName: "stage",
+          columnName: "status",
           config: { ...stageAttr?.config, options: updatedOptions },
         },
         {

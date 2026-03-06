@@ -5,7 +5,7 @@ export const rangeSchema = z
   .tuple([z.number().int().min(0), z.number().int().min(0)])
   .refine(([a, b]) => a <= b, "range start must be <= end");
 
-/** Legacy filter object (e.g. { q: string, sector: string }) */
+/** Legacy filter object (e.g. { q: string, category: string }) */
 export const filterSchema = z.record(z.string(), z.unknown());
 
 /** Generic filter for column-based filtering */

@@ -63,13 +63,13 @@ export function DetailField({
         containerRef.current &&
         !containerRef.current.contains(e.target as Node)
       ) {
-        handleCancel();
+        setIsEditing(false);
       }
     }
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [isEditing, handleCancel]);
+  }, [isEditing]);
 
   useEffect(() => {
     return () => {

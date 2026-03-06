@@ -53,6 +53,3 @@ export function DealStageBadge({ stage }: { stage: string | null }) {
   return <SelectBadge value={stage} />;
 }
 
-export function SectorBadge({ sector }: { sector: string | null }) {
-  return <SelectBadge value={sector} />;
-}

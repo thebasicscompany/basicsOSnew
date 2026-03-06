@@ -1,5 +1,4 @@
-import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +33,7 @@ export function EditableRecordName({
   const [draftSingleValue, setDraftSingleValue] = useState(singleValue);
   const [draftFirstName, setDraftFirstName] = useState(firstName);
   const [draftLastName, setDraftLastName] = useState(lastName);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isEditing) return;
@@ -41,6 +41,22 @@ export function EditableRecordName({
     setDraftFirstName(firstName);
     setDraftLastName(lastName);
   }, [singleValue, firstName, lastName, isEditing]);
+
+  const commitAndClose = useCallback(() => {
+    if (mode === "split") {
+      const trimmedFirst = draftFirstName.trim();
+      const trimmedLast = draftLastName.trim();
+      if (trimmedFirst !== firstName.trim() || trimmedLast !== lastName.trim()) {
+        onSave({ firstName: trimmedFirst, lastName: trimmedLast });
+      }
+    } else if (mode === "single") {
+      const trimmed = draftSingleValue.trim();
+      if (trimmed !== singleValue.trim()) {
+        onSave({ singleValue: trimmed });
+      }
+    }
+    setIsEditing(false);
+  }, [mode, draftFirstName, draftLastName, draftSingleValue, firstName, lastName, singleValue, onSave]);
 
   const startEditing = () => {
     if (mode === "none") return;
@@ -50,35 +66,31 @@ export function EditableRecordName({
     setIsEditing(true);
   };
 
-  const cancelEditing = () => {
-    setDraftSingleValue(singleValue);
-    setDraftFirstName(firstName);
-    setDraftLastName(lastName);
-    setIsEditing(false);
-  };
+  useEffect(() => {
+    if (!isEditing) return;
 
-  const saveEditing = () => {
-    if (mode === "split") {
-      onSave({
-        firstName: draftFirstName.trim(),
-        lastName: draftLastName.trim(),
-      });
-    } else if (mode === "single") {
-      onSave({ singleValue: draftSingleValue.trim() });
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
+        commitAndClose();
+      }
     }
-    setIsEditing(false);
-  };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isEditing, commitAndClose]);
 
   const editor = (
-    <form
+    <div
+      ref={containerRef}
       className={cn(
         "min-w-0",
-        variant === "heading" ? "flex items-center gap-2" : "flex w-full flex-col gap-2",
+        variant === "heading"
+          ? "flex items-center gap-2"
+          : "flex w-full flex-col gap-2",
       )}
-      onSubmit={(event) => {
-        event.preventDefault();
-        saveEditing();
-      }}
     >
       {mode === "split" ? (
         <div
@@ -94,11 +106,35 @@ export function EditableRecordName({
             value={draftFirstName}
             placeholder="First name"
             onChange={(event) => setDraftFirstName(event.target.value)}
+            onBlur={commitAndClose}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                commitAndClose();
+              }
+              if (e.key === "Escape") {
+                setDraftFirstName(firstName);
+                setDraftLastName(lastName);
+                setIsEditing(false);
+              }
+            }}
           />
           <Input
             value={draftLastName}
             placeholder="Last name"
             onChange={(event) => setDraftLastName(event.target.value)}
+            onBlur={commitAndClose}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                commitAndClose();
+              }
+              if (e.key === "Escape") {
+                setDraftFirstName(firstName);
+                setDraftLastName(lastName);
+                setIsEditing(false);
+              }
+            }}
           />
         </div>
       ) : (
@@ -107,19 +143,21 @@ export function EditableRecordName({
           value={draftSingleValue}
           placeholder={label}
           onChange={(event) => setDraftSingleValue(event.target.value)}
+          onBlur={commitAndClose}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commitAndClose();
+            }
+            if (e.key === "Escape") {
+              setDraftSingleValue(singleValue);
+              setIsEditing(false);
+            }
+          }}
           className={variant === "heading" ? "min-w-[240px]" : undefined}
         />
       )}
-
-      <div className="flex shrink-0 items-center gap-2">
-        <Button type="submit" size="xs">
-          Save
-        </Button>
-        <Button type="button" variant="ghost" size="xs" onClick={cancelEditing}>
-          Cancel
-        </Button>
-      </div>
-    </form>
+    </div>
   );
 
   if (variant === "heading") {

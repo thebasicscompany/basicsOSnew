@@ -2,7 +2,21 @@ import { z } from "zod";
 import type { Resource } from "@/routes/crm/constants.js";
 
 const nullableString = z.string().trim().nullable();
-const nullableNumber = z.number().nullable();
+const nullableNumber = z.preprocess((val) => {
+  if (val === null || val === undefined || val === "") return null;
+  if (typeof val === "string") {
+    const n = Number(val);
+    return isNaN(n) ? val : n;
+  }
+  return val;
+}, z.number().nullable());
+
+/** Accepts a string, string[], or null. Arrays are joined with commas for varchar storage. */
+const multiSelectValue = z.preprocess((val) => {
+  if (val === null || val === undefined) return null;
+  if (Array.isArray(val)) return val.length === 0 ? null : val.join(",");
+  return val;
+}, z.string().nullable());
 
 const timestampValue = z.preprocess((value) => {
   if (value === null || value === undefined || value instanceof Date)
@@ -22,36 +36,11 @@ const attachmentSchema = z
   })
   .strict();
 
-const emailEntrySchema = z
-  .object({
-    email: z.string().email(),
-    type: z.string().optional(),
-  })
-  .strict();
-
-const phoneEntrySchema = z
-  .object({
-    number: z.string().min(1),
-    type: z.string().optional(),
-  })
-  .strict();
-
 const contactsWriteSchema = z
   .object({
     firstName: nullableString.optional(),
     lastName: nullableString.optional(),
-    gender: nullableString.optional(),
-    title: nullableString.optional(),
     email: nullableString.optional(),
-    emailJsonb: z.array(emailEntrySchema).nullable().optional(),
-    phoneJsonb: z.array(phoneEntrySchema).nullable().optional(),
-    background: nullableString.optional(),
-    avatar: z.record(z.string(), z.unknown()).nullable().optional(),
-    firstSeen: timestampValue.nullable().optional(),
-    lastSeen: timestampValue.nullable().optional(),
-    hasNewsletter: z.boolean().nullable().optional(),
-    status: nullableString.optional(),
-    tags: z.array(z.number().int()).nullable().optional(),
     companyId: z.number().int().positive().nullable().optional(),
     linkedinUrl: nullableString.optional(),
     customFields: z.record(z.string(), z.unknown()).optional(),
@@ -61,21 +50,9 @@ const contactsWriteSchema = z
 const companiesWriteSchema = z
   .object({
     name: z.string().trim().min(1),
-    sector: nullableString.optional(),
-    size: z.number().int().nullable().optional(),
-    linkedinUrl: nullableString.optional(),
-    website: nullableString.optional(),
-    phoneNumber: nullableString.optional(),
-    address: nullableString.optional(),
-    zipcode: nullableString.optional(),
-    city: nullableString.optional(),
-    stateAbbr: nullableString.optional(),
-    country: nullableString.optional(),
+    domain: nullableString.optional(),
     description: nullableString.optional(),
-    revenue: nullableString.optional(),
-    taxIdentifier: nullableString.optional(),
-    logo: z.record(z.string(), z.unknown()).nullable().optional(),
-    contextLinks: z.unknown().optional(),
+    category: multiSelectValue.optional(),
     customFields: z.record(z.string(), z.unknown()).optional(),
   })
   .strict();
@@ -84,13 +61,8 @@ const dealsWriteSchema = z
   .object({
     name: z.string().trim().min(1),
     companyId: z.number().int().positive().nullable().optional(),
-    contactIds: z.array(z.number().int().positive()).nullable().optional(),
-    category: nullableString.optional(),
-    stage: z.string().trim().min(1),
-    description: nullableString.optional(),
+    status: z.string().trim().min(1),
     amount: nullableNumber.optional(),
-    expectedClosingDate: timestampValue.nullable().optional(),
-    index: z.number().int().nullable().optional(),
     customFields: z.record(z.string(), z.unknown()).optional(),
   })
   .strict();

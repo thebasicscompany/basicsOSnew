@@ -27,14 +27,6 @@ const SYSTEM_COLUMNS = new Set([
   "updated_at",
   "crm_user_id",
   "organization_id",
-  // Internal storage columns that should not appear as user-facing fields.
-  "email_jsonb",
-  "phone_jsonb",
-  "avatar",
-  "logo",
-  "tags",
-  "contact_ids",
-  "context_links",
   "attachments",
   // Internal JSONB bucket for user-defined custom fields; not edited directly
   "custom_fields",

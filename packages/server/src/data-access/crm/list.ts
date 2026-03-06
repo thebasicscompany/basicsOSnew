@@ -87,13 +87,12 @@ export async function listRecords(db: Db, params: ListParams): Promise<ListResul
       companyConds.push(
         or(
           ilike(schema.companies.name, `%${q}%`),
-          ilike(schema.companies.city, `%${q}%`),
-          ilike(schema.companies.sector, `%${q}%`),
+          ilike(schema.companies.category, `%${q}%`),
         ) as SQL,
       );
     }
-    if (filter.sector)
-      companyConds.push(eq(schema.companies.sector, filter.sector as string));
+    if (filter.category)
+      companyConds.push(eq(schema.companies.category, filter.category as string));
 
     const rows = await db
       // @ts-expect-error - SelectedFields typing with spread + SQL aliased
@@ -138,8 +137,6 @@ export async function listRecords(db: Db, params: ListParams): Promise<ListResul
         ) as SQL,
       );
     }
-    if (filter.status)
-      contactConds.push(eq(schema.contacts.status, filter.status as string));
     if (filter.company_id) {
       contactConds.push(
         eq(schema.contacts.companyId, Number(filter.company_id)),
@@ -200,8 +197,7 @@ export async function listRecords(db: Db, params: ListParams): Promise<ListResul
     conditions.push(
       or(
         ilike(schema.companies.name, `%${q}%`),
-        ilike(schema.companies.city, `%${q}%`),
-        ilike(schema.companies.sector, `%${q}%`),
+        ilike(schema.companies.category, `%${q}%`),
       ) as SQL,
     );
   }
@@ -210,10 +206,8 @@ export async function listRecords(db: Db, params: ListParams): Promise<ListResul
     if (!includeArchived)
       conditions.push(sql`${schema.deals.archivedAt} is null`);
     if (q) conditions.push(ilike(schema.deals.name, `%${q}%`));
-    if (filter.stage)
-      conditions.push(eq(schema.deals.stage, filter.stage as string));
-    if (filter.category)
-      conditions.push(eq(schema.deals.category, filter.category as string));
+    if (filter.status)
+      conditions.push(eq(schema.deals.status, filter.status as string));
     if (filter.company_id)
       conditions.push(eq(schema.deals.companyId, Number(filter.company_id)));
   }

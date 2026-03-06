@@ -64,7 +64,7 @@ export const CompanyFieldType: FieldTypeDefinition = {
   calculate: () => null,
 
   placeholder: "Search companies...",
-  searchPlaceholder: "Search by name, city, sector...",
+  searchPlaceholder: "Search by name, category...",
 };
 
 export default CompanyFieldType;
