@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { CaretRightIcon } from "@phosphor-icons/react";
+import { ArrowsClockwiseIcon, CaretRightIcon } from "@phosphor-icons/react";
 
 const FEATURE_LABELS: Record<string, string> = {
   chat: "AI Chat",
@@ -106,14 +106,18 @@ export function UsagePage() {
   const [recentRequestsPage, setRecentRequestsPage] = useState(1);
   const isAdmin = Boolean(me?.administrator);
 
-  const { data: summary, isLoading: summaryLoading } = useAdminUsageSummary(
-    isAdmin,
-    days,
-  );
-  const { data: logsData, isLoading: logsLoading } = useAdminUsageLogs(
-    isAdmin,
-    days,
-  );
+  const {
+    data: summary,
+    isLoading: summaryLoading,
+    refetch: refetchSummary,
+    isFetching: summaryFetching,
+  } = useAdminUsageSummary(isAdmin, days);
+  const {
+    data: logsData,
+    isLoading: logsLoading,
+    refetch: refetchLogs,
+    isFetching: logsFetching,
+  } = useAdminUsageLogs(isAdmin, days);
 
   const LOGS_PAGE_SIZE = 25;
   const logs = useMemo(
@@ -224,20 +228,37 @@ export function UsagePage() {
             user and feature.
           </p>
         </div>
-        <Select
-          value={String(days)}
-          onValueChange={(v) => setDays(Number(v))}
-        >
-          <SelectTrigger className="h-9 w-[140px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="7">Last 7 days</SelectItem>
-            <SelectItem value="14">Last 14 days</SelectItem>
-            <SelectItem value="30">Last 30 days</SelectItem>
-            <SelectItem value="90">Last 90 days</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-9 w-9"
+            onClick={() => {
+              refetchSummary();
+              refetchLogs();
+            }}
+            disabled={summaryFetching || logsFetching}
+            title="Refresh usage data"
+          >
+            <ArrowsClockwiseIcon
+              className={`size-4 ${summaryFetching || logsFetching ? "animate-spin" : ""}`}
+            />
+          </Button>
+          <Select
+            value={String(days)}
+            onValueChange={(v) => setDays(Number(v))}
+          >
+            <SelectTrigger className="h-9 w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7">Last 7 days</SelectItem>
+              <SelectItem value="14">Last 14 days</SelectItem>
+              <SelectItem value="30">Last 30 days</SelectItem>
+              <SelectItem value="90">Last 90 days</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {loading ? (

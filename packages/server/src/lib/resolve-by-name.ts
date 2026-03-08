@@ -41,6 +41,7 @@ export interface CompanyMatch extends MatchRow {
   category: string | null;
   domain: string | null;
   description: string | null;
+  createdAt: Date | null;
 }
 
 export interface DealMatch extends MatchRow {
@@ -391,10 +392,11 @@ export async function searchCompaniesByQuery(
         category: schema.companies.category,
         domain: schema.companies.domain,
         description: schema.companies.description,
+        createdAt: schema.companies.createdAt,
       })
       .from(schema.companies)
       .where(eq(schema.companies.organizationId, organizationId))
-      .orderBy(sql`${schema.companies.id} desc`)
+      .orderBy(sql`${schema.companies.createdAt} desc`, sql`${schema.companies.id} desc`)
       .limit(limit);
 
     return rows.map((row) => ({ ...row, matchScore: 0 }));
@@ -422,6 +424,7 @@ export async function searchCompaniesByQuery(
         category: schema.companies.category,
         domain: schema.companies.domain,
         description: schema.companies.description,
+        createdAt: schema.companies.createdAt,
         nameSimilarity,
         metaSimilarity,
       })
@@ -450,6 +453,7 @@ export async function searchCompaniesByQuery(
       category: row.category,
       domain: row.domain,
       description: row.description,
+      createdAt: row.createdAt,
       matchScore:
         Number(row.nameSimilarity ?? 0) * 1.6
         + Number(row.metaSimilarity ?? 0) * 0.7
@@ -469,6 +473,7 @@ export async function searchCompaniesByQuery(
           category: schema.companies.category,
           domain: schema.companies.domain,
           description: schema.companies.description,
+          createdAt: schema.companies.createdAt,
         })
         .from(schema.companies)
         .where(

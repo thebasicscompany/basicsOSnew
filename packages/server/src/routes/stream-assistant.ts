@@ -19,8 +19,8 @@ import { PERMISSIONS, requirePermission } from "@/lib/rbac.js";
 import { linkifyRecordNames } from "@/lib/linkify-records.js";
 import {
   buildRecentConversationContext,
+  deriveToolAnswer,
   finalizeAssistantText,
-  toolFallbackText,
 } from "@/routes/gateway-chat/protocol.js";
 import {
   ensureThread,
@@ -54,10 +54,18 @@ type GatewayToolCall = {
   function: { name: string; arguments: string };
 };
 
+type SanitizedGatewayToolCalls = {
+  toolCalls: GatewayToolCall[];
+  invalidToolNames: string[];
+};
+
 const MAX_HISTORY_MESSAGES = 12;
 const MAX_HISTORY_CHARS = 16_000;
 const MAX_MESSAGE_CHARS = 4_000;
 const MAX_TOOL_ARGUMENTS_CHARS = 4_000;
+const VALID_ASSISTANT_TOOL_NAMES: ReadonlySet<string> = new Set(
+  ASSISTANT_TOOLS.map((definition) => definition.function.name),
+);
 
 function stableStringify(value: unknown): string {
   if (Array.isArray(value)) {
@@ -105,9 +113,13 @@ function sanitizeConversationMessages(messages: ConversationMessage[]): Conversa
   return kept.reverse();
 }
 
-function sanitizeGatewayToolCalls(value: unknown): GatewayToolCall[] {
-  if (!Array.isArray(value)) return [];
-  return value.flatMap((entry) => {
+function sanitizeGatewayToolCalls(value: unknown): SanitizedGatewayToolCalls {
+  if (!Array.isArray(value)) {
+    return { toolCalls: [], invalidToolNames: [] };
+  }
+
+  const invalidToolNames = new Set<string>();
+  const toolCalls = value.flatMap((entry) => {
     if (!entry || typeof entry !== "object") return [];
     const toolCall = entry as Record<string, unknown>;
     const fn =
@@ -115,6 +127,10 @@ function sanitizeGatewayToolCalls(value: unknown): GatewayToolCall[] {
         ? (toolCall.function as Record<string, unknown>)
         : null;
     if (typeof toolCall.id !== "string" || typeof fn?.name !== "string") {
+      return [];
+    }
+    if (!VALID_ASSISTANT_TOOL_NAMES.has(fn.name)) {
+      invalidToolNames.add(fn.name);
       return [];
     }
     return [
@@ -131,6 +147,20 @@ function sanitizeGatewayToolCalls(value: unknown): GatewayToolCall[] {
       },
     ];
   });
+
+  return {
+    toolCalls,
+    invalidToolNames: [...invalidToolNames],
+  };
+}
+
+function buildInvalidToolRetryMessage(invalidToolNames: string[]): string {
+  return [
+    `Invalid tool call(s): ${invalidToolNames.join(", ")}.`,
+    "Never invent tool names.",
+    `Use only these tools: ${[...VALID_ASSISTANT_TOOL_NAMES].join(", ")}.`,
+    "If you need to list or search companies, use `search_companies`.",
+  ].join(" ");
 }
 
 function sanitizeAssistantGatewayMessage(aiMessage: Record<string, unknown> | undefined): ChatMessageEntry {
@@ -144,7 +174,7 @@ function sanitizeAssistantGatewayMessage(aiMessage: Record<string, unknown> | un
     message.content = truncateText(JSON.stringify(content));
   }
 
-  const toolCalls = sanitizeGatewayToolCalls(aiMessage?.tool_calls);
+  const { toolCalls } = sanitizeGatewayToolCalls(aiMessage?.tool_calls);
   if (toolCalls.length > 0) {
     message.tool_calls = toolCalls;
   }
@@ -253,23 +283,6 @@ function inferWorkflowHints(queryText: string): WorkflowHints {
   return { planText: planLines.join("\n"), nextHintByTool };
 }
 
-function bestEffortToolSummary(toolOutputs: Array<{ name: string; result: unknown }>): string {
-  const writeSummaries = toolOutputs
-    .map((output) => output.result)
-    .filter((result): result is string => typeof result === "string")
-    .map((result) =>
-      result.replace(
-        /\[\[([a-z][a-z0-9-]*)\/(\d+)\|([^\]]+)\]\]/g,
-        (_m, _slug, id, label) => `${label} (id: ${id})`,
-      ).trim(),
-    )
-    .filter((result) => /^(Created|Updated|Task created|Note added)/i.test(result));
-  if (writeSummaries.length > 0) {
-    return writeSummaries.join("\n");
-  }
-  return toolFallbackText(toolOutputs);
-}
-
 function duplicateToolMessage(name: string, nextStepHint?: string): string {
   if (name.startsWith("search_") || name.startsWith("get_")) {
     return nextStepHint
@@ -300,6 +313,68 @@ function buildToolChatContent(
   return stripped;
 }
 
+async function synthesizeFinalAnswer(args: {
+  gatewayUrl: string;
+  gatewayHeaders: Record<string, string>;
+  queryText: string;
+  toolOutputs: Array<{ name: string; result: unknown }>;
+}): Promise<string> {
+  const deterministic = deriveToolAnswer(args.queryText, args.toolOutputs);
+  if (deterministic) return deterministic;
+
+  if (args.toolOutputs.length === 0) {
+    return "I could not complete that request.";
+  }
+
+  const toolSummary = args.toolOutputs
+    .slice(0, 6)
+    .map((output, index) => {
+      const result =
+        typeof output.result === "string"
+          ? output.result.replace(
+            /\[\[([a-z][a-z0-9-]*)\/(\d+)\|([^\]]+)\]\]/g,
+            (_m: string, _slug: string, id: string, label: string) =>
+              `${label} (id: ${id})`,
+          )
+          : JSON.stringify(output.result);
+      return `${index + 1}. ${output.name}\n${result}`;
+    })
+    .join("\n\n");
+
+  const res = await fetch(`${args.gatewayUrl}/v1/chat/completions`, {
+    method: "POST",
+    headers: args.gatewayHeaders,
+    body: JSON.stringify({
+      model: "basics-chat-smart",
+      messages: [
+        {
+          role: "system",
+          content:
+            "Answer the user's original CRM request using only the tool results provided. Do not mention tools, tool names, raw JSON, or fallback text. If a lookup answered the question, give the direct answer. If a write succeeded, confirm the completed action. If the results are insufficient, say that briefly.",
+        },
+        {
+          role: "user",
+          content: `User request: ${args.queryText}\n\nTool results:\n${toolSummary}`,
+        },
+      ],
+      stream: false,
+      max_tokens: 220,
+    }),
+  });
+  if (!res.ok) {
+    await res.text().catch(() => {});
+    return "I couldn't produce a final answer from the available results.";
+  }
+
+  const json = (await res.json()) as {
+    choices?: Array<{ message?: { content?: string | null } }>;
+  };
+  return finalizeAssistantText(
+    json.choices?.[0]?.message?.content ?? "",
+    [],
+  ) || "I couldn't produce a final answer from the available results.";
+}
+
 const ASSISTANT_SYSTEM_PROMPT = `You are Basics OS Company Assistant - an AI grounded in this company's CRM data.
 
 Rules:
@@ -311,6 +386,7 @@ Rules:
 - After receiving tool results, summarize them in clear, natural language. Never show raw JSON or IDs to the user.
 - Never reply with raw JSON, code fences, arrays, or object literals. Always answer in normal prose or simple bullet points.
 - When mentioning a record by name, use the EXACT name from the tool result (do not paraphrase or abbreviate record names).
+- If the user asks for the latest/newest/most recent or nth latest record, use one matching search/list tool and answer from the ordered results by position.
 - You have full access to search and modify the CRM on behalf of the user.
 - If a search returns no results, say so clearly.
 - If the user asks for multiple actions in one message, complete all of them in order before replying whenever the tools/results are sufficient.
@@ -410,7 +486,7 @@ export function createStreamAssistantRoutes(
     const executedToolSignatures = new Set<string>();
     const ONCE_ONLY_TOOLS = new Set(["create_contact", "create_company", "create_deal"]);
 
-    if (shouldPlanToolWorkflow(message)) {
+    if (!finalContent && shouldPlanToolWorkflow(message)) {
       const plannedWorkflow = await planToolWorkflow({
         gatewayUrl: env.BASICSOS_API_URL,
         gatewayHeaders,
@@ -487,10 +563,12 @@ export function createStreamAssistantRoutes(
         }
 
         if (!finalContent && latestToolOutputs.length > 0) {
-          finalContent = finalizeAssistantText(
-            bestEffortToolSummary(latestToolOutputs),
-            latestToolOutputs,
-          );
+          finalContent = await synthesizeFinalAnswer({
+            gatewayUrl: env.BASICSOS_API_URL,
+            gatewayHeaders,
+            queryText: message,
+            toolOutputs: latestToolOutputs,
+          });
         }
       }
     }
@@ -528,7 +606,12 @@ export function createStreamAssistantRoutes(
           errText,
         );
         if (lastToolResult) {
-          finalContent = finalizeAssistantText("", latestToolOutputs);
+          finalContent = await synthesizeFinalAnswer({
+            gatewayUrl: env.BASICSOS_API_URL,
+            gatewayHeaders,
+            queryText: message,
+            toolOutputs: latestToolOutputs,
+          });
           break;
         }
         return c.json({ error: "Gateway error" }, 502);
@@ -543,19 +626,36 @@ export function createStreamAssistantRoutes(
       totalOutputTokens += json.usage?.completion_tokens ?? 0;
 
       const aiMessage = json.choices?.[0]?.message;
-      const toolCalls = sanitizeGatewayToolCalls(aiMessage?.tool_calls);
+      const { toolCalls, invalidToolNames } = sanitizeGatewayToolCalls(
+        aiMessage?.tool_calls,
+      );
 
-      if (toolCalls.length === 0) {
-        finalContent = finalizeAssistantText(
-          String(aiMessage?.content ?? ""),
-          latestToolOutputs,
-        );
+      if (toolCalls.length === 0 && invalidToolNames.length === 0) {
+        if (latestToolOutputs.length > 0) {
+          finalContent = await synthesizeFinalAnswer({
+            gatewayUrl: env.BASICSOS_API_URL,
+            gatewayHeaders,
+            queryText: message,
+            toolOutputs: latestToolOutputs,
+          });
+        } else {
+          finalContent = finalizeAssistantText(String(aiMessage?.content ?? ""));
+        }
         break;
       }
 
       // Push the FULL message so gateway-specific fields (e.g. Gemini
       // thought_signature) are included in the next request for multi-turn tools.
       chatMessages.push(sanitizeAssistantGatewayMessage(aiMessage));
+      if (invalidToolNames.length > 0) {
+        chatMessages.push({
+          role: "system",
+          content: buildInvalidToolRetryMessage(invalidToolNames),
+        });
+      }
+      if (toolCalls.length === 0) {
+        continue;
+      }
 
       for (const tc of toolCalls) {
         let args: Record<string, unknown> = {};
@@ -619,16 +719,27 @@ export function createStreamAssistantRoutes(
     }
 
     if (!finalContent && lastToolResult) {
-      finalContent = finalizeAssistantText(
-        bestEffortToolSummary(latestToolOutputs),
-        latestToolOutputs,
-      );
+      finalContent = await synthesizeFinalAnswer({
+        gatewayUrl: env.BASICSOS_API_URL,
+        gatewayHeaders,
+        queryText: message,
+        toolOutputs: latestToolOutputs,
+      });
     }
     if (!finalContent) {
       finalContent = "I could not complete that action yet. Please try again.";
     }
 
-    finalContent = finalizeAssistantText(finalContent, latestToolOutputs);
+    if (latestToolOutputs.length > 0) {
+      finalContent = await synthesizeFinalAnswer({
+        gatewayUrl: env.BASICSOS_API_URL,
+        gatewayHeaders,
+        queryText: message,
+        toolOutputs: latestToolOutputs,
+      });
+    } else {
+      finalContent = finalizeAssistantText(finalContent);
+    }
     finalContent = await linkifyRecordNames(db, crmUser.organizationId!, finalContent);
     await persistMessage(db, threadId, "assistant", finalContent);
     await touchThread(db, threadId);

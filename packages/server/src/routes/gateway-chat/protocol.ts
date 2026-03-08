@@ -30,6 +30,9 @@ export const BASE_SYSTEM_PROMPT = `You are an AI assistant for a CRM called Basi
 Rules:
 - Never ask the user for IDs. Users reference records by name or description. Search first if needed, then use the id from the result.
 - Use tools to look up or modify CRM records. Pass user-provided names directly as contact_name, deal_name, or company_name.
+- Never invent tool names. Use only the exact tool names you were given.
+- If the user asks for the latest/newest/most recent or nth latest record, call the matching search/list tool exactly once with no query unless the user gave a filter, then answer from the ordered results by position.
+- When a lookup tool already answered the question, stop calling tools and give the final answer. Do not dump raw lookup output to the user.
 - After receiving tool results, ALWAYS summarize in clear natural language. Never show raw JSON or IDs to the user.
 - Format lists as bullet points or numbered lists.
 - If a search returns no results, say so clearly.
@@ -739,15 +742,134 @@ export const toolFallbackText = (
   return `Here's what I found:\n\n${sections}`;
 };
 
+type RankedEntityIntent = {
+  label: "company" | "contact" | "deal" | "task";
+  toolNames: string[];
+  rank: number;
+  rankLabel: string;
+};
+
+function parseRequestedRank(queryText: string): { rank: number; rankLabel: string } | null {
+  const lower = queryText.toLowerCase();
+  if (/\bsecond\s+(?:latest|newest|most recent|last)\b/.test(lower)) {
+    return { rank: 2, rankLabel: "second latest" };
+  }
+  if (/\bthird\s+(?:latest|newest|most recent|last)\b/.test(lower)) {
+    return { rank: 3, rankLabel: "third latest" };
+  }
+  if (/\bfourth\s+(?:latest|newest|most recent|last)\b/.test(lower)) {
+    return { rank: 4, rankLabel: "fourth latest" };
+  }
+  const numericOrdinal = /\b(\d+)(?:st|nd|rd|th)\s+(?:latest|newest|most recent|last)\b/.exec(
+    lower,
+  );
+  if (numericOrdinal) {
+    const rank = Number(numericOrdinal[1]);
+    if (Number.isFinite(rank) && rank > 0) {
+      return { rank, rankLabel: `${rank}${numericOrdinal[0].match(/\d+(st|nd|rd|th)/)?.[1] ?? "th"} latest` };
+    }
+  }
+  if (/\b(latest|newest|most recent|recently added|last added)\b/.test(lower)
+    || /\bwhat(?:'s| is)\s+the\s+last\b/.test(lower)) {
+    return { rank: 1, rankLabel: "latest" };
+  }
+  return null;
+}
+
+function detectRankedEntityIntent(queryText: string): RankedEntityIntent | null {
+  const lower = queryText.toLowerCase();
+  const requestedRank = parseRequestedRank(queryText);
+  if (!requestedRank) return null;
+
+  if (/\b(company|companies|organization|organizations)\b/.test(lower)) {
+    return {
+      label: "company",
+      toolNames: ["search_companies", "get_company"],
+      rank: requestedRank.rank,
+      rankLabel: requestedRank.rankLabel,
+    };
+  }
+  if (/\b(contact|contacts|person|people|lead|leads)\b/.test(lower)) {
+    return {
+      label: "contact",
+      toolNames: ["search_contacts", "get_contact"],
+      rank: requestedRank.rank,
+      rankLabel: requestedRank.rankLabel,
+    };
+  }
+  if (/\b(deal|deals|opportunity|opportunities)\b/.test(lower)) {
+    return {
+      label: "deal",
+      toolNames: ["search_deals", "get_deal"],
+      rank: requestedRank.rank,
+      rankLabel: requestedRank.rankLabel,
+    };
+  }
+  if (/\b(task|tasks|todo|todos|reminder|reminders|follow-up|follow up)\b/.test(lower)) {
+    return {
+      label: "task",
+      toolNames: ["search_tasks", "list_tasks"],
+      rank: requestedRank.rank,
+      rankLabel: requestedRank.rankLabel,
+    };
+  }
+  return null;
+}
+
+function extractLinkedRecords(result: unknown): Array<{ id: number; name: string }> {
+  if (typeof result !== "string") return [];
+  return [...result.matchAll(/\[\[[a-z][a-z0-9-]*\/(\d+)\|([^\]]+)\]\]/gi)]
+    .map((match) => ({
+      id: Number(match[1]),
+      name: cleanUserFacingText(match[2]),
+    }))
+    .filter((record) => Number.isFinite(record.id) && record.name);
+}
+
+export function deriveToolAnswer(
+  queryText: string,
+  toolOutputs: Array<{ name: string; result: unknown }>,
+): string {
+  const writeSummaries = toolOutputs
+    .map((output) => output.result)
+    .filter((result): result is string => typeof result === "string")
+    .map((result) => cleanUserFacingText(result).trim())
+    .filter((result) => /^(Created|Updated|Task created|Note added)/i.test(result));
+  if (writeSummaries.length > 0) {
+    return writeSummaries.join("\n");
+  }
+
+  const rankedIntent = detectRankedEntityIntent(queryText);
+  if (rankedIntent) {
+    const relevantOutput = toolOutputs.find((output) =>
+      rankedIntent.toolNames.includes(output.name),
+    );
+    if (typeof relevantOutput?.result === "string") {
+      const cleaned = cleanUserFacingText(relevantOutput.result);
+      if (/^(No .* found\.?|Not found\.?)$/i.test(cleaned)) {
+        return `I couldn't find any ${rankedIntent.label}s yet.`;
+      }
+      const records = extractLinkedRecords(relevantOutput.result);
+      const rankedRecord = records[rankedIntent.rank - 1];
+      if (rankedRecord) {
+        return `The ${rankedIntent.rankLabel} ${rankedIntent.label} you added is ${rankedRecord.name}.`;
+      }
+      if (records.length > 0) {
+        return `I only found ${records.length} ${rankedIntent.label}${records.length === 1 ? "" : "s"}, so I couldn't determine the ${rankedIntent.rankLabel} one.`;
+      }
+    }
+  }
+
+  return "";
+}
+
 export function finalizeAssistantText(
   text: string,
   toolOutputs: Array<{ name: string; result: unknown }> = [],
 ): string {
   const cleaned = cleanUserFacingText(text);
   if (!cleaned) {
-    return toolOutputs.length > 0
-      ? cleanUserFacingText(toolFallbackText(toolOutputs))
-      : "";
+    return "";
   }
 
   const parsed = parseStructuredResponse(cleaned);
@@ -757,7 +879,7 @@ export function finalizeAssistantText(
   }
 
   if (looksJsonLike(cleaned) && toolOutputs.length > 0) {
-    return cleanUserFacingText(toolFallbackText(toolOutputs));
+    return "";
   }
 
   return cleaned;
