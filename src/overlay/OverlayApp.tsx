@@ -464,6 +464,30 @@ export const OverlayApp = () => {
                   <MeetingTimer startedAt={pill.meetingStartedAt} />
                 </>
               )}
+              <button
+                onClick={(e) => { e.stopPropagation(); void window.electronAPI?.hideOverlay?.(); }}
+                style={{
+                  marginLeft: "auto",
+                  background: "none",
+                  border: "none",
+                  padding: "2px 3px",
+                  cursor: "pointer",
+                  color: "rgba(255,255,255,0.6)",
+                  fontSize: 11,
+                  lineHeight: 1,
+                  flexShrink: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: 3,
+                  transition: "color 0.15s",
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,1)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.6)"; }}
+                aria-label="Close"
+              >
+                ✕
+              </button>
             </div>
           )}
 
@@ -539,6 +563,29 @@ export const OverlayApp = () => {
                   )}
                 </div>
                 <Waveform level={speech.audioLevel} />
+                <button
+                  onClick={(e) => { e.stopPropagation(); dismiss(); }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    padding: "2px 3px",
+                    cursor: "pointer",
+                    color: "rgba(255,255,255,0.6)",
+                    fontSize: 12,
+                    lineHeight: 1,
+                    flexShrink: 0,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    borderRadius: 3,
+                    transition: "color 0.15s",
+                  }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,1)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.6)"; }}
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
               </motion.div>
             )}
 
