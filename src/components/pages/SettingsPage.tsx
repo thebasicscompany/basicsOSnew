@@ -377,7 +377,8 @@ export function SettingsPage() {
                   <p className="text-[12px] text-muted-foreground">
                     Configure the API key used by all users for AI chat, voice,
                     and automations. This key is shared across your
-                    organization.
+                    organization. With a BasicsOS key, Deepgram (transcription)
+                    and Resend (email) are included - no BYOK needed.
                   </p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-[180px_minmax(0,1fr)] sm:items-start">
@@ -542,9 +543,21 @@ export function SettingsPage() {
                     Transcription (BYOK)
                   </h3>
                   <p className="text-[12px] text-muted-foreground mb-3">
-                    Optional: use your own Deepgram key for voice transcription
-                    (speech-to-text). Leave empty to use the main AI key for
-                    transcription.
+                    {aiConfigData?.config?.keyType === "basicsos" ||
+                    aiKeyType === "basicsos" ? (
+                      <>
+                        With a BasicsOS key, transcription (Deepgram) and email
+                        (Resend) are included - no need to add your own keys.
+                        Only configure this if you use BYOK and want your own
+                        Deepgram key for voice transcription.
+                      </>
+                    ) : (
+                      <>
+                        Optional: use your own Deepgram key for voice
+                        transcription (speech-to-text). Leave empty to use the
+                        main AI key for transcription.
+                      </>
+                    )}
                   </p>
                   <div className="grid gap-3 sm:grid-cols-[180px_minmax(0,1fr)] sm:items-start">
                     <Label className="pt-2 text-[12px] text-muted-foreground">

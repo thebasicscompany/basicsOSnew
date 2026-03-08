@@ -10,7 +10,9 @@ import {
   MicrophoneIcon,
   NotePencilIcon,
   CheckSquareIcon,
+  SidebarIcon,
 } from "@phosphor-icons/react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavUser } from "@/components/nav-user";
 import { ObjectRegistryNavSection } from "@/components/ObjectRegistryNavSection";
 import { useOrganization } from "@/hooks/use-organization";
@@ -39,6 +41,8 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar";
 
 function ChatThreadsNav() {
@@ -158,16 +162,26 @@ function AutomationsNav() {
 export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
   const { data: organization } = useOrganization();
   const { pathname } = useLocation();
+  const { toggleSidebar } = useSidebar();
   const shortcutLabel = getCommandPaletteShortcutLabel();
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <div className="flex h-8 min-w-0 shrink-0 items-center overflow-hidden rounded-md px-2 group-data-[collapsible=icon]:hidden">
-              <span className="truncate font-semibold text-sm">
+            <div className="flex h-14 min-w-0 shrink-0 items-center gap-2 overflow-hidden rounded-md px-2 group-data-[collapsible=icon]:hidden">
+              {organization?.logo?.src ? (
+                <Avatar className="size-8 shrink-0 rounded">
+                  <AvatarImage src={organization.logo.src} alt={organization?.name ?? "Org"} />
+                  <AvatarFallback className="rounded text-xs font-medium">
+                    {(organization?.name ?? "B").slice(0, 2).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+              ) : null}
+              <span className="truncate flex-1 min-w-0 font-semibold text-base">
                 {organization?.name ?? "Basics Hub"}
               </span>
+              <SidebarTrigger className="size-8 shrink-0 ml-auto [&_svg]:!size-6" />
             </div>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -191,6 +205,15 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
+              <SidebarMenuItem className="hidden group-data-[collapsible=icon]:list-item">
+                <SidebarMenuButton
+                  tooltip="Toggle sidebar"
+                  onClick={toggleSidebar}
+                >
+                  <SidebarIcon />
+                  <span>Collapse</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild isActive={pathname === ROUTES.CRM} tooltip="Home">
                   <Link to={ROUTES.CRM}>

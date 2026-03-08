@@ -1,10 +1,10 @@
 import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router";
+import { cn } from "@/lib/utils";
 import { ErrorBoundary } from "react-error-boundary";
 import {
   SidebarInset,
   SidebarProvider,
-  SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -46,26 +46,22 @@ function PageErrorFallback({
 
 function LayoutHeader() {
   const location = useLocation();
-  const { state: _state } = useSidebar();
+  const { state } = useSidebar();
   usePageHeaderTitle();
   const titleSlotInUse = useTitleSlotInUse();
   const registerBreadcrumbContainer = useRegisterBreadcrumbContainer();
   const registerTitleSlotContainer = useRegisterTitleSlotContainer();
   const isBuilder = /^\/automations\/(create|\d+)/.test(location.pathname);
   const isRecordDetail = /^\/objects\/[^/]+\/\d+/.test(location.pathname);
+  const sidebarWidth = state === "expanded" ? "pl-[216px]" : "pl-[3rem]";
   return (
     <header className="drag-region flex h-[52px] shrink-0 items-center gap-3 bg-surface-canvas">
-      <div className="flex shrink-0 items-center pl-[92px]">
-        <SidebarTrigger className="size-8 shrink-0" />
-      </div>
       <div
-        className={
-          isBuilder
-            ? "flex min-w-0 flex-1 items-center gap-2 pl-0 pr-14"
-            : isRecordDetail
-              ? "flex min-w-0 flex-1 items-center gap-2 px-6"
-              : "flex min-w-0 flex-1 items-center gap-2 px-14"
-        }
+        className={cn(
+          "flex min-w-0 flex-1 items-center gap-2 transition-[padding] duration-200",
+          sidebarWidth,
+          isBuilder ? "pr-14" : isRecordDetail ? "px-6" : "px-14"
+        )}
       >
         {titleSlotInUse && (
           <div
@@ -115,7 +111,7 @@ function LayoutContent() {
           key={location.pathname}
           fallbackRender={({ error, resetErrorBoundary }) => (
             <PageErrorFallback
-              error={error}
+              error={error instanceof Error ? error : new Error(String(error))}
               resetErrorBoundary={resetErrorBoundary}
             />
           )}
