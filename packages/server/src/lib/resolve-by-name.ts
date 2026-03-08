@@ -50,6 +50,15 @@ export interface DealMatch extends MatchRow {
   companyId: number | null;
 }
 
+export interface TaskMatch extends MatchRow {
+  text: string | null;
+  description: string | null;
+  type: string | null;
+  dueDate: Date | null;
+  contactId: number | null;
+  companyId: number | null;
+}
+
 function normalizeWhitespace(value: string): string {
   return value.trim().replace(/\s+/g, " ");
 }
@@ -185,7 +194,7 @@ async function embedQuery(
 async function getEmbeddingScores(
   db: Db,
   organizationId: string,
-  entityType: "contact" | "company" | "deal",
+  entityType: "contact" | "company" | "deal" | "task",
   query: string,
   searchContext?: HybridSearchContext,
   limit = 8,
@@ -582,6 +591,110 @@ export async function searchDealsByQuery(
   return merged.slice(0, limit);
 }
 
+export async function searchTasksByQuery(
+  db: Db,
+  organizationId: string,
+  query: string,
+  searchContext?: HybridSearchContext,
+  limit = 10,
+): Promise<TaskMatch[]> {
+  const q = query.trim();
+  if (!q) {
+    const rows = await db
+      .select({
+        id: schema.tasks.id,
+        text: schema.tasks.text,
+        description: schema.tasks.description,
+        type: schema.tasks.type,
+        dueDate: schema.tasks.dueDate,
+        contactId: schema.tasks.contactId,
+        companyId: schema.tasks.companyId,
+      })
+      .from(schema.tasks)
+      .where(eq(schema.tasks.organizationId, organizationId))
+      .orderBy(sql`${schema.tasks.id} desc`)
+      .limit(limit);
+
+    return rows.map((row) => ({ ...row, matchScore: 0 }));
+  }
+
+  const terms = expandBasicSearchTerms(q);
+  const textExpr = sql<string>`concat_ws(' ', coalesce(${schema.tasks.text}, ''), coalesce(${schema.tasks.description}, ''), coalesce(${schema.tasks.type}, ''))`;
+  const textSimilarity = greatestSimilarity(textExpr, terms);
+  const textClauses = [
+    ...terms.map((term) => ilike(schema.tasks.text, `%${term}%`)),
+    ...terms.map((term) => ilike(schema.tasks.description, `%${term}%`)),
+    ...terms.map((term) => ilike(schema.tasks.type, `%${term}%`)),
+    sql`${textSimilarity} >= 0.14`,
+  ];
+
+  const [textRows, embeddingScores] = await Promise.all([
+    db
+      .select({
+        id: schema.tasks.id,
+        text: schema.tasks.text,
+        description: schema.tasks.description,
+        type: schema.tasks.type,
+        dueDate: schema.tasks.dueDate,
+        contactId: schema.tasks.contactId,
+        companyId: schema.tasks.companyId,
+        textSimilarity,
+      })
+      .from(schema.tasks)
+      .where(
+        and(
+          eq(schema.tasks.organizationId, organizationId),
+          or(...textClauses)!,
+        ),
+      )
+      .limit(Math.max(limit * 2, 12)),
+    getEmbeddingScores(db, organizationId, "task", q, searchContext),
+  ]);
+
+  const ranked = textRows.map((row) => {
+    const exactBonus = equalsNormalized([row.text, row.description], q) ? 1.3 : 0;
+    const containsBonus = includesNormalized([row.text ?? "", row.description ?? "", row.type ?? ""], q) ? 0.35 : 0;
+    return {
+      id: row.id,
+      text: row.text,
+      description: row.description,
+      type: row.type,
+      dueDate: row.dueDate,
+      contactId: row.contactId,
+      companyId: row.companyId,
+      matchScore:
+        Number(row.textSimilarity ?? 0) * 1.4 + exactBonus + containsBonus,
+    };
+  });
+
+  const merged = await applyEmbeddingScores(
+    ranked,
+    embeddingScores,
+    async (ids) => {
+      const rows = await db
+        .select({
+          id: schema.tasks.id,
+          text: schema.tasks.text,
+          description: schema.tasks.description,
+          type: schema.tasks.type,
+          dueDate: schema.tasks.dueDate,
+          contactId: schema.tasks.contactId,
+          companyId: schema.tasks.companyId,
+        })
+        .from(schema.tasks)
+        .where(
+          and(
+            eq(schema.tasks.organizationId, organizationId),
+            inArray(schema.tasks.id, ids),
+          ),
+        );
+      return rows.map((row) => ({ ...row, matchScore: 0 }));
+    },
+  );
+
+  return merged.slice(0, limit);
+}
+
 const RESOLUTION_MIN_SCORE = 0.18;
 
 export async function resolveContactByName(
@@ -611,5 +724,15 @@ export async function resolveCompanyByName(
   searchContext?: HybridSearchContext,
 ): Promise<number | null> {
   const [row] = await searchCompaniesByQuery(db, organizationId, name, searchContext, 1);
+  return row && row.matchScore >= RESOLUTION_MIN_SCORE ? row.id : null;
+}
+
+export async function resolveTaskByName(
+  db: Db,
+  organizationId: string,
+  query: string,
+  searchContext?: HybridSearchContext,
+): Promise<number | null> {
+  const [row] = await searchTasksByQuery(db, organizationId, query, searchContext, 1);
   return row && row.matchScore >= RESOLUTION_MIN_SCORE ? row.id : null;
 }

@@ -9,6 +9,7 @@ import {
   HouseIcon,
   MicrophoneIcon,
   NotePencilIcon,
+  CheckSquareIcon,
 } from "@phosphor-icons/react";
 import { NavUser } from "@/components/nav-user";
 import { ObjectRegistryNavSection } from "@/components/ObjectRegistryNavSection";
@@ -211,6 +212,14 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
                   <Link to={ROUTES.NOTES}>
                     <NotePencilIcon className="size-4" />
                     <span>Notes</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={pathname === ROUTES.TASKS} tooltip="Tasks">
+                  <Link to={ROUTES.TASKS}>
+                    <CheckSquareIcon className="size-4" />
+                    <span>Tasks</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

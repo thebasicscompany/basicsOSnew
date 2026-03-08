@@ -7,6 +7,7 @@ export const EMBEDDABLE_RESOURCES = new Set([
   "contacts",
   "companies",
   "deals",
+  "tasks",
   "contact_notes",
   "deal_notes",
 ]);
@@ -16,6 +17,7 @@ const ENTITY_TYPE_MAP: Record<string, string> = {
   contacts: "contact",
   companies: "company",
   deals: "deal",
+  tasks: "task",
   contact_notes: "contact_note",
   deal_notes: "deal_note",
 };
@@ -54,6 +56,14 @@ export function buildEntityText(
         record.name,
         record.status ? `Status: ${record.status}` : null,
         record.amount ? `Value: $${record.amount}` : null,
+      ].filter(Boolean);
+      return parts.join(". ");
+    }
+    case "task": {
+      const parts = [
+        record.text ? String(record.text).trim() : null,
+        record.description ? String(record.description).trim() : null,
+        record.type ? `Type: ${record.type}` : null,
       ].filter(Boolean);
       return parts.join(". ");
     }

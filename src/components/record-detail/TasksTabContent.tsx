@@ -38,6 +38,7 @@ import {
   useMarkTaskDone,
   useDeleteTask,
   type Task,
+  type CreateTaskData,
 } from "@/hooks/use-tasks";
 
 function getBucket(
@@ -82,20 +83,10 @@ export function TasksTabContent({
       return all.filter((t) => t.contactId === recordId);
     }
     if (objectSlug === "companies") {
-      return all.filter((t) => (t as Record<string, unknown>).companyId === recordId);
+      return all.filter((t) => t.companyId === recordId);
     }
     return [];
   }, [tasksData?.data, objectSlug, recordId]);
-
-  const activeTasks = useMemo(
-    () =>
-      recordTasks.filter(
-        (t) =>
-          !t.doneDate ||
-          new Date(t.doneDate) > new Date(Date.now() - 5 * 60 * 1000),
-      ),
-    [recordTasks],
-  );
 
   const grouped = useMemo(() => {
     const groups: Record<string, Task[]> = {
@@ -105,17 +96,22 @@ export function TasksTabContent({
       thisWeek: [],
       later: [],
     };
-    for (const t of activeTasks) {
+    for (const t of recordTasks) {
       groups[getBucket(t.dueDate)].push(t);
     }
+    for (const key of BUCKETS.map((b) => b.key)) {
+      groups[key].sort((a, b) =>
+        (a.doneDate ? 1 : 0) - (b.doneDate ? 1 : 0),
+      );
+    }
     return groups;
-  }, [activeTasks]);
+  }, [recordTasks]);
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <span className="text-xs text-muted-foreground">
-          {activeTasks.length} task{activeTasks.length !== 1 ? "s" : ""}
+          {recordTasks.length} task{recordTasks.length !== 1 ? "s" : ""}
         </span>
         <Button
           size="sm"
@@ -133,7 +129,7 @@ export function TasksTabContent({
           <CircleNotchIcon className="size-3.5 animate-spin" />
           Loading...
         </div>
-      ) : activeTasks.length === 0 ? (
+      ) : recordTasks.length === 0 ? (
         <div className="rounded-lg border border-dashed py-12 text-center text-sm text-muted-foreground">
           No tasks yet.
         </div>
@@ -247,9 +243,9 @@ function AddTaskInlineDialog({
       return;
     }
 
-    const data: Record<string, unknown> = {
-      type: type.trim() || undefined,
+    const data: CreateTaskData = {
       text: text.trim(),
+      type: type.trim() || undefined,
       description: description.trim() || undefined,
       dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
     };
@@ -260,7 +256,7 @@ function AddTaskInlineDialog({
       data.companyId = recordId;
     }
 
-    createTask.mutate(data as Parameters<typeof createTask.mutate>[0], {
+    createTask.mutate(data, {
       onSuccess: () => {
         toast.success("Task created");
         onOpenChange(false);

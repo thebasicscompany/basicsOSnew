@@ -9,6 +9,7 @@ import {
   searchCompaniesByQuery,
   searchContactsByQuery,
   searchDealsByQuery,
+  searchTasksByQuery,
 } from "@/lib/resolve-by-name.js";
 import {
   addNoteSchema,
@@ -27,6 +28,7 @@ import {
   searchCompaniesSchema,
   searchContactsSchema,
   searchDealsSchema,
+  searchTasksSchema,
   updateCompanySchema,
   updateContactSchema,
   updateDealSchema,
@@ -44,6 +46,11 @@ type RecordRow = {
   description?: unknown;
   status?: unknown;
   amount?: unknown;
+  text?: unknown;
+  type?: unknown;
+  dueDate?: unknown;
+  contactId?: number | null;
+  companyId?: number | null;
 };
 
 function mdLink(row: RecordRow, objectSlug: string): string {
@@ -71,6 +78,24 @@ function formatCompany(row: RecordRow): string {
   if (row.category) parts.push(`Category: ${row.category}`);
   if (row.domain) parts.push(String(row.domain));
   if (row.description) parts.push(`Description: ${String(row.description).slice(0, 100)}`);
+  return parts.join(" — ");
+}
+
+function formatTask(row: RecordRow): string {
+  const name = (row.text as string | undefined) ?? `Task #${row.id}`;
+  // Link to parent company or contact tasks tab; fallback to Tasks app if no parent
+  const companyId = row.companyId ?? null;
+  const contactId = row.contactId ?? null;
+  const taskLink =
+    companyId != null
+      ? `[[companies/${companyId}#tasks|${name}]]`
+      : contactId != null
+        ? `[[contacts/${contactId}#tasks|${name}]]`
+        : `[${name}](/tasks)`;
+  const parts = [taskLink];
+  if (row.type) parts.push(`Type: ${row.type}`);
+  if (row.dueDate) parts.push(`Due: ${new Date(String(row.dueDate)).toLocaleDateString()}`);
+  if (row.description) parts.push(String(row.description).slice(0, 80));
   return parts.join(" — ");
 }
 
@@ -110,6 +135,19 @@ export async function executeValidatedTool(
         and(
           eq(schema.contacts.id, contactId),
           eq(schema.contacts.organizationId, organizationId),
+        ),
+      )
+      .limit(1);
+    return Boolean(rows[0]);
+  };
+  const companyExists = async (companyId: number): Promise<boolean> => {
+    const rows = await db
+      .select({ id: schema.companies.id })
+      .from(schema.companies)
+      .where(
+        and(
+          eq(schema.companies.id, companyId),
+          eq(schema.companies.organizationId, organizationId),
         ),
       )
       .limit(1);
@@ -429,33 +467,80 @@ export async function executeValidatedTool(
     return row ? formatUpdated(row, "companies") : "Error: company not found";
   }
 
+  if (toolName === "search_tasks") {
+    const parsed = searchTasksSchema.safeParse(rawArgs);
+    if (!parsed.success)
+      return { error: "Invalid arguments", details: parsed.error.flatten() };
+    const args = parsed.data;
+    const query = args.query?.trim() ?? "";
+    const rows = await searchTasksByQuery(
+      db,
+      organizationId,
+      query,
+      searchContext,
+      limitFrom(args.limit),
+    );
+    return formatRows(rows, formatTask);
+  }
+
   if (toolName === "list_tasks") {
     const parsed = listTasksSchema.safeParse(rawArgs);
     if (!parsed.success)
       return { error: "Invalid arguments", details: parsed.error.flatten() };
     const args = parsed.data;
-    let contactId = args.contact_id;
-    if (contactId == null && args.contact_name) {
-      contactId = (await resolveContactByName(
-        db,
-        organizationId,
-        args.contact_name,
-        searchContext,
-      )) ?? undefined;
-      if (contactId == null) return "No contact found matching that name.";
+    const byContact = args.contact_id ?? args.contact_name;
+    const byCompany = args.company_id ?? args.company_name;
+    if (byContact) {
+      let contactId = args.contact_id;
+      if (contactId == null && args.contact_name) {
+        contactId = (await resolveContactByName(
+          db,
+          organizationId,
+          args.contact_name,
+          searchContext,
+        )) ?? undefined;
+        if (contactId == null) return "No contact found matching that name.";
+      }
+      if (contactId == null) return { error: "Provide contact_id or contact_name" };
+      const rows = await db
+        .select()
+        .from(schema.tasks)
+        .where(
+          and(
+            eq(schema.tasks.organizationId, organizationId),
+            eq(schema.tasks.contactId, contactId),
+          ),
+        )
+        .orderBy(desc(schema.tasks.id))
+        .limit(limitFrom(args.limit));
+      return formatRows(rows, formatTask);
     }
-    if (contactId == null) return { error: "Provide contact_id or contact_name" };
-    return db
-      .select()
-      .from(schema.tasks)
-      .where(
-        and(
-          eq(schema.tasks.organizationId, organizationId),
-          eq(schema.tasks.contactId, contactId),
-        ),
-      )
-      .orderBy(desc(schema.tasks.id))
-      .limit(limitFrom(args.limit));
+    if (byCompany) {
+      let companyId = args.company_id;
+      if (companyId == null && args.company_name) {
+        companyId = (await resolveCompanyByName(
+          db,
+          organizationId,
+          args.company_name,
+          searchContext,
+        )) ?? undefined;
+        if (companyId == null) return "No company found matching that name.";
+      }
+      if (companyId == null) return { error: "Provide company_id or company_name" };
+      const rows = await db
+        .select()
+        .from(schema.tasks)
+        .where(
+          and(
+            eq(schema.tasks.organizationId, organizationId),
+            eq(schema.tasks.companyId, companyId),
+          ),
+        )
+        .orderBy(desc(schema.tasks.id))
+        .limit(limitFrom(args.limit));
+      return formatRows(rows, formatTask);
+    }
+    return { error: "Provide contact_id/contact_name or company_id/company_name" };
   }
 
   if (toolName === "create_task") {
@@ -463,20 +548,40 @@ export async function executeValidatedTool(
     if (!parsed.success)
       return { error: "Invalid arguments", details: parsed.error.flatten() };
     const args = parsed.data;
-    let contactId = args.contact_id;
-    if (contactId == null && args.contact_name) {
-      contactId = (await resolveContactByName(
-        db,
-        organizationId,
-        args.contact_name,
-        searchContext,
-      )) ?? undefined;
-      if (contactId == null) return "No contact found matching that name.";
+    const byContact = args.contact_id ?? args.contact_name;
+    const byCompany = args.company_id ?? args.company_name;
+    let contactId: number | null = null;
+    let companyId: number | null = null;
+    if (byContact) {
+      contactId = args.contact_id ?? null;
+      if (contactId == null && args.contact_name) {
+        contactId = (await resolveContactByName(
+          db,
+          organizationId,
+          args.contact_name,
+          searchContext,
+        )) ?? null;
+        if (contactId == null) return "No contact found matching that name.";
+      }
+      if (!(await contactExists(contactId!)))
+        return { error: "contact not found" };
     }
-    if (contactId == null) return { error: "Provide contact_id or contact_name" };
-
-    if (!(await contactExists(contactId)))
-      return { error: "contact not found" };
+    if (byCompany) {
+      companyId = args.company_id ?? null;
+      if (companyId == null && args.company_name) {
+        companyId = (await resolveCompanyByName(
+          db,
+          organizationId,
+          args.company_name,
+          searchContext,
+        )) ?? null;
+        if (companyId == null) return "No company found matching that name.";
+      }
+      if (!(await companyExists(companyId!)))
+        return { error: "company not found" };
+    }
+    if (!contactId && !companyId)
+      return { error: "Provide contact_id/contact_name or company_id/company_name" };
 
     let dueDate: Date | null = null;
     if (args.due_date) {
@@ -490,6 +595,7 @@ export async function executeValidatedTool(
         crmUserId,
         organizationId,
         contactId,
+        companyId,
         text: args.text.trim(),
         type: args.type ?? "call",
         dueDate,

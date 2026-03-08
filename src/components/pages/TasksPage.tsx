@@ -7,6 +7,7 @@ import {
   TrashIcon,
 } from "@phosphor-icons/react";
 import { useState, useMemo } from "react";
+import { Link } from "react-router";
 import {
   startOfToday,
   endOfToday,
@@ -23,7 +24,6 @@ import { showError } from "@/lib/show-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -41,7 +41,7 @@ import {
   type Task,
 } from "@/hooks/use-tasks";
 import { useContacts, type ContactSummary } from "@/hooks/use-contacts";
-import { ContactSheet } from "@/components/sheets/ContactSheet";
+import { useCompanies } from "@/hooks/use-companies";
 
 function getBucket(
   dueDate: string | null,
@@ -70,11 +70,15 @@ const BUCKETS = [
 function TaskRow({
   task,
   contactName,
-  onContactClick,
+  contactId,
+  companyName,
+  companyId,
 }: {
   task: Task;
   contactName: string | null;
-  onContactClick: () => void;
+  contactId: number | null;
+  companyName: string | null;
+  companyId: number | null;
 }) {
   const markDone = useMarkTaskDone();
   const deleteTask = useDeleteTask();
@@ -98,9 +102,17 @@ function TaskRow({
     });
   };
 
+  const attachedParts: Array<{ label: string; href: string }> = [];
+  if (contactId != null) {
+    attachedParts.push({ label: contactName ?? "Contact", href: `/objects/contacts/${contactId}#tasks` });
+  }
+  if (companyId != null) {
+    attachedParts.push({ label: companyName ?? "Company", href: `/objects/companies/${companyId}#tasks` });
+  }
+
   return (
     <>
-      <div className="group flex items-center gap-2 h-[var(--row-height)] px-3">
+      <div className="group flex items-center gap-3 py-2.5 px-3 border-b border-border/60 last:border-b-0">
         <button
           onClick={handleToggle}
           disabled={markDone.isPending}
@@ -108,42 +120,43 @@ function TaskRow({
           className="shrink-0 text-muted-foreground hover:text-primary transition-colors"
         >
           {isDone ? (
-            <CheckSquareIcon className="size-3.5 text-primary" />
+            <CheckSquareIcon className="size-4 text-primary" />
           ) : (
-            <SquareIcon className="size-3.5" />
+            <SquareIcon className="size-4" />
           )}
         </button>
-        <span
-          className={`min-w-0 flex-1 truncate text-sm ${isDone ? "line-through text-muted-foreground" : ""}`}
-        >
-          {task.text ?? "—"}
-        </span>
-        {task.type && task.type !== "None" && (
-          <Badge variant="outline" className="h-5 shrink-0 text-xs font-normal">
-            {task.type}
-          </Badge>
-        )}
-        {contactName && (
-          <button
-            onClick={onContactClick}
-            className="shrink-0 text-xs text-muted-foreground hover:text-foreground hover:underline transition-colors"
-            aria-label={`Open contact: ${contactName}`}
+        <div className="min-w-0 flex-1">
+          <span
+            className={`block text-sm ${isDone ? "line-through text-muted-foreground" : "font-medium"}`}
           >
-            {contactName}
-          </button>
-        )}
-        {task.dueDate && (
-          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-            {format(parseISO(task.dueDate), "MMM d")}
+            {task.text ?? "—"}
           </span>
-        )}
+          {(attachedParts.length > 0 || task.dueDate) && (
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+              {task.dueDate && (
+                <span className="tabular-nums">
+                  {format(parseISO(task.dueDate), "MMM d")}
+                </span>
+              )}
+              {attachedParts.map(({ label, href }) => (
+                <Link
+                  key={href}
+                  to={href}
+                  className="hover:text-foreground hover:underline"
+                >
+                  {label}
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
         <button
           onClick={() => setConfirmDeleteOpen(true)}
           disabled={deleteTask.isPending}
-          className="shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-all"
+          className="shrink-0 p-1 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-all rounded"
           aria-label="Delete task"
         >
-          <TrashIcon className="size-3" />
+          <TrashIcon className="size-3.5" />
         </button>
       </div>
 
@@ -343,22 +356,29 @@ export function TasksPage() {
   const { data: contactsData } = useContacts({
     pagination: { page: 1, perPage: 500 },
   });
+  const { data: companiesData } = useCompanies({
+    pagination: { page: 1, perPage: 500 },
+  });
 
   const [addOpen, setAddOpen] = useState(false);
-  const [selectedContact, setSelectedContact] = useState<ContactSummary | null>(
-    null,
-  );
-  const [contactSheetOpen, setContactSheetOpen] = useState(false);
   const [search, setSearch] = useState("");
 
   const contacts = useMemo(
     () => contactsData?.data ?? [],
     [contactsData?.data],
   );
+  const companies = useMemo(
+    () => companiesData?.data ?? [],
+    [companiesData?.data],
+  );
 
   const contactMap = useMemo(
     () => new Map(contacts.map((c) => [c.id, c])),
     [contacts],
+  );
+  const companyMap = useMemo(
+    () => new Map(companies.map((c) => [c.id, c])),
+    [companies],
   );
 
   const tasks = useMemo(() => tasksData?.data ?? [], [tasksData?.data]);
@@ -368,7 +388,7 @@ export function TasksPage() {
       tasks.filter(
         (t) =>
           !t.doneDate ||
-          new Date(t.doneDate) > new Date(Date.now() - 5 * 60 * 1000),
+          new Date(t.doneDate) > new Date(Date.now() - 25 * 1000),
       ),
     [tasks],
   );
@@ -379,12 +399,14 @@ export function TasksPage() {
     return activeTasks.filter((t) => {
       if (t.text?.toLowerCase().includes(q)) return true;
       const contact = t.contactId ? contactMap.get(t.contactId) : null;
-      const name = contact
+      const company = t.companyId ? companyMap.get(t.companyId) : null;
+      const contactName = contact
         ? `${contact.firstName ?? ""} ${contact.lastName ?? ""}`.toLowerCase()
         : "";
-      return name.includes(q);
+      const companyName = company?.name?.toLowerCase() ?? "";
+      return contactName.includes(q) || companyName.includes(q);
     });
-  }, [activeTasks, search, contactMap]);
+  }, [activeTasks, search, contactMap, companyMap]);
 
   const grouped = useMemo(() => {
     const groups: Record<string, Task[]> = {
@@ -400,28 +422,23 @@ export function TasksPage() {
     return groups;
   }, [filteredTasks]);
 
-  const handleContactClick = (contactId: number) => {
-    const contact = contactMap.get(contactId);
-    if (contact) {
-      setSelectedContact(contact);
-      setContactSheetOpen(true);
-    }
-  };
-
   return (
     <div className="flex h-full flex-col overflow-auto pb-8">
-      <div className="mb-4 flex items-center justify-between">
-        {!tasksPending ? (
-          <span className="text-xs text-muted-foreground">
-            {activeTasks.length} upcoming
-          </span>
-        ) : (
-          <span />
-        )}
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <div>
+          {!tasksPending && (
+            <span className="block text-xs text-muted-foreground">
+              {activeTasks.length} upcoming
+            </span>
+          )}
+          <p className="mt-0.5 text-[11px] text-muted-foreground/80">
+            Completed tasks disappear after ~25 seconds.
+          </p>
+        </div>
         <Button
           size="sm"
           onClick={() => setAddOpen(true)}
-          className="h-7 gap-1 text-sm"
+          className="h-7 shrink-0 gap-1 text-sm"
         >
           <PlusIcon className="size-3.5" />
           Add task
@@ -471,21 +488,26 @@ export function TasksPage() {
                   {bucket.length}
                 </span>
               </p>
-              <div className="rounded-md bg-card">
+              <div className="rounded-md border border-border bg-card">
                 {bucket.map((task) => {
                   const contact = task.contactId
                     ? contactMap.get(task.contactId)
                     : null;
-                  const contactName = contact
-                    ? `${contact.firstName ?? ""} ${contact.lastName ?? ""}`.trim() ||
-                      null
+                  const company = task.companyId
+                    ? companyMap.get(task.companyId)
                     : null;
+                  const contactName = contact
+                    ? `${contact.firstName ?? ""} ${contact.lastName ?? ""}`.trim() || null
+                    : null;
+                  const companyName = company?.name ?? null;
                   return (
                     <TaskRow
                       key={task.id}
                       task={task}
                       contactName={contactName}
-                      onContactClick={() => handleContactClick(task.contactId)}
+                      contactId={task.contactId}
+                      companyName={companyName}
+                      companyId={task.companyId}
                     />
                   );
                 })}
@@ -499,11 +521,6 @@ export function TasksPage() {
         open={addOpen}
         onOpenChange={setAddOpen}
         contacts={contacts}
-      />
-      <ContactSheet
-        open={contactSheetOpen}
-        onOpenChange={setContactSheetOpen}
-        contact={selectedContact}
       />
     </div>
   );

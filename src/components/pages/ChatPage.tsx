@@ -75,14 +75,14 @@ const SUGGESTIONS = [
   "What's the status of my deals?",
 ];
 
-const WIKI_LINK_RE = /\[\[([a-z][a-z0-9-]*)\/(\d+)\|([^\]]+)\]\]/g;
+const WIKI_LINK_RE = /\[\[([a-z][a-z0-9-]*)\/(\d+)(#\w+)?\|([^\]]+)\]\]/g;
 const MD_LINK_RE = /\[([^\]]+)\]\((\/objects\/[^)]+|\/automations\/[^)]+)\)/g;
 
 function rewriteCrmLinks(text: string): string {
   let result = text.replace(
     WIKI_LINK_RE,
-    (_match, slug: string, id: string, label: string) =>
-      `<crm-link path="/objects/${slug}/${id}">${label}</crm-link>`,
+    (_match, slug: string, id: string, hash: string | undefined, label: string) =>
+      `<crm-link path="/objects/${slug}/${id}${hash ?? ""}">${label}</crm-link>`,
   );
   result = result.replace(MD_LINK_RE, (_match, label: string, path: string) => {
     if (result.includes(`>${label}</crm-link>`)) return _match;
@@ -104,7 +104,8 @@ function CrmLinkTag(props: Record<string, unknown>) {
     const m = OBJECT_RECORD_RE.exec(path);
     if (m) {
       const [, slug, recordPart] = m;
-      if (/^\d+$/.test(recordPart)) {
+      const idPart = recordPart.split("#")[0];
+      if (/^\d+$/.test(idPart)) {
         navigate(path);
       } else {
         navigate(`/objects/${slug}`);

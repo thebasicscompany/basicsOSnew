@@ -13,6 +13,7 @@ const TOOL_NAMES = [
   "get_deal",
   "create_deal",
   "update_deal",
+  "search_tasks",
   "list_tasks",
   "create_task",
   "complete_task",
@@ -28,6 +29,7 @@ const LOOKUP_TOOLS = new Set([
   "get_company",
   "search_deals",
   "get_deal",
+  "search_tasks",
 ]);
 
 const toolNameSchema = z.enum(TOOL_NAMES);
@@ -152,7 +154,9 @@ function inferLookupQueryFromUserRequest(
         ? "(?:contact|person|lead)"
         : lookupTool === "search_deals"
           ? "(?:deal|opportunity)"
-          : null;
+          : lookupTool === "search_tasks"
+            ? "(?:task|todo|reminder|follow-up)"
+            : null;
   if (!entityWord) return undefined;
 
   const betweenEntityAndTo = new RegExp(`\\b${entityWord}\\b\\s+(.+?)\\s+\\bto\\b`, "i").exec(

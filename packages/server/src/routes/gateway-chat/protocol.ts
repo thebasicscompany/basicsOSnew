@@ -39,16 +39,21 @@ Rules:
 - Be concise and helpful.
 - When mentioning a record, use its EXACT name from the tool result.
 
+Avoid redundant tool calls (CRITICAL):
+- Use only ONE tool that can answer the user's question. Never call multiple tools that would return overlapping results for the same intent.
+- Tasks: Use search_tasks for general queries ("any company", "upcoming", "anything coming up", by content/topic). Use list_tasks ONLY when the user names a specific contact or company. Never call both list_tasks and search_tasks for the same request. Never call list_tasks multiple times (e.g. for "all companies").
+- Contacts, companies, deals: Use ONE search or get tool per intent. If search_contacts/search_companies/search_deals returns results, do not call get_* for the same lookup unless you need a single record's full details for a follow-up action.
+
 Update workflow (CRITICAL — follow exactly):
 1. When the user asks to update/rename/edit/change a record:
    - If you know the record's exact name → call update_contact / update_deal / update_company directly with company_name/contact_name/deal_name.
-   - If the user describes a record by a detail (e.g. "the company about touching people") → call search_companies/search_contacts/search_deals ONCE. The result will show the name and id (e.g. "Katars (id: 42)"). Then IMMEDIATELY call the update tool using that id.
+   - If the user describes a record by a detail (e.g. "the company about touching people") → call search_companies/search_contacts/search_deals/search_tasks ONCE. The result will show the name and id (e.g. "Katars (id: 42)"). Then IMMEDIATELY call the update tool using that id.
    - NEVER search more than once. NEVER search again after you already have results. Use the id from the first search result.
 2. Available update tools: update_contact (fields: first_name, last_name, email), update_deal (fields: name, status, amount), update_company (fields: name, category, domain, description).
 3. After any update, confirm to the user what changed.
 4. Common multi-step patterns you must finish before replying:
-   - search_companies/search_contacts/search_deals -> update_company/update_contact/update_deal
-   - search_contacts -> create_task
+   - search_companies/search_contacts/search_deals/search_tasks -> update_company/update_contact/update_deal
+   - search_contacts/search_companies/search_tasks -> create_task
    - search_contacts/search_deals -> add_note
    - search_companies -> create_contact/create_deal`;
 
@@ -195,28 +200,58 @@ export const updateCompanySchema = z
     }
   });
 
+export const searchTasksSchema = z.object({
+  query: z.string().optional(),
+  limit: z.number().int().min(1).max(100).optional(),
+});
 export const listTasksSchema = z
   .object({
     contact_id: z.number().int().positive().optional(),
     contact_name: z.string().min(1).optional(),
+    company_id: z.number().int().positive().optional(),
+    company_name: z.string().min(1).optional(),
     limit: z.number().int().min(1).max(100).optional(),
   })
   .superRefine((v, ctx) => {
-    if (!v.contact_id && !v.contact_name) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Provide contact_id or contact_name" });
+    const byContact = v.contact_id || v.contact_name;
+    const byCompany = v.company_id || v.company_name;
+    if (!byContact && !byCompany) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Provide contact_id/contact_name or company_id/company_name",
+      });
+    }
+    if (byContact && byCompany) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Provide only contact OR company, not both",
+      });
     }
   });
 export const createTaskSchema = z
   .object({
     contact_id: z.number().int().positive().optional(),
     contact_name: z.string().min(1).optional(),
+    company_id: z.number().int().positive().optional(),
+    company_name: z.string().min(1).optional(),
     text: z.string().min(1),
     type: z.string().optional(),
     due_date: z.string().optional(),
   })
   .superRefine((v, ctx) => {
-    if (!v.contact_id && !v.contact_name) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Provide contact_id or contact_name" });
+    const byContact = v.contact_id || v.contact_name;
+    const byCompany = v.company_id || v.company_name;
+    if (!byContact && !byCompany) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Provide contact_id/contact_name or company_id/company_name",
+      });
+    }
+    if (byContact && byCompany) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Provide only contact OR company, not both",
+      });
     }
   });
 export const completeTaskSchema = z.object({ id: z.number().int().positive() });
@@ -466,13 +501,30 @@ export const OPENAI_TOOL_DEFS = [
   {
     type: "function",
     function: {
+      name: "search_tasks",
+      description: "Search tasks by text, description, or type. Use for general queries like 'tasks with any company', 'upcoming tasks', or when searching by content. Do NOT also call list_tasks for the same request.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: { type: "string", description: "Search query (task text, description, or type)" },
+          limit: { type: "number" },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
       name: "list_tasks",
-      description: "List tasks for a contact. Use contact_name or contact_id.",
+      description: "List tasks for a specific contact or company. Use ONLY when the user names a specific contact or company. For 'any company', 'all companies', or general task queries, use search_tasks instead. Do NOT call both list_tasks and search_tasks.",
       parameters: {
         type: "object",
         properties: {
           contact_id: { type: "number", description: "Contact ID from a prior search" },
           contact_name: { type: "string", description: "Contact name or email to look up" },
+          company_id: { type: "number", description: "Company ID from a prior search" },
+          company_name: { type: "string", description: "Company name to look up" },
           limit: { type: "number" },
         },
         required: [],
@@ -483,12 +535,14 @@ export const OPENAI_TOOL_DEFS = [
     type: "function",
     function: {
       name: "create_task",
-      description: "Create a task linked to a contact. Use contact_name or contact_id.",
+      description: "Create a task linked to a contact or company. Use contact_name/contact_id or company_name/company_id.",
       parameters: {
         type: "object",
         properties: {
           contact_id: { type: "number", description: "Contact ID from a prior search" },
           contact_name: { type: "string", description: "Contact name or email to look up" },
+          company_id: { type: "number", description: "Company ID from a prior search" },
+          company_name: { type: "string", description: "Company name to look up" },
           text: { type: "string" },
           type: { type: "string" },
           due_date: { type: "string" },
@@ -571,7 +625,7 @@ export const limitFrom = (n?: number): number => {
 export const sdkPart = (code: string, value: unknown): string =>
   `${code}:${JSON.stringify(value)}\n`;
 
-const WIKI_TOKEN_RE = /\[\[([a-z][a-z0-9-]*)\/(\d+)\|([^\]]+)\]\]/g;
+const WIKI_TOKEN_RE = /\[\[([a-z][a-z0-9-]*)\/(\d+)(#\w+)?\|([^\]]+)\]\]/g;
 
 function stripInternalIds(text: string): string {
   return text.replace(/\s*\(id:\s*\d+\)/gi, "");
@@ -580,8 +634,8 @@ function stripInternalIds(text: string): string {
 function wikiTokensToMarkdown(text: string): string {
   return text.replace(
     WIKI_TOKEN_RE,
-    (_m, slug: string, id: string, name: string) =>
-      `[${name}](/objects/${slug}/${id})`,
+    (_m, slug: string, id: string, hash: string | undefined, name: string) =>
+      `[${name}](/objects/${slug}/${id}${hash ?? ""})`,
   );
 }
 

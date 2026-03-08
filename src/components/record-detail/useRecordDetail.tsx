@@ -75,6 +75,12 @@ export interface UseRecordDetailReturn {
   nextId: number | null;
   onPrev: () => void;
   onNext: () => void;
+  updateRecord: UseMutationResult<
+    unknown,
+    Error,
+    { id: number | string; data: Record<string, unknown> },
+    unknown
+  >;
   deleteRecord: UseMutationResult<unknown, Error, string | number, unknown>;
 }
 
@@ -111,15 +117,18 @@ export function useRecordDetail(): UseRecordDetailReturn {
 
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [showAllFields, setShowAllFields] = useState(false);
-  const [activeTab, setActiveTab] = useState(() =>
-    typeof window !== "undefined" && window.location.hash === "#notes"
-      ? "notes"
-      : "overview",
-  );
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window === "undefined") return "overview";
+    const hash = window.location.hash;
+    if (hash === "#notes") return "notes";
+    if (hash === "#tasks") return "tasks";
+    return "overview";
+  });
 
   useEffect(() => {
     const hash = window.location.hash;
     if (hash === "#notes") setActiveTab("notes");
+    if (hash === "#tasks") setActiveTab("tasks");
   }, []);
 
   const { primaryAttr, firstNameAttr, lastNameAttr, usesSplitName } = useMemo(
