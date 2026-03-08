@@ -280,6 +280,8 @@ export function ObjectListPage() {
     layout,
     isDeals,
     setLayout,
+    isFetching,
+    refreshCrm,
   ]);
 
   const headerActionsPortal = usePageHeaderActions(headerActionsNode);

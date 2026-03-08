@@ -162,6 +162,5 @@ export const useAIResponse = (
   // conversationHistory intentionally omitted: history updates (e.g. appending
   // the assistant reply) must not re-trigger a new API call. We read it via
   // historyRef instead.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pillState, transcript, dispatch, streamAbortRef]);
 };

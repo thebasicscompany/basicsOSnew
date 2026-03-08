@@ -640,7 +640,7 @@ function extractStructuredText(text: string): string {
 
 function parseStructuredResponse(text: string): unknown | undefined {
   const candidate = extractStructuredText(text);
-  if (!candidate || !/^[\[{]/.test(candidate)) return undefined;
+  if (!candidate || !/^[[{]/.test(candidate)) return undefined;
   try {
     return JSON.parse(candidate);
   } catch {
@@ -666,7 +666,7 @@ function summarizeStructuredResponse(value: unknown): string {
 
 function looksJsonLike(text: string): boolean {
   const candidate = extractStructuredText(text);
-  return /^[\[{]/.test(candidate);
+  return /^[[{]/.test(candidate);
 }
 
 export const toolFallbackText = (
