@@ -97,6 +97,10 @@ const IMPLICIT_MEETING_PATTERNS = [
   /\bwe talked about\b/i,
   /\bthey said\b/i,
   /\bbrought up\b/i,
+  /\bwhat did we decide\b/i,
+  /\bwhat we decided\b/i,
+  /\bdecide about\b/i,
+  /\bsaid we'd\b/i,
 ];
 
 /**
