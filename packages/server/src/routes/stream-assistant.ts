@@ -19,13 +19,20 @@ import { PERMISSIONS, requirePermission } from "@/lib/rbac.js";
 import { linkifyRecordNames } from "@/lib/linkify-records.js";
 import {
   buildRecentConversationContext,
-  deriveToolAnswer,
+  extractRecordReferences,
   finalizeAssistantText,
+  isRecordAdviceQuery,
+  resolveThreadEntityReference,
+  toolFallbackText,
+  type RecentRecordReference,
+  updateThreadEntityMemory,
 } from "@/routes/gateway-chat/protocol.js";
 import {
   ensureThread,
+  getThreadEntityMemory,
   getThreadMessages,
   persistMessage,
+  saveThreadEntityMemory,
   touchThread,
 } from "@/routes/gateway-chat/storage.js";
 import {
@@ -35,6 +42,7 @@ import {
   resolveDeferredToolStep,
   shouldPlanToolWorkflow,
 } from "@/routes/gateway-chat/workflow.js";
+import { routeChatRequest } from "@/routes/gateway-chat/router.js";
 import { streamAssistantPostSchema } from "@/schemas/stream-assistant.js";
 
 type BetterAuthInstance = ReturnType<typeof createAuth>;
@@ -313,15 +321,44 @@ function buildToolChatContent(
   return stripped;
 }
 
+function buildResolvedRecordContext(record: RecentRecordReference): string {
+  return [
+    "## Resolved record reference",
+    `The user's follow-up refers to the ${record.entity} "${record.name}" (id: ${record.id}) from recent conversation.`,
+    `If you need record details, call \`get_${record.entity}\` with id ${record.id} immediately instead of searching again.`,
+  ].join("\n");
+}
+
+function buildAmbiguousRecordReply(
+  candidates: RecentRecordReference[],
+  entity: RecentRecordReference["entity"] | null,
+): string {
+  const label = entity ?? "record";
+  const lines = candidates
+    .slice(0, 5)
+    .map((candidate) => `- ${candidate.name}`)
+    .join("\n");
+  return `I found multiple ${label}s in this thread, so I’m not sure which one you mean.\n${lines}\n\nWhich one should I use?`;
+}
+
+function getLookupToolForRecord(
+  record: RecentRecordReference,
+): { toolName: "get_contact" | "get_company" | "get_deal"; toolArgs: { id: number } } {
+  if (record.entity === "contact") {
+    return { toolName: "get_contact", toolArgs: { id: record.id } };
+  }
+  if (record.entity === "company") {
+    return { toolName: "get_company", toolArgs: { id: record.id } };
+  }
+  return { toolName: "get_deal", toolArgs: { id: record.id } };
+}
+
 async function synthesizeFinalAnswer(args: {
   gatewayUrl: string;
   gatewayHeaders: Record<string, string>;
   queryText: string;
   toolOutputs: Array<{ name: string; result: unknown }>;
 }): Promise<string> {
-  const deterministic = deriveToolAnswer(args.queryText, args.toolOutputs);
-  if (deterministic) return deterministic;
-
   if (args.toolOutputs.length === 0) {
     return "I could not complete that request.";
   }
@@ -350,7 +387,7 @@ async function synthesizeFinalAnswer(args: {
         {
           role: "system",
           content:
-            "Answer the user's original CRM request using only the tool results provided. Do not mention tools, tool names, raw JSON, or fallback text. If a lookup answered the question, give the direct answer. If a write succeeded, confirm the completed action. If the results are insufficient, say that briefly.",
+            "Answer the user's original CRM request using only the tool results provided. Do not mention tools, tool names, raw JSON, or fallback text. If a lookup answered the question, give the direct answer. If a write succeeded, confirm the completed action. Distinguish facts that are actually tied to the requested record from nearby but unrelated records, tasks, or notes, and do not infer a relationship unless the tool results explicitly show one. If the results are insufficient, say that briefly.",
         },
         {
           role: "user",
@@ -363,16 +400,16 @@ async function synthesizeFinalAnswer(args: {
   });
   if (!res.ok) {
     await res.text().catch(() => {});
-    return "I couldn't produce a final answer from the available results.";
+    return toolFallbackText(args.toolOutputs);
   }
 
   const json = (await res.json()) as {
     choices?: Array<{ message?: { content?: string | null } }>;
   };
-  return finalizeAssistantText(
-    json.choices?.[0]?.message?.content ?? "",
-    [],
-  ) || "I couldn't produce a final answer from the available results.";
+  return (
+    finalizeAssistantText(json.choices?.[0]?.message?.content ?? "", [])
+    || toolFallbackText(args.toolOutputs)
+  );
 }
 
 const ASSISTANT_SYSTEM_PROMPT = `You are Basics OS Company Assistant - an AI grounded in this company's CRM data.
@@ -380,6 +417,7 @@ const ASSISTANT_SYSTEM_PROMPT = `You are Basics OS Company Assistant - an AI gro
 Rules:
 - Never ask the user for IDs. Users reference records by name or details. Use contact_name, deal_name, or company_name params (or search first and use IDs from results).
 - Use tools to search, create, and update contacts, companies, or deals when the user asks. Pass names the user gives directly — e.g. "add a note to the Acme deal" → deal_name: "Acme".
+- If the user asks for advice, judgment, or a recommendation about a specific company/contact/deal, look it up first with a search/get tool and ground the answer in the returned CRM record.
 - When the user asks to create a person/contact, extract ALL details (name, email, etc.) from the message first, then call create_contact ONCE with all available fields. Never call create_contact more than once per request.
 - After a contact is created, if additional fields are still needed, use update_contact — never create a second contact.
 - When the user provides additional info (like email, phone) for a recently created or mentioned contact, use update_contact with contact_name or the ID from a prior search.
@@ -427,6 +465,11 @@ export function createStreamAssistantRoutes(
       content: m.content,
     }));
     const threadId = await ensureThread(db, crmUser, threadIdRaw, "voice");
+    let threadEntityMemory = await getThreadEntityMemory(
+      db,
+      threadId,
+      crmUser.organizationId!,
+    );
     const storedHistory = threadIdRaw?.trim()
       ? await getThreadMessages(db, threadId, crmUser.id)
       : null;
@@ -440,33 +483,62 @@ export function createStreamAssistantRoutes(
       : historyMapped);
     await persistMessage(db, threadId, "user", message);
 
-    const [crmSummary, ragContext] = await Promise.all([
-      buildCrmSummary(db, crmUser.organizationId!),
-      retrieveRelevantContext(
-        db,
-        env.BASICSOS_API_URL,
-        gatewayHeaders,
-        crmUser.organizationId!,
-        message,
-        5,
-        crmUser.id,
-      ),
-    ]);
-
-    let contextText = `## Your CRM\n${crmSummary}`;
-    if (ragContext) {
-      contextText += `\n\n## Relevant context\n${ragContext}`;
-    }
     const recentConversationContext = buildRecentConversationContext([
       ...priorConversationMessages,
       { role: "user", content: message },
     ]);
-    if (recentConversationContext) {
-      contextText += `\n\n${recentConversationContext}`;
+    const routingDecision = (await routeChatRequest({
+      gatewayUrl: env.BASICSOS_API_URL,
+      gatewayHeaders,
+      queryText: message,
+      recentConversation: priorConversationMessages,
+    })) ?? {
+      mode: shouldPlanToolWorkflow(message) ? ("tool_call" as const) : ("crm_context" as const),
+      shouldGenerateTitle: true,
+    };
+    const resolvedRecentRecord = resolveThreadEntityReference(
+      message,
+      threadEntityMemory,
+    );
+
+    let contextText = "";
+    if (routingDecision.mode === "crm_context") {
+      const [crmSummary, ragContext] = await Promise.all([
+        buildCrmSummary(db, crmUser.organizationId!),
+        retrieveRelevantContext(
+          db,
+          env.BASICSOS_API_URL,
+          gatewayHeaders,
+          crmUser.organizationId!,
+          message,
+          5,
+          crmUser.id,
+        ),
+      ]);
+      contextText = `## Your CRM\n${crmSummary}`;
+      if (ragContext) {
+        contextText += `\n\n## Relevant context\n${ragContext}`;
+      }
+    }
+    if (recentConversationContext && routingDecision.mode !== "direct") {
+      contextText += `${contextText ? "\n\n" : ""}${recentConversationContext}`;
+    }
+    if (resolvedRecentRecord.mode === "resolved" && routingDecision.mode === "tool_call") {
+      contextText += `${contextText ? "\n\n" : ""}${buildResolvedRecordContext(resolvedRecentRecord.record)}`;
     }
     const workflowHints = inferWorkflowHints(message);
 
-    const systemContent = `${ASSISTANT_SYSTEM_PROMPT}\n\n${contextText}\n\n${workflowHints.planText}`;
+    const systemContent = [
+      ASSISTANT_SYSTEM_PROMPT,
+      contextText,
+      routingDecision.mode === "tool_call"
+        ? workflowHints.planText
+        : routingDecision.mode === "crm_context"
+          ? "## Tool use fallback\nIf the user is referring to a specific CRM record and the answer depends on identifying that record, call the appropriate search/get tool before answering."
+          : "",
+    ]
+      .filter(Boolean)
+      .join("\n\n");
     const chatMessages: ChatMessageEntry[] = [
       { role: "system", content: systemContent },
       ...priorConversationMessages,
@@ -485,8 +557,63 @@ export function createStreamAssistantRoutes(
     const calledOnceTool = new Set<string>();
     const executedToolSignatures = new Set<string>();
     const ONCE_ONLY_TOOLS = new Set(["create_contact", "create_company", "create_deal"]);
+    const toolsEnabled = routingDecision.mode !== "direct";
 
-    if (!finalContent && shouldPlanToolWorkflow(message)) {
+    if (routingDecision.mode === "direct" && routingDecision.reply?.trim()) {
+      finalContent = finalizeAssistantText(routingDecision.reply);
+    }
+
+    if (
+      !finalContent
+      && toolsEnabled
+      && resolvedRecentRecord.mode === "ambiguous"
+      && isRecordAdviceQuery(message)
+    ) {
+      finalContent = buildAmbiguousRecordReply(
+        resolvedRecentRecord.candidates,
+        resolvedRecentRecord.entity,
+      );
+    }
+
+    if (
+      !finalContent
+      && toolsEnabled
+      && resolvedRecentRecord.mode === "resolved"
+      && isRecordAdviceQuery(message)
+    ) {
+      const { toolName, toolArgs } = getLookupToolForRecord(resolvedRecentRecord.record);
+      const result = await executeAssistantToolDrizzle(
+        db,
+        crmUser.id,
+        crmUser.organizationId!,
+        toolName,
+        toolArgs,
+        {
+          gatewayUrl: env.BASICSOS_API_URL,
+          gatewayHeaders,
+          crmUserId: crmUser.id,
+        },
+      );
+      lastToolResult = result;
+      latestToolOutputs.push({ name: toolName, result });
+      threadEntityMemory = updateThreadEntityMemory(
+        threadEntityMemory,
+        extractRecordReferences(result),
+      );
+      await persistMessage(db, threadId, "tool", result, {
+        toolName,
+        toolArgs,
+        toolResult: result,
+      });
+      finalContent = await synthesizeFinalAnswer({
+        gatewayUrl: env.BASICSOS_API_URL,
+        gatewayHeaders,
+        queryText: message,
+        toolOutputs: latestToolOutputs,
+      });
+    }
+
+    if (!finalContent && toolsEnabled && shouldPlanToolWorkflow(message)) {
       const plannedWorkflow = await planToolWorkflow({
         gatewayUrl: env.BASICSOS_API_URL,
         gatewayHeaders,
@@ -547,6 +674,10 @@ export function createStreamAssistantRoutes(
           );
           lastToolResult = result;
           latestToolOutputs.push({ name: toolName, result });
+          threadEntityMemory = updateThreadEntityMemory(
+            threadEntityMemory,
+            extractRecordReferences(result),
+          );
           await persistMessage(db, threadId, "tool", result, {
             toolName,
             toolArgs,
@@ -573,8 +704,9 @@ export function createStreamAssistantRoutes(
       }
     }
 
-    for (let iteration = 0; iteration < MAX_TOOL_ROUNDS && !finalContent; iteration++) {
-      const isLastRound = iteration === MAX_TOOL_ROUNDS - 1;
+    const maxToolRounds = toolsEnabled ? MAX_TOOL_ROUNDS : 1;
+    for (let iteration = 0; iteration < maxToolRounds && !finalContent; iteration++) {
+      const isLastRound = iteration === maxToolRounds - 1;
 
       let toolCallRes: Response;
       try {
@@ -586,9 +718,9 @@ export function createStreamAssistantRoutes(
             body: JSON.stringify({
               model: "basics-chat-smart",
               messages: chatMessages,
-              ...(isLastRound
-                ? {}
-                : { tools: ASSISTANT_TOOLS, tool_choice: "auto" }),
+              ...(toolsEnabled && !isLastRound
+                ? { tools: ASSISTANT_TOOLS, tool_choice: "auto" }
+                : {}),
               stream: false,
             }),
           },
@@ -632,12 +764,14 @@ export function createStreamAssistantRoutes(
 
       if (toolCalls.length === 0 && invalidToolNames.length === 0) {
         if (latestToolOutputs.length > 0) {
-          finalContent = await synthesizeFinalAnswer({
-            gatewayUrl: env.BASICSOS_API_URL,
-            gatewayHeaders,
-            queryText: message,
-            toolOutputs: latestToolOutputs,
-          });
+          finalContent =
+            finalizeAssistantText(String(aiMessage?.content ?? ""), latestToolOutputs)
+            || await synthesizeFinalAnswer({
+              gatewayUrl: env.BASICSOS_API_URL,
+              gatewayHeaders,
+              queryText: message,
+              toolOutputs: latestToolOutputs,
+            });
         } else {
           finalContent = finalizeAssistantText(String(aiMessage?.content ?? ""));
         }
@@ -703,6 +837,10 @@ export function createStreamAssistantRoutes(
         );
         lastToolResult = result;
         latestToolOutputs.push({ name: tc.function.name, result });
+        threadEntityMemory = updateThreadEntityMemory(
+          threadEntityMemory,
+          extractRecordReferences(result),
+        );
         await persistMessage(db, threadId, "tool", result, {
           toolName: tc.function.name,
           toolArgs: args,
@@ -716,6 +854,7 @@ export function createStreamAssistantRoutes(
         });
 
       }
+
     }
 
     if (!finalContent && lastToolResult) {
@@ -730,18 +869,21 @@ export function createStreamAssistantRoutes(
       finalContent = "I could not complete that action yet. Please try again.";
     }
 
-    if (latestToolOutputs.length > 0) {
-      finalContent = await synthesizeFinalAnswer({
-        gatewayUrl: env.BASICSOS_API_URL,
-        gatewayHeaders,
-        queryText: message,
-        toolOutputs: latestToolOutputs,
-      });
-    } else {
+    if (latestToolOutputs.length === 0) {
       finalContent = finalizeAssistantText(finalContent);
     }
     finalContent = await linkifyRecordNames(db, crmUser.organizationId!, finalContent);
+    threadEntityMemory = updateThreadEntityMemory(
+      threadEntityMemory,
+      extractRecordReferences(finalContent),
+    );
     await persistMessage(db, threadId, "assistant", finalContent);
+    await saveThreadEntityMemory(db, {
+      threadId,
+      organizationId: crmUser.organizationId!,
+      crmUserId: crmUser.id,
+      memory: threadEntityMemory,
+    });
     await touchThread(db, threadId);
 
     writeUsageLogSafe(db, {

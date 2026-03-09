@@ -1,6 +1,14 @@
 import { and, eq, desc, inArray } from "drizzle-orm";
 import type { Db } from "@/db/client.js";
 import * as schema from "@/db/schema/index.js";
+import {
+  createEmptyThreadEntityMemory,
+  normalizeThreadEntityMemory,
+  type ThreadEntityMemory,
+} from "@/routes/gateway-chat/protocol.js";
+
+const THREAD_ENTITY_MEMORY_KIND = "entity_state";
+const THREAD_ENTITY_MEMORY_KEY = "thread_entities";
 
 export async function ensureThread(
   db: Db,
@@ -118,6 +126,79 @@ export async function touchThread(db: Db, threadId: string) {
     .update(schema.aiThreads)
     .set({ updatedAt: new Date() })
     .where(eq(schema.aiThreads.id, threadId));
+}
+
+export async function getThreadEntityMemory(
+  db: Db,
+  threadId: string,
+  organizationId: string,
+): Promise<ThreadEntityMemory> {
+  const rows = await db
+    .select({
+      value: schema.aiMemoryItems.value,
+    })
+    .from(schema.aiMemoryItems)
+    .where(
+      and(
+        eq(schema.aiMemoryItems.organizationId, organizationId),
+        eq(schema.aiMemoryItems.scope, "thread"),
+        eq(schema.aiMemoryItems.threadId, threadId),
+        eq(schema.aiMemoryItems.kind, THREAD_ENTITY_MEMORY_KIND),
+        eq(schema.aiMemoryItems.key, THREAD_ENTITY_MEMORY_KEY),
+      ),
+    )
+    .limit(1);
+
+  return rows[0]
+    ? normalizeThreadEntityMemory(rows[0].value)
+    : createEmptyThreadEntityMemory();
+}
+
+export async function saveThreadEntityMemory(
+  db: Db,
+  args: {
+    threadId: string;
+    organizationId: string;
+    crmUserId: number;
+    memory: ThreadEntityMemory;
+  },
+): Promise<void> {
+  const existing = await db
+    .select({ id: schema.aiMemoryItems.id })
+    .from(schema.aiMemoryItems)
+    .where(
+      and(
+        eq(schema.aiMemoryItems.organizationId, args.organizationId),
+        eq(schema.aiMemoryItems.scope, "thread"),
+        eq(schema.aiMemoryItems.threadId, args.threadId),
+        eq(schema.aiMemoryItems.kind, THREAD_ENTITY_MEMORY_KIND),
+        eq(schema.aiMemoryItems.key, THREAD_ENTITY_MEMORY_KEY),
+      ),
+    )
+    .limit(1);
+
+  if (existing[0]) {
+    await db
+      .update(schema.aiMemoryItems)
+      .set({
+        crmUserId: args.crmUserId,
+        value: args.memory,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.aiMemoryItems.id, existing[0].id));
+    return;
+  }
+
+  await db.insert(schema.aiMemoryItems).values({
+    organizationId: args.organizationId,
+    crmUserId: args.crmUserId,
+    scope: "thread",
+    threadId: args.threadId,
+    kind: THREAD_ENTITY_MEMORY_KIND,
+    key: THREAD_ENTITY_MEMORY_KEY,
+    value: args.memory,
+    importance: 8,
+  });
 }
 
 export async function persistMessage(

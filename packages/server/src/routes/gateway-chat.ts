@@ -8,19 +8,26 @@ import { resolveOrgAiConfig, buildGatewayHeaders } from "@/lib/org-ai-config.js"
 import { PERMISSIONS, requirePermission } from "@/lib/rbac.js";
 import { linkifyRecordNames } from "@/lib/linkify-records.js";
 import {
-  deriveToolAnswer,
   BASE_SYSTEM_PROMPT,
   OPENAI_TOOL_DEFS,
   buildRecentConversationContext,
+  extractRecordReferences,
   finalizeAssistantText,
+  isRecordAdviceQuery,
   requestSchema,
+  resolveThreadEntityReference,
   sdkPart,
+  toolFallbackText,
   toOpenAIMessages,
+  type RecentRecordReference,
+  updateThreadEntityMemory,
 } from "@/routes/gateway-chat/protocol.js";
 import {
   ensureThread,
+  getThreadEntityMemory,
   getThreadMessages,
   persistMessage,
+  saveThreadEntityMemory,
   updateThreadTitle,
   touchThread,
 } from "@/routes/gateway-chat/storage.js";
@@ -32,6 +39,7 @@ import {
   resolveDeferredToolStep,
   shouldPlanToolWorkflow,
 } from "@/routes/gateway-chat/workflow.js";
+import { routeChatRequest } from "@/routes/gateway-chat/router.js";
 
 type BetterAuthInstance = ReturnType<typeof createAuth>;
 
@@ -306,15 +314,44 @@ function buildToolChatContent(
   return stripped;
 }
 
+function buildResolvedRecordContext(record: RecentRecordReference): string {
+  return [
+    "## Resolved record reference",
+    `The user's follow-up refers to the ${record.entity} "${record.name}" (id: ${record.id}) from recent conversation.`,
+    `If you need record details, call \`get_${record.entity}\` with id ${record.id} immediately instead of searching again.`,
+  ].join("\n");
+}
+
+function buildAmbiguousRecordReply(
+  candidates: RecentRecordReference[],
+  entity: RecentRecordReference["entity"] | null,
+): string {
+  const label = entity ?? "record";
+  const lines = candidates
+    .slice(0, 5)
+    .map((candidate) => `- ${candidate.name}`)
+    .join("\n");
+  return `I found multiple ${label}s in this thread, so I’m not sure which one you mean.\n${lines}\n\nWhich one should I use?`;
+}
+
+function getLookupToolForRecord(
+  record: RecentRecordReference,
+): { toolName: "get_contact" | "get_company" | "get_deal"; toolArgs: { id: number } } {
+  if (record.entity === "contact") {
+    return { toolName: "get_contact", toolArgs: { id: record.id } };
+  }
+  if (record.entity === "company") {
+    return { toolName: "get_company", toolArgs: { id: record.id } };
+  }
+  return { toolName: "get_deal", toolArgs: { id: record.id } };
+}
+
 async function synthesizeFinalAnswer(args: {
   gatewayUrl: string;
   gatewayHeaders: Record<string, string>;
   queryText: string;
   toolOutputs: Array<{ name: string; result: unknown }>;
 }): Promise<string> {
-  const deterministic = deriveToolAnswer(args.queryText, args.toolOutputs);
-  if (deterministic) return deterministic;
-
   if (args.toolOutputs.length === 0) {
     return "I could not complete that request.";
   }
@@ -339,7 +376,7 @@ async function synthesizeFinalAnswer(args: {
         {
           role: "system",
           content:
-            "Answer the user's original CRM request using only the tool results provided. Do not mention tools, tool names, raw JSON, or fallback text. If a lookup answered the question, give a full, detailed answer — use paragraphs when appropriate. If a write succeeded, confirm the completed action. If the results are insufficient, explain what's missing.",
+            "Answer the user's original CRM request using only the tool results provided. Do not mention tools, tool names, raw JSON, or fallback text. If a lookup answered the question, give a full, detailed answer — use paragraphs when appropriate. If a write succeeded, confirm the completed action. Distinguish facts that are actually tied to the requested record from nearby but unrelated records, tasks, or notes, and do not infer a relationship unless the tool results explicitly show one. If the results are insufficient, explain what's missing.",
         },
         {
           role: "user",
@@ -352,16 +389,16 @@ async function synthesizeFinalAnswer(args: {
   });
   if (!res.ok) {
     await res.text().catch(() => {});
-    return "I couldn't produce a final answer from the available results.";
+    return toolFallbackText(args.toolOutputs);
   }
 
   const json = (await res.json()) as {
     choices?: Array<{ message?: { content?: string | null } }>;
   };
-  return finalizeAssistantText(
-    json.choices?.[0]?.message?.content ?? "",
-    [],
-  ) || "I couldn't produce a final answer from the available results.";
+  return (
+    finalizeAssistantText(json.choices?.[0]?.message?.content ?? "", [])
+    || toolFallbackText(args.toolOutputs)
+  );
 }
 
 export function createGatewayChatRoutes(
@@ -443,26 +480,15 @@ export function createGatewayChatRoutes(
       parsed.data.threadId,
       parsed.data.channel,
     );
+    let threadEntityMemory = await getThreadEntityMemory(
+      db,
+      threadId,
+      crmUser.organizationId,
+    );
     const storedHistory = parsed.data.threadId?.trim()
       ? await getThreadMessages(db, threadId, crmUser.id)
       : null;
     await persistMessage(db, threadId, "user", queryText);
-
-    // Auto-title thread: immediate fallback, then async smart title via LLM
-    if (!parsed.data.threadId?.trim()) {
-      const fallback =
-        queryText.length > 80 ? queryText.slice(0, 77) + "..." : queryText;
-      await updateThreadTitle(db, threadId, fallback);
-
-      // Fire-and-forget: generate a 2-4 word summary title
-      generateSmartTitle(
-        db,
-        threadId,
-        queryText,
-        gatewayHeaders,
-        env.BASICSOS_API_URL,
-      ).catch(() => {});
-    }
 
     const priorConversationMessages = sanitizeConversationMessages(storedHistory
       ? storedHistory
@@ -484,30 +510,71 @@ export function createGatewayChatRoutes(
           content: message.content,
         })));
 
-    const [crmSummary, ragContext] = await Promise.all([
-      buildCrmSummary(db, crmUser.organizationId),
-      retrieveRelevantContext(
-        db,
-        env.BASICSOS_API_URL,
-        gatewayHeaders,
-        crmUser.organizationId,
-        queryText,
-        5,
-        crmUser.id,
-      ),
-    ]);
-
-    let systemPrompt = `${BASE_SYSTEM_PROMPT}\n\n## Your CRM\n${crmSummary}`;
-    if (ragContext) systemPrompt += `\n\n## Relevant context\n${ragContext}`;
     const recentConversationContext = buildRecentConversationContext([
       ...priorConversationMessages,
       { role: "user", content: queryText },
     ]);
-    if (recentConversationContext) {
+    const routingDecision = (await routeChatRequest({
+      gatewayUrl: env.BASICSOS_API_URL,
+      gatewayHeaders,
+      queryText,
+      recentConversation: priorConversationMessages,
+    })) ?? {
+      mode: shouldPlanToolWorkflow(queryText) ? ("tool_call" as const) : ("crm_context" as const),
+      shouldGenerateTitle: true,
+    };
+    const resolvedRecentRecord = resolveThreadEntityReference(
+      queryText,
+      threadEntityMemory,
+    );
+
+    // Auto-title thread: immediate fallback, then async smart title via LLM
+    if (!parsed.data.threadId?.trim()) {
+      const fallback =
+        queryText.length > 80 ? queryText.slice(0, 77) + "..." : queryText;
+      await updateThreadTitle(db, threadId, fallback);
+
+      if (routingDecision.shouldGenerateTitle) {
+        generateSmartTitle(
+          db,
+          threadId,
+          queryText,
+          gatewayHeaders,
+          env.BASICSOS_API_URL,
+        ).catch(() => {});
+      }
+    }
+
+    let systemPrompt = BASE_SYSTEM_PROMPT;
+    if (routingDecision.mode === "crm_context") {
+      const [crmSummary, ragContext] = await Promise.all([
+        buildCrmSummary(db, crmUser.organizationId),
+        retrieveRelevantContext(
+          db,
+          env.BASICSOS_API_URL,
+          gatewayHeaders,
+          crmUser.organizationId,
+          queryText,
+          5,
+          crmUser.id,
+        ),
+      ]);
+      systemPrompt += `\n\n## Your CRM\n${crmSummary}`;
+      if (ragContext) systemPrompt += `\n\n## Relevant context\n${ragContext}`;
+    }
+    if (recentConversationContext && routingDecision.mode !== "direct") {
       systemPrompt += `\n\n${recentConversationContext}`;
     }
+    if (resolvedRecentRecord.mode === "resolved" && routingDecision.mode === "tool_call") {
+      systemPrompt += `\n\n${buildResolvedRecordContext(resolvedRecentRecord.record)}`;
+    }
     const workflowHints = inferWorkflowHints(queryText);
-    systemPrompt += `\n\n${workflowHints.planText}`;
+    if (routingDecision.mode === "tool_call") {
+      systemPrompt += `\n\n${workflowHints.planText}`;
+    } else if (routingDecision.mode === "crm_context") {
+      systemPrompt +=
+        "\n\n## Tool use fallback\nIf the user is referring to a specific CRM record and the answer depends on identifying that record, call the appropriate search/get tool before answering.";
+    }
 
     // Use a loose type so gateway-specific fields (e.g. Gemini thought_signature)
     // are preserved when echoing assistant messages back to the API.
@@ -522,8 +589,65 @@ export function createGatewayChatRoutes(
     const calledOnceTool = new Set<string>();
     const executedToolSignatures = new Set<string>();
     const ONCE_ONLY_TOOLS = new Set(["create_contact", "create_company", "create_deal"]);
+    const toolsEnabled = routingDecision.mode !== "direct";
 
-    if (!finalContent && shouldPlanToolWorkflow(queryText)) {
+    if (routingDecision.mode === "direct" && routingDecision.reply?.trim()) {
+      finalContent = finalizeAssistantText(routingDecision.reply);
+    }
+
+    if (
+      !finalContent
+      && toolsEnabled
+      && resolvedRecentRecord.mode === "ambiguous"
+      && isRecordAdviceQuery(queryText)
+    ) {
+      finalContent = buildAmbiguousRecordReply(
+        resolvedRecentRecord.candidates,
+        resolvedRecentRecord.entity,
+      );
+    }
+
+    if (
+      !finalContent
+      && toolsEnabled
+      && resolvedRecentRecord.mode === "resolved"
+      && isRecordAdviceQuery(queryText)
+    ) {
+      const { toolName, toolArgs } = getLookupToolForRecord(resolvedRecentRecord.record);
+      const result = await executeValidatedTool(
+        db,
+        crmUser.id,
+        crmUser.organizationId,
+        toolName,
+        toolArgs,
+        {
+          gatewayUrl: env.BASICSOS_API_URL,
+          gatewayHeaders,
+          crmUserId: crmUser.id,
+        },
+      );
+      usedTools.add(toolName);
+      latestToolOutputs.push({ name: toolName, result });
+      if (typeof result === "string") {
+        threadEntityMemory = updateThreadEntityMemory(
+          threadEntityMemory,
+          extractRecordReferences(result),
+        );
+      }
+      await persistMessage(db, threadId, "tool", JSON.stringify(result), {
+        toolName,
+        toolArgs,
+        toolResult: result,
+      });
+      finalContent = await synthesizeFinalAnswer({
+        gatewayUrl: env.BASICSOS_API_URL,
+        gatewayHeaders,
+        queryText,
+        toolOutputs: latestToolOutputs,
+      });
+    }
+
+    if (!finalContent && toolsEnabled && shouldPlanToolWorkflow(queryText)) {
       const plannedWorkflow = await planToolWorkflow({
         gatewayUrl: env.BASICSOS_API_URL,
         gatewayHeaders,
@@ -584,6 +708,12 @@ export function createGatewayChatRoutes(
           );
           usedTools.add(toolName);
           latestToolOutputs.push({ name: toolName, result });
+          if (typeof result === "string") {
+            threadEntityMemory = updateThreadEntityMemory(
+              threadEntityMemory,
+              extractRecordReferences(result),
+            );
+          }
           await persistMessage(db, threadId, "tool", JSON.stringify(result), {
             toolName,
             toolArgs,
@@ -611,9 +741,9 @@ export function createGatewayChatRoutes(
       }
     }
 
-    const MAX_TOOL_ROUNDS = 5;
-    for (let i = 0; i < MAX_TOOL_ROUNDS && !finalContent; i++) {
-      const isLastRound = i === MAX_TOOL_ROUNDS - 1;
+    const maxToolRounds = toolsEnabled ? 5 : 1;
+    for (let i = 0; i < maxToolRounds && !finalContent; i++) {
+      const isLastRound = i === maxToolRounds - 1;
 
       let res: Response;
       try {
@@ -623,9 +753,9 @@ export function createGatewayChatRoutes(
           body: JSON.stringify({
             model: "basics-chat-smart",
             messages: chatMessages,
-            ...(isLastRound
-              ? {}
-              : { tools: OPENAI_TOOL_DEFS, tool_choice: "auto" }),
+            ...(toolsEnabled && !isLastRound
+              ? { tools: OPENAI_TOOL_DEFS, tool_choice: "auto" }
+              : {}),
             stream: false,
           }),
         });
@@ -666,12 +796,14 @@ export function createGatewayChatRoutes(
 
       if (toolCalls.length === 0 && invalidToolNames.length === 0) {
         if (latestToolOutputs.length > 0) {
-          finalContent = await synthesizeFinalAnswer({
-            gatewayUrl: env.BASICSOS_API_URL,
-            gatewayHeaders,
-            queryText,
-            toolOutputs: latestToolOutputs,
-          });
+          finalContent =
+            finalizeAssistantText(String(aiMessage?.content ?? ""), latestToolOutputs)
+            || await synthesizeFinalAnswer({
+              gatewayUrl: env.BASICSOS_API_URL,
+              gatewayHeaders,
+              queryText,
+              toolOutputs: latestToolOutputs,
+            });
         } else {
           finalContent = finalizeAssistantText(String(aiMessage?.content ?? ""));
         }
@@ -745,6 +877,12 @@ export function createGatewayChatRoutes(
         );
         usedTools.add(tc.function.name);
         latestToolOutputs.push({ name: tc.function.name, result });
+        if (typeof result === "string") {
+          threadEntityMemory = updateThreadEntityMemory(
+            threadEntityMemory,
+            extractRecordReferences(result),
+          );
+        }
         await persistMessage(db, threadId, "tool", JSON.stringify(result), {
           toolName: tc.function.name,
           toolArgs: args,
@@ -759,6 +897,7 @@ export function createGatewayChatRoutes(
         });
 
       }
+
     }
 
     if (!finalContent)
@@ -771,18 +910,21 @@ export function createGatewayChatRoutes(
             toolOutputs: latestToolOutputs,
           })
           : "I could not complete that request. Please try again.";
-    if (latestToolOutputs.length > 0) {
-      finalContent = await synthesizeFinalAnswer({
-        gatewayUrl: env.BASICSOS_API_URL,
-        gatewayHeaders,
-        queryText,
-        toolOutputs: latestToolOutputs,
-      });
-    } else {
+    if (latestToolOutputs.length === 0) {
       finalContent = finalizeAssistantText(finalContent);
     }
     finalContent = await linkifyRecordNames(db, crmUser.organizationId, finalContent);
+    threadEntityMemory = updateThreadEntityMemory(
+      threadEntityMemory,
+      extractRecordReferences(finalContent),
+    );
     await persistMessage(db, threadId, "assistant", finalContent);
+    await saveThreadEntityMemory(db, {
+      threadId,
+      organizationId: crmUser.organizationId,
+      crmUserId: crmUser.id,
+      memory: threadEntityMemory,
+    });
     await touchThread(db, threadId);
 
     const encoder = new TextEncoder();

@@ -107,7 +107,7 @@ export const ASSISTANT_TOOLS = [
     function: {
       name: "search_companies",
       description:
-        "Search companies by name. Use when the user asks about a company.",
+        "Search companies by name. Use when the user asks about a specific company, references it approximately, or wants advice grounded in that company's CRM data.",
       parameters: {
         type: "object",
         properties: {
@@ -183,7 +183,7 @@ export const ASSISTANT_TOOLS = [
     function: {
       name: "search_deals",
       description:
-        "Search deals by name or status. Use when the user asks about deals or pipeline.",
+        "Search deals by name or status. Use when the user asks about a specific deal, describes it approximately, or wants advice about whether to continue/pursue it.",
       parameters: {
         type: "object",
         properties: {
