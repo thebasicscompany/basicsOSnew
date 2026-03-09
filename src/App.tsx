@@ -23,6 +23,8 @@ import { ErrorFallback } from "@/components/error-fallback";
 import { ProtectedRoute } from "@/lib/auth";
 import { StartPage } from "@/components/auth/start-page";
 import { SignupPage } from "@/components/auth/signup-page";
+import { ForgotPasswordPage } from "@/components/auth/forgot-password-page";
+import { SetPasswordPage } from "@/components/auth/set-password-page";
 import { HomePage } from "@/components/pages/HomePage";
 import { ProfilePage } from "@/components/pages/ProfilePage";
 import { SettingsPage } from "@/components/pages/SettingsPage";
@@ -79,6 +81,8 @@ function AppRoutes() {
           {/* Public */}
           <Route path="/" element={<StartPage />} />
           <Route path="/sign-up" element={<SignupPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/set-password" element={<SetPasswordPage />} />
 
           {/* Protected — all inside AppLayout */}
           <Route

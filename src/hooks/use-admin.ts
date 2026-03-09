@@ -96,6 +96,59 @@ export function useClearAdminAiConfig() {
   });
 }
 
+export interface OrgSmtpConfigResponse {
+  config: {
+    host: string;
+    port: number;
+    user: string;
+    hasPassword: boolean;
+    fromEmail: string;
+    updatedAt: string;
+  } | null;
+  hasEnvFallback: boolean;
+  hasEnvSmtp: boolean;
+  hasEnvBasicsos: boolean;
+}
+
+export function useAdminSmtpConfig(enabled: boolean) {
+  return useQuery({
+    queryKey: ["admin", "smtp-config"],
+    queryFn: () => fetchApi<OrgSmtpConfigResponse>("/api/admin/smtp-config"),
+    enabled,
+  });
+}
+
+export function useSaveAdminSmtpConfig() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      host: string;
+      port: number;
+      user: string;
+      password?: string;
+      fromEmail: string;
+    }) =>
+      fetchApi("/api/admin/smtp-config", {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "smtp-config"] });
+    },
+  });
+}
+
+export function useClearAdminSmtpConfig() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      fetchApi("/api/admin/smtp-config", { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "smtp-config"] });
+    },
+  });
+}
+
 export function useSaveAdminTranscriptionByok() {
   const queryClient = useQueryClient();
   return useMutation({

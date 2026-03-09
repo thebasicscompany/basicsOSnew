@@ -88,6 +88,7 @@ export function createApp(db: Db, env: Env) {
     env.BETTER_AUTH_URL,
     env.BETTER_AUTH_SECRET,
     allowedOrigins,
+    env,
   );
 
   const app = new Hono();

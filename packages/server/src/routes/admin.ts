@@ -22,6 +22,20 @@ const aiConfigPutSchema = z.object({
   apiKey: z.string().min(1),
 });
 
+const smtpConfigPutSchema = z.object({
+  host: z.string().min(1, "Host is required"),
+  port: z.coerce.number().int().min(1).max(65535),
+  user: z.string().min(1, "User is required"),
+  password: z.string().optional(),
+  fromEmail: z
+    .string()
+    .min(1, "From address is required")
+    .refine(
+      (v) => /@/.test(v) || /<[^>]+@[^>]+>/.test(v),
+      "Must contain a valid email address",
+    ),
+});
+
 export function createAdminRoutes(
   db: Db,
   auth: BetterAuthInstance,
@@ -251,6 +265,160 @@ export function createAdminRoutes(
       action: "admin.ai_config.transcription_updated",
       entityType: "org_ai_config",
       metadata: { transcriptionByokProvider: provider },
+    });
+
+    return c.json({ ok: true });
+  });
+
+  app.get("/smtp-config", authMiddleware(auth, db), async (c) => {
+    const authz = await requirePermission(c, db, PERMISSIONS.rbacManage);
+    if (!authz.ok) return authz.response;
+    const { crmUser } = authz;
+
+    if (!crmUser.organizationId) {
+      return c.json({ error: "Organization not found" }, 404);
+    }
+
+    const [config] = await db
+      .select({
+        host: schema.orgSmtpConfig.host,
+        port: schema.orgSmtpConfig.port,
+        user: schema.orgSmtpConfig.user,
+        hasPassword: sql<boolean>`${schema.orgSmtpConfig.passwordEnc} IS NOT NULL`,
+        fromEmail: schema.orgSmtpConfig.fromEmail,
+        updatedAt: schema.orgSmtpConfig.updatedAt,
+      })
+      .from(schema.orgSmtpConfig)
+      .where(eq(schema.orgSmtpConfig.organizationId, crmUser.organizationId))
+      .limit(1);
+
+    const hasEnvSmtp = Boolean(
+      env.MAIL_HOST &&
+        env.MAIL_PORT != null &&
+        env.MAIL_USER &&
+        env.MAIL_PASS &&
+        env.MAIL_FROM,
+    );
+    const hasEnvBasicsos = Boolean(env.SERVER_BASICS_API_KEY);
+
+    return c.json({
+      config: config
+        ? {
+            host: config.host,
+            port: config.port,
+            user: config.user,
+            hasPassword: config.hasPassword ?? false,
+            fromEmail: config.fromEmail,
+            updatedAt: config.updatedAt,
+          }
+        : null,
+      hasEnvFallback: hasEnvSmtp || hasEnvBasicsos,
+      hasEnvSmtp,
+      hasEnvBasicsos,
+    });
+  });
+
+  app.put("/smtp-config", authMiddleware(auth, db), async (c) => {
+    const authz = await requirePermission(c, db, PERMISSIONS.rbacManage);
+    if (!authz.ok) return authz.response;
+    const { crmUser } = authz;
+
+    if (!crmUser.organizationId) {
+      return c.json({ error: "Organization not found" }, 404);
+    }
+
+    let rawBody: unknown;
+    try {
+      rawBody = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON body" }, 400);
+    }
+
+    const parsed = smtpConfigPutSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      const msg = parsed.error.issues[0]?.message ?? "Validation failed";
+      return c.json({ error: msg }, 400);
+    }
+
+    const { host, port, user, password, fromEmail } = parsed.data;
+
+    if (!hasApiKeyEncryptionConfigured()) {
+      return c.json(
+        { error: "API key encryption is not configured on server" },
+        500,
+      );
+    }
+
+    const existing = await db
+      .select({ id: schema.orgSmtpConfig.id })
+      .from(schema.orgSmtpConfig)
+      .where(eq(schema.orgSmtpConfig.organizationId, crmUser.organizationId))
+      .limit(1);
+
+    const passwordEnc =
+      password && password.trim().length > 0
+        ? encryptApiKey(password.trim())
+        : undefined;
+
+    if (existing.length > 0) {
+      await db
+        .update(schema.orgSmtpConfig)
+        .set({
+          host,
+          port,
+          user,
+          fromEmail,
+          configuredBy: crmUser.id,
+          updatedAt: new Date(),
+          ...(passwordEnc !== undefined && { passwordEnc }),
+        })
+        .where(
+          eq(schema.orgSmtpConfig.organizationId, crmUser.organizationId),
+        );
+    } else {
+      if (!passwordEnc) {
+        return c.json({ error: "Password is required for new SMTP config" }, 400);
+      }
+      await db.insert(schema.orgSmtpConfig).values({
+        organizationId: crmUser.organizationId,
+        host,
+        port,
+        user,
+        passwordEnc,
+        fromEmail,
+        configuredBy: crmUser.id,
+      });
+    }
+
+    await writeAuditLogSafe(db, {
+      crmUserId: crmUser.id,
+      organizationId: crmUser.organizationId,
+      action: "admin.smtp_config.updated",
+      entityType: "org_smtp_config",
+      metadata: { host, port },
+    });
+
+    return c.json({ ok: true });
+  });
+
+  app.delete("/smtp-config", authMiddleware(auth, db), async (c) => {
+    const authz = await requirePermission(c, db, PERMISSIONS.rbacManage);
+    if (!authz.ok) return authz.response;
+    const { crmUser } = authz;
+
+    if (!crmUser.organizationId) {
+      return c.json({ error: "Organization not found" }, 404);
+    }
+
+    await db
+      .delete(schema.orgSmtpConfig)
+      .where(eq(schema.orgSmtpConfig.organizationId, crmUser.organizationId));
+
+    await writeAuditLogSafe(db, {
+      crmUserId: crmUser.id,
+      organizationId: crmUser.organizationId,
+      action: "admin.smtp_config.cleared",
+      entityType: "org_smtp_config",
     });
 
     return c.json({ ok: true });

@@ -1,16 +1,20 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import type { Db } from "@/db/client.js";
+import type { Env } from "@/env.js";
+import { createSendResetPassword } from "./lib/send-reset-password.js";
 
 export function createAuth(
   db: Db,
   baseUrl: string,
   secret: string,
   allowedOrigins: string[],
+  env: Env,
 ) {
   const allowedSet = new Set(
     allowedOrigins.map((o) => o.trim()).filter(Boolean),
   );
+  const sendResetPasswordFn = createSendResetPassword(db, env);
 
   return betterAuth({
     database: drizzleAdapter(db, { provider: "pg" }),
@@ -35,6 +39,9 @@ export function createAuth(
     },
     emailAndPassword: {
       enabled: true,
+      sendResetPassword: async ({ user, url }) => {
+        void sendResetPasswordFn(user.email, url, user.id);
+      },
     },
     session: {
       cookieCache: { enabled: true },

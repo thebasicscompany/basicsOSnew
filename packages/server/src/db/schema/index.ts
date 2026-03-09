@@ -23,4 +23,5 @@ export * from "@/db/schema/views.js";
 export * from "@/db/schema/rbac.js";
 export * from "@/db/schema/audit_logs.js";
 export * from "@/db/schema/org_ai_config.js";
+export * from "@/db/schema/org_smtp_config.js";
 export * from "@/db/schema/ai_usage_logs.js";

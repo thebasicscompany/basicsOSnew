@@ -23,7 +23,7 @@ export function createAuthRoutes(
     return c.json({ token });
   });
 
-  registerInitSignupInviteRoutes(app, db, auth);
+  registerInitSignupInviteRoutes(app, db, auth, env);
   registerMeSettingsRoutes(app, db, auth, env);
   registerOrganizationRoutes(app, db, auth);
 

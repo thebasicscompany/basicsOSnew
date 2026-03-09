@@ -2,6 +2,7 @@ import type { Hono } from "hono";
 import { eq } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import type { Db } from "@/db/client.js";
+import type { Env } from "@/env.js";
 import type { createAuth } from "@/auth.js";
 import * as schema from "@/db/schema/index.js";
 import { PERMISSIONS, requirePermission } from "@/lib/rbac.js";
@@ -11,6 +12,7 @@ import {
   signupBodySchema,
   invitesBodySchema,
 } from "@/schemas/auth.js";
+import { sendOrgEmail } from "@/lib/send-org-email.js";
 
 function generateInviteToken(): string {
   return randomBytes(24).toString("hex");
@@ -20,6 +22,7 @@ export function registerInitSignupInviteRoutes(
   app: Hono,
   db: Db,
   auth: ReturnType<typeof createAuth>,
+  env: Env,
 ): void {
   app.get("/init", async (c) => {
     const orgs = await db.select().from(schema.organizations).limit(1);
@@ -188,7 +191,7 @@ export function registerInitSignupInviteRoutes(
       const msg = parsed.error.issues[0]?.message ?? "Validation failed";
       return c.json({ error: msg }, 400);
     }
-    const { email, expiresInHours } = parsed.data;
+    const { email, expiresInHours, sendEmail } = parsed.data;
     const emailNormalized = email?.trim()
       ? email.trim().toLowerCase()
       : null;
@@ -219,10 +222,26 @@ export function registerInitSignupInviteRoutes(
       },
     });
 
+    let emailSent = false;
+    let emailError: string | undefined;
+    if (sendEmail && emailNormalized) {
+      const baseUrl = c.req.header("origin") ?? env.BETTER_AUTH_URL ?? "http://localhost:5173";
+      const signupLink = `${baseUrl.replace(/\/$/, "")}/sign-up?invite=${token}`;
+      const result = await sendOrgEmail(db, env, crmUser.organizationId, {
+        to: emailNormalized,
+        subject: "You're invited to join",
+        content: `You've been invited to join. Click the link to create your account:\n\n${signupLink}\n\nThe link will expire ${expiresAt.toLocaleDateString()}.`,
+      });
+      emailSent = result.ok;
+      emailError = result.error;
+    }
+
     return c.json({
       token: invite.token,
       email: invite.email,
       expiresAt: invite.expiresAt,
+      emailSent: sendEmail ? emailSent : undefined,
+      emailError: sendEmail && !emailSent ? emailError : undefined,
     });
   });
 }
