@@ -26,9 +26,7 @@ export interface MeetingSummary {
   id: number;
   meetingId: number;
   summaryJson: {
-    decisions?: (string | Record<string, unknown>)[];
-    actionItems?: (string | Record<string, unknown>)[];
-    followUps?: (string | Record<string, unknown>)[];
+    title?: string;
     note?: string;
   } | null;
   createdAt: string;

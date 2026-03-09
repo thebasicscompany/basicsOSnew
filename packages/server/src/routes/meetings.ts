@@ -268,10 +268,8 @@ export function createMeetingsRoutes(
             {
               role: "system",
               content: `You are a meeting summarizer. Analyze the transcript and return a JSON object with these fields:
-- "decisions": array of key decisions made
-- "actionItems": array of action items or tasks assigned
-- "followUps": array of follow-up items mentioned
-- "note": a concise executive summary (2-3 sentences)
+- "title": a short meeting title (max 6 words, e.g. "Q1 Planning Review", "Product Demo Feedback")
+- "note": a two-sentence summary of what was discussed
 
 Return ONLY valid JSON, no markdown fences.`,
             },
@@ -292,9 +290,7 @@ Return ONLY valid JSON, no markdown fences.`,
         const content = data.choices?.[0]?.message?.content ?? "";
 
         let summaryJson: {
-          decisions?: string[];
-          actionItems?: string[];
-          followUps?: string[];
+          title?: string;
           note?: string;
         } = {};
 
@@ -325,7 +321,7 @@ Return ONLY valid JSON, no markdown fences.`,
           .update(schema.meetings)
           .set({
             status: "completed",
-            title: summaryJson.note?.slice(0, 100) ?? null,
+            title: summaryJson.title?.slice(0, 100) ?? summaryJson.note?.slice(0, 60) ?? null,
             updatedAt: new Date(),
           })
           .where(eq(schema.meetings.id, meetingId));

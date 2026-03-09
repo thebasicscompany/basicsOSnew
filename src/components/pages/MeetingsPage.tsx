@@ -18,7 +18,7 @@ export function MeetingsPage() {
   const { data: meetings, isPending } = useMeetings({ page, perPage: PER_PAGE });
 
   return (
-    <div className="flex h-full flex-col gap-5 pb-8">
+    <div className="flex h-full flex-col gap-5 overflow-auto pb-8">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           Press <kbd className="rounded border bg-muted px-1.5 py-0.5 text-xs font-mono">Cmd+Alt+Space</kbd> to start recording a meeting.
@@ -46,7 +46,7 @@ export function MeetingsPage() {
               />
             ))}
           </div>
-          {meetings.length >= PER_PAGE && (
+          {(page > 1 || meetings.length >= PER_PAGE) && (
             <div className="flex items-center justify-end">
               <div className="flex gap-2">
                 <Button
@@ -60,6 +60,7 @@ export function MeetingsPage() {
                 <Button
                   variant="outline"
                   size="sm"
+                  disabled={meetings.length < PER_PAGE}
                   onClick={() => setPage((p) => p + 1)}
                 >
                   Next

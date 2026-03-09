@@ -82,70 +82,11 @@ export function MeetingDetailDialog({
             </div>
 
             {/* Summary */}
-            {meeting.summary?.summaryJson && (
-              <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
-                {meeting.summary.summaryJson.note && (
-                  <p className="text-sm leading-relaxed">
-                    {meeting.summary.summaryJson.note}
-                  </p>
-                )}
-                {meeting.summary.summaryJson.decisions &&
-                  meeting.summary.summaryJson.decisions.length > 0 && (
-                    <div>
-                      <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1">
-                        Decisions
-                      </h4>
-                      <ul className="list-disc list-inside text-sm space-y-0.5">
-                        {meeting.summary.summaryJson.decisions.map((d, i) => (
-                          <li key={i}>
-                            {typeof d === "string"
-                              ? d
-                              : typeof d === "object" && d !== null
-                                ? Object.values(d as Record<string, unknown>).filter(Boolean).join(" — ")
-                                : String(d)}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                {meeting.summary.summaryJson.actionItems &&
-                  meeting.summary.summaryJson.actionItems.length > 0 && (
-                    <div>
-                      <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1">
-                        Action Items
-                      </h4>
-                      <ul className="list-disc list-inside text-sm space-y-0.5">
-                        {meeting.summary.summaryJson.actionItems.map((a, i) => (
-                          <li key={i}>
-                            {typeof a === "string"
-                              ? a
-                              : typeof a === "object" && a !== null
-                                ? Object.values(a as Record<string, unknown>).filter(Boolean).join(" — ")
-                                : String(a)}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                {meeting.summary.summaryJson.followUps &&
-                  meeting.summary.summaryJson.followUps.length > 0 && (
-                    <div>
-                      <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-1">
-                        Follow-ups
-                      </h4>
-                      <ul className="list-disc list-inside text-sm space-y-0.5">
-                        {meeting.summary.summaryJson.followUps.map((f, i) => (
-                          <li key={i}>
-                            {typeof f === "string"
-                              ? f
-                              : typeof f === "object" && f !== null
-                                ? Object.values(f as Record<string, unknown>).filter(Boolean).join(" — ")
-                                : String(f)}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+            {meeting.summary?.summaryJson?.note && (
+              <div className="rounded-lg border bg-muted/30 p-4">
+                <p className="text-sm leading-relaxed">
+                  {meeting.summary.summaryJson.note}
+                </p>
               </div>
             )}
 
