@@ -50,7 +50,6 @@ export function createStreamAssistantRoutes(
     const { message, history, threadId: threadIdRaw } = parsed.data;
 
     // Same input shape as chat: messages array + threadId + channel.
-    // Voice = transcript (message) + history; channel is "voice".
     const messages = [
       ...history.map((m) => ({ role: m.role, content: m.content })),
       { role: "user" as const, content: message },
