@@ -40,6 +40,7 @@ import {
   shouldPlanToolWorkflow,
 } from "@/routes/gateway-chat/workflow.js";
 import { routeChatRequest } from "@/routes/gateway-chat/router.js";
+import * as schema from "@/db/schema/index.js";
 
 type BetterAuthInstance = ReturnType<typeof createAuth>;
 
@@ -401,6 +402,525 @@ async function synthesizeFinalAnswer(args: {
   );
 }
 
+export type ProcessChatTurnParams = {
+  crmUser: typeof schema.crmUsers.$inferSelect;
+  gatewayHeaders: Record<string, string>;
+  gatewayUrl: string;
+  messages: unknown[];
+  threadId?: string;
+  channel?: "chat" | "voice" | "automation";
+};
+
+export type ProcessChatTurnResult = {
+  finalContent: string;
+  threadId: string;
+  usedTools: string[];
+};
+
+/** Shared chat turn logic used by both gateway-chat (UI) and stream-assistant (voice). */
+export async function processChatTurn(
+  db: Db,
+  env: Env,
+  params: ProcessChatTurnParams,
+): Promise<ProcessChatTurnResult> {
+  const {
+    crmUser,
+    gatewayHeaders,
+    gatewayUrl,
+    messages: uiMessages,
+    threadId: threadIdParam,
+    channel = "chat",
+  } = params;
+
+  if (!crmUser.organizationId) {
+    throw new Error("Organization not found");
+  }
+
+  const openAIMessages = toOpenAIMessages(uiMessages);
+  const lastUser = [...openAIMessages]
+    .reverse()
+    .find((m) => m.role === "user") as
+    | { role: "user"; content: string }
+    | undefined;
+  const queryText = lastUser?.content?.trim() ?? "";
+  if (!queryText) {
+    throw new Error("No user message found");
+  }
+
+  const threadId = await ensureThread(db, crmUser, threadIdParam, channel);
+  let threadEntityMemory = await getThreadEntityMemory(
+    db,
+    threadId,
+    crmUser.organizationId,
+  );
+  const storedHistory = threadIdParam?.trim()
+    ? await getThreadMessages(db, threadId, crmUser.id)
+    : null;
+  await persistMessage(db, threadId, "user", queryText);
+
+  const priorConversationMessages = sanitizeConversationMessages(
+    storedHistory
+      ? storedHistory
+          .filter((message) => (message.content ?? "").trim())
+          .map((message) => ({
+            role: message.role as "user" | "assistant",
+            content: message.content ?? "",
+          }))
+      : openAIMessages
+          .slice(0, -1)
+          .filter(
+            (
+              message,
+            ): message is { role: "user" | "assistant"; content: string } =>
+              (message.role === "user" || message.role === "assistant") &&
+              typeof message.content === "string" &&
+              message.content.trim().length > 0,
+          )
+          .map((message) => ({
+            role: message.role,
+            content: message.content,
+          })),
+  );
+
+  const recentConversationContext = buildRecentConversationContext([
+    ...priorConversationMessages,
+    { role: "user", content: queryText },
+  ]);
+  const routingDecision = (await routeChatRequest({
+    gatewayUrl,
+    gatewayHeaders,
+    queryText,
+    recentConversation: priorConversationMessages,
+  })) ?? {
+    mode: shouldPlanToolWorkflow(queryText)
+      ? ("tool_call" as const)
+      : ("crm_context" as const),
+    shouldGenerateTitle: true,
+  };
+  const resolvedRecentRecord = resolveThreadEntityReference(
+    queryText,
+    threadEntityMemory,
+  );
+
+  if (!threadIdParam?.trim()) {
+    const fallback =
+      queryText.length > 80 ? queryText.slice(0, 77) + "..." : queryText;
+    await updateThreadTitle(db, threadId, fallback);
+    if (routingDecision.shouldGenerateTitle) {
+      generateSmartTitle(
+        db,
+        threadId,
+        queryText,
+        gatewayHeaders,
+        gatewayUrl,
+      ).catch(() => {});
+    }
+  }
+
+  let systemPrompt = BASE_SYSTEM_PROMPT;
+  if (routingDecision.mode === "crm_context") {
+    const [crmSummary, ragContext] = await Promise.all([
+      buildCrmSummary(db, crmUser.organizationId),
+      retrieveRelevantContext(
+        db,
+        gatewayUrl,
+        gatewayHeaders,
+        crmUser.organizationId,
+        queryText,
+        5,
+        crmUser.id,
+      ),
+    ]);
+    systemPrompt += `\n\n## Your CRM\n${crmSummary}`;
+    if (ragContext) systemPrompt += `\n\n## Relevant context\n${ragContext}`;
+  }
+  if (recentConversationContext && routingDecision.mode !== "direct") {
+    systemPrompt += `\n\n${recentConversationContext}`;
+  }
+  if (
+    resolvedRecentRecord.mode === "resolved" &&
+    routingDecision.mode === "tool_call"
+  ) {
+    systemPrompt += `\n\n${buildResolvedRecordContext(resolvedRecentRecord.record)}`;
+  }
+  const workflowHints = inferWorkflowHints(queryText);
+  if (routingDecision.mode === "tool_call") {
+    systemPrompt += `\n\n${workflowHints.planText}`;
+  } else if (routingDecision.mode === "crm_context") {
+    systemPrompt +=
+      "\n\n## Tool use fallback\nIf the user is referring to a specific CRM record and the answer depends on identifying that record, call the appropriate search/get tool before answering.";
+  }
+
+  const chatMessages: Array<Record<string, unknown>> = [
+    { role: "system", content: systemPrompt },
+    ...priorConversationMessages,
+    { role: "user", content: queryText },
+  ];
+  const usedTools = new Set<string>();
+  let finalContent = "";
+  const latestToolOutputs: Array<{ name: string; result: unknown }> = [];
+  const calledOnceTool = new Set<string>();
+  const executedToolSignatures = new Set<string>();
+  const ONCE_ONLY_TOOLS = new Set([
+    "create_contact",
+    "create_company",
+    "create_deal",
+  ]);
+  const toolsEnabled = routingDecision.mode !== "direct";
+
+  if (routingDecision.mode === "direct" && routingDecision.reply?.trim()) {
+    finalContent = finalizeAssistantText(routingDecision.reply);
+  }
+
+  if (
+    !finalContent &&
+    toolsEnabled &&
+    resolvedRecentRecord.mode === "ambiguous" &&
+    isRecordAdviceQuery(queryText)
+  ) {
+    finalContent = buildAmbiguousRecordReply(
+      resolvedRecentRecord.candidates,
+      resolvedRecentRecord.entity,
+    );
+  }
+
+  if (
+    !finalContent &&
+    toolsEnabled &&
+    resolvedRecentRecord.mode === "resolved" &&
+    isRecordAdviceQuery(queryText)
+  ) {
+    const { toolName, toolArgs } = getLookupToolForRecord(
+      resolvedRecentRecord.record,
+    );
+    const result = await executeValidatedTool(
+      db,
+      crmUser.id,
+      crmUser.organizationId,
+      toolName,
+      toolArgs,
+      {
+        gatewayUrl,
+        gatewayHeaders,
+        crmUserId: crmUser.id,
+      },
+    );
+    usedTools.add(toolName);
+    latestToolOutputs.push({ name: toolName, result });
+    if (typeof result === "string") {
+      threadEntityMemory = updateThreadEntityMemory(
+        threadEntityMemory,
+        extractRecordReferences(result),
+      );
+    }
+    await persistMessage(db, threadId, "tool", JSON.stringify(result), {
+      toolName,
+      toolArgs,
+      toolResult: result,
+    });
+    finalContent = await synthesizeFinalAnswer({
+      gatewayUrl,
+      gatewayHeaders,
+      queryText,
+      toolOutputs: latestToolOutputs,
+    });
+  }
+
+  if (!finalContent && toolsEnabled && shouldPlanToolWorkflow(queryText)) {
+    const plannedWorkflow = await planToolWorkflow({
+      gatewayUrl,
+      gatewayHeaders,
+      model: "basics-chat-smart",
+      queryText,
+    });
+    if (
+      plannedWorkflow?.mode === "multi_tool" &&
+      plannedWorkflow.steps.length > 0
+    ) {
+      let lastLookupContext: {
+        tool: string;
+        result: string;
+        failed: boolean;
+      } | null = null;
+
+      for (const step of plannedWorkflow.steps) {
+        let toolName = step.tool;
+        let toolArgs = step.args ?? {};
+
+        if (step.deferred) {
+          if (!lastLookupContext || lastLookupContext.failed) {
+            continue;
+          }
+          const resolvedStep = await resolveDeferredToolStep({
+            gatewayUrl,
+            gatewayHeaders,
+            model: "basics-chat-smart",
+            queryText,
+            expectedTool: step.tool,
+            plannedArgs: step.args ?? {},
+            lookupTool: lastLookupContext.tool,
+            lookupResult: lastLookupContext.result,
+          });
+          if (resolvedStep?.mode === "blocked") {
+            finalContent = resolvedStep.message;
+            break;
+          }
+          if (!resolvedStep || resolvedStep.mode !== "tool") {
+            continue;
+          }
+          toolName = resolvedStep.tool;
+          toolArgs = resolvedStep.args ?? {};
+        }
+
+        const signature = toolCallSignature(toolName, toolArgs);
+        if (executedToolSignatures.has(signature)) {
+          continue;
+        }
+        executedToolSignatures.add(signature);
+
+        const result = await executeValidatedTool(
+          db,
+          crmUser.id,
+          crmUser.organizationId,
+          toolName,
+          toolArgs,
+          {
+            gatewayUrl,
+            gatewayHeaders,
+            crmUserId: crmUser.id,
+          },
+        );
+        usedTools.add(toolName);
+        latestToolOutputs.push({ name: toolName, result });
+        if (typeof result === "string") {
+          threadEntityMemory = updateThreadEntityMemory(
+            threadEntityMemory,
+            extractRecordReferences(result),
+          );
+        }
+        await persistMessage(db, threadId, "tool", JSON.stringify(result), {
+          toolName,
+          toolArgs,
+          toolResult: result,
+        });
+
+        if (isLookupTool(toolName)) {
+          const lookupRaw =
+            typeof result === "string" ? result : JSON.stringify(result);
+          lastLookupContext = {
+            tool: toolName,
+            result: lookupRaw,
+            failed: isLookupFailure(result),
+          };
+        }
+      }
+
+      if (!finalContent && latestToolOutputs.length > 0) {
+        finalContent = await synthesizeFinalAnswer({
+          gatewayUrl,
+          gatewayHeaders,
+          queryText,
+          toolOutputs: latestToolOutputs,
+        });
+      }
+    }
+  }
+
+  const maxToolRounds = toolsEnabled ? 5 : 1;
+  for (let i = 0; i < maxToolRounds && !finalContent; i++) {
+    const isLastRound = i === maxToolRounds - 1;
+
+    let res: Response;
+    try {
+      res = await fetch(`${gatewayUrl}/v1/chat/completions`, {
+        method: "POST",
+        headers: gatewayHeaders,
+        body: JSON.stringify({
+          model: "basics-chat-smart",
+          messages: chatMessages,
+          ...(toolsEnabled && !isLastRound
+            ? { tools: OPENAI_TOOL_DEFS, tool_choice: "auto" }
+            : {}),
+          stream: false,
+        }),
+      });
+    } catch (err) {
+      console.error("[gateway-chat] fetch error:", err);
+      throw Object.assign(new Error("Failed to reach AI gateway"), {
+        status: 502,
+      });
+    }
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      console.error("[gateway-chat] gateway error:", res.status, errText);
+      if (latestToolOutputs.length > 0) {
+        finalContent = await synthesizeFinalAnswer({
+          gatewayUrl,
+          gatewayHeaders,
+          queryText,
+          toolOutputs: latestToolOutputs,
+        });
+        break;
+      }
+      throw Object.assign(
+        new Error(`Gateway error ${res.status}`),
+        { status: 502, details: errText.slice(0, 400) },
+      );
+    }
+
+    const json = (await res.json()) as {
+      choices?: Array<{ message?: Record<string, unknown> }>;
+    };
+
+    const aiMessage = json.choices?.[0]?.message;
+    const { toolCalls, invalidToolNames } = sanitizeGatewayToolCalls(
+      aiMessage?.tool_calls,
+    );
+
+    if (toolCalls.length === 0 && invalidToolNames.length === 0) {
+      if (latestToolOutputs.length > 0) {
+        finalContent =
+          finalizeAssistantText(
+            String(aiMessage?.content ?? ""),
+            latestToolOutputs,
+          ) ||
+          (await synthesizeFinalAnswer({
+            gatewayUrl,
+            gatewayHeaders,
+            queryText,
+            toolOutputs: latestToolOutputs,
+          }));
+      } else {
+        finalContent = finalizeAssistantText(String(aiMessage?.content ?? ""));
+      }
+      break;
+    }
+
+    chatMessages.push(sanitizeAssistantGatewayMessage(aiMessage));
+    if (invalidToolNames.length > 0) {
+      chatMessages.push({
+        role: "system",
+        content: buildInvalidToolRetryMessage(invalidToolNames),
+      });
+    }
+    if (toolCalls.length === 0) {
+      continue;
+    }
+
+    for (const tc of toolCalls) {
+      let args: Record<string, unknown> = {};
+      try {
+        args = JSON.parse(tc.function.arguments || "{}") as Record<
+          string,
+          unknown
+        >;
+      } catch {
+        args = {};
+      }
+
+      if (
+        ONCE_ONLY_TOOLS.has(tc.function.name) &&
+        calledOnceTool.has(tc.function.name)
+      ) {
+        const skipped = `Skipped duplicate ${tc.function.name} call — record was already created.`;
+        chatMessages.push({
+          role: "tool",
+          tool_call_id: tc.id,
+          content: skipped,
+        });
+        continue;
+      }
+      if (ONCE_ONLY_TOOLS.has(tc.function.name)) {
+        calledOnceTool.add(tc.function.name);
+      }
+
+      const nextStepHint = workflowHints.nextHintByTool[tc.function.name];
+      const signature = toolCallSignature(tc.function.name, args);
+      if (executedToolSignatures.has(signature)) {
+        chatMessages.push({
+          role: "tool",
+          tool_call_id: tc.id,
+          content: duplicateToolMessage(tc.function.name, nextStepHint),
+        });
+        continue;
+      }
+      executedToolSignatures.add(signature);
+
+      const result = await executeValidatedTool(
+        db,
+        crmUser.id,
+        crmUser.organizationId,
+        tc.function.name,
+        args,
+        {
+          gatewayUrl,
+          gatewayHeaders,
+          crmUserId: crmUser.id,
+        },
+      );
+      usedTools.add(tc.function.name);
+      latestToolOutputs.push({ name: tc.function.name, result });
+      if (typeof result === "string") {
+        threadEntityMemory = updateThreadEntityMemory(
+          threadEntityMemory,
+          extractRecordReferences(result),
+        );
+      }
+      await persistMessage(db, threadId, "tool", JSON.stringify(result), {
+        toolName: tc.function.name,
+        toolArgs: args,
+        toolResult: result,
+      });
+
+      const raw = typeof result === "string" ? result : JSON.stringify(result);
+      chatMessages.push({
+        role: "tool",
+        tool_call_id: tc.id,
+        content: buildToolChatContent(tc.function.name, raw, nextStepHint),
+      });
+    }
+  }
+
+  if (!finalContent) {
+    finalContent =
+      latestToolOutputs.length > 0
+        ? await synthesizeFinalAnswer({
+            gatewayUrl,
+            gatewayHeaders,
+            queryText,
+            toolOutputs: latestToolOutputs,
+          })
+        : "I could not complete that request. Please try again.";
+  }
+  if (latestToolOutputs.length === 0) {
+    finalContent = finalizeAssistantText(finalContent);
+  }
+  finalContent = await linkifyRecordNames(
+    db,
+    crmUser.organizationId,
+    finalContent,
+  );
+  threadEntityMemory = updateThreadEntityMemory(
+    threadEntityMemory,
+    extractRecordReferences(finalContent),
+  );
+  await persistMessage(db, threadId, "assistant", finalContent);
+  await saveThreadEntityMemory(db, {
+    threadId,
+    organizationId: crmUser.organizationId,
+    crmUserId: crmUser.id,
+    memory: threadEntityMemory,
+  });
+  await touchThread(db, threadId);
+
+  return {
+    finalContent,
+    threadId,
+    usedTools: Array.from(usedTools),
+  };
+}
+
 export function createGatewayChatRoutes(
   db: Db,
   auth: BetterAuthInstance,
@@ -464,471 +984,41 @@ export function createGatewayChatRoutes(
       );
     }
 
-    const uiMessages = parsed.data.messages;
-    const openAIMessages = toOpenAIMessages(uiMessages);
-    const lastUser = [...openAIMessages]
-      .reverse()
-      .find((m) => m.role === "user") as
-      | { role: "user"; content: string }
-      | undefined;
-    const queryText = lastUser?.content?.trim() ?? "";
-    if (!queryText) return c.json({ error: "No user message found" }, 400);
-
-    const threadId = await ensureThread(
-      db,
-      crmUser,
-      parsed.data.threadId,
-      parsed.data.channel,
-    );
-    let threadEntityMemory = await getThreadEntityMemory(
-      db,
-      threadId,
-      crmUser.organizationId,
-    );
-    const storedHistory = parsed.data.threadId?.trim()
-      ? await getThreadMessages(db, threadId, crmUser.id)
-      : null;
-    await persistMessage(db, threadId, "user", queryText);
-
-    const priorConversationMessages = sanitizeConversationMessages(storedHistory
-      ? storedHistory
-        .filter((message) => (message.content ?? "").trim())
-        .map((message) => ({
-          role: message.role as "user" | "assistant",
-          content: message.content ?? "",
-        }))
-      : openAIMessages
-        .slice(0, -1)
-        .filter(
-          (message): message is { role: "user" | "assistant"; content: string } =>
-            (message.role === "user" || message.role === "assistant")
-            && typeof message.content === "string"
-            && message.content.trim().length > 0,
-        )
-        .map((message) => ({
-          role: message.role,
-          content: message.content,
-        })));
-
-    const recentConversationContext = buildRecentConversationContext([
-      ...priorConversationMessages,
-      { role: "user", content: queryText },
-    ]);
-    const routingDecision = (await routeChatRequest({
-      gatewayUrl: env.BASICSOS_API_URL,
-      gatewayHeaders,
-      queryText,
-      recentConversation: priorConversationMessages,
-    })) ?? {
-      mode: shouldPlanToolWorkflow(queryText) ? ("tool_call" as const) : ("crm_context" as const),
-      shouldGenerateTitle: true,
-    };
-    const resolvedRecentRecord = resolveThreadEntityReference(
-      queryText,
-      threadEntityMemory,
-    );
-
-    // Auto-title thread: immediate fallback, then async smart title via LLM
-    if (!parsed.data.threadId?.trim()) {
-      const fallback =
-        queryText.length > 80 ? queryText.slice(0, 77) + "..." : queryText;
-      await updateThreadTitle(db, threadId, fallback);
-
-      if (routingDecision.shouldGenerateTitle) {
-        generateSmartTitle(
-          db,
-          threadId,
-          queryText,
-          gatewayHeaders,
-          env.BASICSOS_API_URL,
-        ).catch(() => {});
-      }
-    }
-
-    let systemPrompt = BASE_SYSTEM_PROMPT;
-    if (routingDecision.mode === "crm_context") {
-      const [crmSummary, ragContext] = await Promise.all([
-        buildCrmSummary(db, crmUser.organizationId),
-        retrieveRelevantContext(
-          db,
-          env.BASICSOS_API_URL,
-          gatewayHeaders,
-          crmUser.organizationId,
-          queryText,
-          5,
-          crmUser.id,
-        ),
-      ]);
-      systemPrompt += `\n\n## Your CRM\n${crmSummary}`;
-      if (ragContext) systemPrompt += `\n\n## Relevant context\n${ragContext}`;
-    }
-    if (recentConversationContext && routingDecision.mode !== "direct") {
-      systemPrompt += `\n\n${recentConversationContext}`;
-    }
-    if (resolvedRecentRecord.mode === "resolved" && routingDecision.mode === "tool_call") {
-      systemPrompt += `\n\n${buildResolvedRecordContext(resolvedRecentRecord.record)}`;
-    }
-    const workflowHints = inferWorkflowHints(queryText);
-    if (routingDecision.mode === "tool_call") {
-      systemPrompt += `\n\n${workflowHints.planText}`;
-    } else if (routingDecision.mode === "crm_context") {
-      systemPrompt +=
-        "\n\n## Tool use fallback\nIf the user is referring to a specific CRM record and the answer depends on identifying that record, call the appropriate search/get tool before answering.";
-    }
-
-    // Use a loose type so gateway-specific fields (e.g. Gemini thought_signature)
-    // are preserved when echoing assistant messages back to the API.
-    const chatMessages: Array<Record<string, unknown>> = [
-      { role: "system", content: systemPrompt },
-      ...priorConversationMessages,
-      { role: "user", content: queryText },
-    ];
-    const usedTools = new Set<string>();
-    let finalContent = "";
-    const latestToolOutputs: Array<{ name: string; result: unknown }> = [];
-    const calledOnceTool = new Set<string>();
-    const executedToolSignatures = new Set<string>();
-    const ONCE_ONLY_TOOLS = new Set(["create_contact", "create_company", "create_deal"]);
-    const toolsEnabled = routingDecision.mode !== "direct";
-
-    if (routingDecision.mode === "direct" && routingDecision.reply?.trim()) {
-      finalContent = finalizeAssistantText(routingDecision.reply);
-    }
-
-    if (
-      !finalContent
-      && toolsEnabled
-      && resolvedRecentRecord.mode === "ambiguous"
-      && isRecordAdviceQuery(queryText)
-    ) {
-      finalContent = buildAmbiguousRecordReply(
-        resolvedRecentRecord.candidates,
-        resolvedRecentRecord.entity,
-      );
-    }
-
-    if (
-      !finalContent
-      && toolsEnabled
-      && resolvedRecentRecord.mode === "resolved"
-      && isRecordAdviceQuery(queryText)
-    ) {
-      const { toolName, toolArgs } = getLookupToolForRecord(resolvedRecentRecord.record);
-      const result = await executeValidatedTool(
-        db,
-        crmUser.id,
-        crmUser.organizationId,
-        toolName,
-        toolArgs,
-        {
-          gatewayUrl: env.BASICSOS_API_URL,
-          gatewayHeaders,
-          crmUserId: crmUser.id,
-        },
-      );
-      usedTools.add(toolName);
-      latestToolOutputs.push({ name: toolName, result });
-      if (typeof result === "string") {
-        threadEntityMemory = updateThreadEntityMemory(
-          threadEntityMemory,
-          extractRecordReferences(result),
-        );
-      }
-      await persistMessage(db, threadId, "tool", JSON.stringify(result), {
-        toolName,
-        toolArgs,
-        toolResult: result,
-      });
-      finalContent = await synthesizeFinalAnswer({
-        gatewayUrl: env.BASICSOS_API_URL,
+    let result: ProcessChatTurnResult;
+    try {
+      result = await processChatTurn(db, env, {
+        crmUser,
         gatewayHeaders,
-        queryText,
-        toolOutputs: latestToolOutputs,
-      });
-    }
-
-    if (!finalContent && toolsEnabled && shouldPlanToolWorkflow(queryText)) {
-      const plannedWorkflow = await planToolWorkflow({
         gatewayUrl: env.BASICSOS_API_URL,
-        gatewayHeaders,
-        model: "basics-chat-smart",
-        queryText,
+        messages: parsed.data.messages,
+        threadId: parsed.data.threadId,
+        channel: parsed.data.channel,
       });
-      if (plannedWorkflow?.mode === "multi_tool" && plannedWorkflow.steps.length > 0) {
-        let lastLookupContext:
-          | { tool: string; result: string; failed: boolean }
-          | null = null;
-
-        for (const step of plannedWorkflow.steps) {
-          let toolName = step.tool;
-          let toolArgs = step.args ?? {};
-
-          if (step.deferred) {
-            if (!lastLookupContext || lastLookupContext.failed) {
-              continue;
-            }
-            const resolvedStep = await resolveDeferredToolStep({
-              gatewayUrl: env.BASICSOS_API_URL,
-              gatewayHeaders,
-              model: "basics-chat-smart",
-              queryText,
-              expectedTool: step.tool,
-              plannedArgs: step.args ?? {},
-              lookupTool: lastLookupContext.tool,
-              lookupResult: lastLookupContext.result,
-            });
-            if (resolvedStep?.mode === "blocked") {
-              finalContent = resolvedStep.message;
-              break;
-            }
-            if (!resolvedStep || resolvedStep.mode !== "tool") {
-              continue;
-            }
-            toolName = resolvedStep.tool;
-            toolArgs = resolvedStep.args ?? {};
-          }
-
-          const signature = toolCallSignature(toolName, toolArgs);
-          if (executedToolSignatures.has(signature)) {
-            continue;
-          }
-          executedToolSignatures.add(signature);
-
-          const result = await executeValidatedTool(
-            db,
-            crmUser.id,
-            crmUser.organizationId,
-            toolName,
-            toolArgs,
-            {
-              gatewayUrl: env.BASICSOS_API_URL,
-              gatewayHeaders,
-              crmUserId: crmUser.id,
-            },
-          );
-          usedTools.add(toolName);
-          latestToolOutputs.push({ name: toolName, result });
-          if (typeof result === "string") {
-            threadEntityMemory = updateThreadEntityMemory(
-              threadEntityMemory,
-              extractRecordReferences(result),
-            );
-          }
-          await persistMessage(db, threadId, "tool", JSON.stringify(result), {
-            toolName,
-            toolArgs,
-            toolResult: result,
-          });
-
-          if (isLookupTool(toolName)) {
-            const lookupRaw = typeof result === "string" ? result : JSON.stringify(result);
-            lastLookupContext = {
-              tool: toolName,
-              result: lookupRaw,
-              failed: isLookupFailure(result),
-            };
-          }
-        }
-
-        if (!finalContent && latestToolOutputs.length > 0) {
-          finalContent = await synthesizeFinalAnswer({
-            gatewayUrl: env.BASICSOS_API_URL,
-            gatewayHeaders,
-            queryText,
-            toolOutputs: latestToolOutputs,
-          });
-        }
-      }
-    }
-
-    const maxToolRounds = toolsEnabled ? 5 : 1;
-    for (let i = 0; i < maxToolRounds && !finalContent; i++) {
-      const isLastRound = i === maxToolRounds - 1;
-
-      let res: Response;
-      try {
-        res = await fetch(`${env.BASICSOS_API_URL}/v1/chat/completions`, {
-          method: "POST",
-          headers: gatewayHeaders,
-          body: JSON.stringify({
-            model: "basics-chat-smart",
-            messages: chatMessages,
-            ...(toolsEnabled && !isLastRound
-              ? { tools: OPENAI_TOOL_DEFS, tool_choice: "auto" }
-              : {}),
-            stream: false,
-          }),
-        });
-      } catch (err) {
-        console.error("[gateway-chat] fetch error:", err);
-        return c.json({ error: "Failed to reach AI gateway" }, 502);
-      }
-
-      if (!res.ok) {
-        const errText = await res.text().catch(() => "");
-        console.error("[gateway-chat] gateway error:", res.status, errText);
-        if (latestToolOutputs.length > 0) {
-          finalContent = await synthesizeFinalAnswer({
-            gatewayUrl: env.BASICSOS_API_URL,
-            gatewayHeaders,
-            queryText,
-            toolOutputs: latestToolOutputs,
-          });
-          break;
-        }
+    } catch (err) {
+      const status = (err as { status?: number })?.status;
+      const details = (err as { details?: string })?.details;
+      if (status === 502) {
         return c.json(
           {
-            error: `Gateway error ${res.status}`,
-            details: errText.slice(0, 400),
+            error: (err as Error).message,
+            ...(details && { details }),
           },
           502,
         );
       }
-
-      const json = (await res.json()) as {
-        choices?: Array<{ message?: Record<string, unknown> }>;
-      };
-
-      const aiMessage = json.choices?.[0]?.message;
-      const { toolCalls, invalidToolNames } = sanitizeGatewayToolCalls(
-        aiMessage?.tool_calls,
-      );
-
-      if (toolCalls.length === 0 && invalidToolNames.length === 0) {
-        if (latestToolOutputs.length > 0) {
-          finalContent =
-            finalizeAssistantText(String(aiMessage?.content ?? ""), latestToolOutputs)
-            || await synthesizeFinalAnswer({
-              gatewayUrl: env.BASICSOS_API_URL,
-              gatewayHeaders,
-              queryText,
-              toolOutputs: latestToolOutputs,
-            });
-        } else {
-          finalContent = finalizeAssistantText(String(aiMessage?.content ?? ""));
-        }
-        break;
+      if ((err as Error).message === "No user message found") {
+        return c.json({ error: "No user message found" }, 400);
       }
-
-      // Push the FULL message from the gateway so gateway-specific fields
-      // (e.g. Gemini thought_signature under extra_content.google) are
-      // included in the next request for proper multi-turn tool calling.
-      chatMessages.push(sanitizeAssistantGatewayMessage(aiMessage));
-      if (invalidToolNames.length > 0) {
-        chatMessages.push({
-          role: "system",
-          content: buildInvalidToolRetryMessage(invalidToolNames),
-        });
+      if ((err as Error).message === "Organization not found") {
+        return c.json({ error: "Organization not found" }, 404);
       }
-      if (toolCalls.length === 0) {
-        continue;
-      }
-
-      for (const tc of toolCalls) {
-        let args: Record<string, unknown> = {};
-        try {
-          args = JSON.parse(tc.function.arguments || "{}") as Record<
-            string,
-            unknown
-          >;
-        } catch {
-          args = {};
-        }
-
-        if (
-          ONCE_ONLY_TOOLS.has(tc.function.name) &&
-          calledOnceTool.has(tc.function.name)
-        ) {
-          const skipped = `Skipped duplicate ${tc.function.name} call — record was already created.`;
-          chatMessages.push({
-            role: "tool",
-            tool_call_id: tc.id,
-            content: skipped,
-          });
-          continue;
-        }
-        if (ONCE_ONLY_TOOLS.has(tc.function.name)) {
-          calledOnceTool.add(tc.function.name);
-        }
-
-        const nextStepHint = workflowHints.nextHintByTool[tc.function.name];
-        const signature = toolCallSignature(tc.function.name, args);
-        if (executedToolSignatures.has(signature)) {
-          chatMessages.push({
-            role: "tool",
-            tool_call_id: tc.id,
-            content: duplicateToolMessage(tc.function.name, nextStepHint),
-          });
-          continue;
-        }
-        executedToolSignatures.add(signature);
-
-        const result = await executeValidatedTool(
-          db,
-          crmUser.id,
-          crmUser.organizationId,
-          tc.function.name,
-          args,
-          {
-            gatewayUrl: env.BASICSOS_API_URL,
-            gatewayHeaders,
-            crmUserId: crmUser.id,
-          },
-        );
-        usedTools.add(tc.function.name);
-        latestToolOutputs.push({ name: tc.function.name, result });
-        if (typeof result === "string") {
-          threadEntityMemory = updateThreadEntityMemory(
-            threadEntityMemory,
-            extractRecordReferences(result),
-          );
-        }
-        await persistMessage(db, threadId, "tool", JSON.stringify(result), {
-          toolName: tc.function.name,
-          toolArgs: args,
-          toolResult: result,
-        });
-
-        const raw = typeof result === "string" ? result : JSON.stringify(result);
-        chatMessages.push({
-          role: "tool",
-          tool_call_id: tc.id,
-          content: buildToolChatContent(tc.function.name, raw, nextStepHint),
-        });
-
-      }
-
+      throw err;
     }
-
-    if (!finalContent)
-      finalContent =
-        latestToolOutputs.length > 0
-          ? await synthesizeFinalAnswer({
-            gatewayUrl: env.BASICSOS_API_URL,
-            gatewayHeaders,
-            queryText,
-            toolOutputs: latestToolOutputs,
-          })
-          : "I could not complete that request. Please try again.";
-    if (latestToolOutputs.length === 0) {
-      finalContent = finalizeAssistantText(finalContent);
-    }
-    finalContent = await linkifyRecordNames(db, crmUser.organizationId, finalContent);
-    threadEntityMemory = updateThreadEntityMemory(
-      threadEntityMemory,
-      extractRecordReferences(finalContent),
-    );
-    await persistMessage(db, threadId, "assistant", finalContent);
-    await saveThreadEntityMemory(db, {
-      threadId,
-      organizationId: crmUser.organizationId,
-      crmUserId: crmUser.id,
-      memory: threadEntityMemory,
-    });
-    await touchThread(db, threadId);
 
     const encoder = new TextEncoder();
-    const parts = finalContent.match(/[\s\S]{1,140}/g) ?? [finalContent];
+    const parts = result.finalContent.match(/[\s\S]{1,140}/g) ?? [
+      result.finalContent,
+    ];
     const outStream = new ReadableStream({
       start(controller) {
         for (const part of parts)
@@ -945,8 +1035,8 @@ export function createGatewayChatRoutes(
         "Content-Type": "text/plain; charset=utf-8",
         "X-Vercel-AI-Data-Stream": "v1",
         "Cache-Control": "no-cache",
-        "X-Thread-Id": threadId,
-        "X-Tools-Used": Array.from(usedTools).join(","),
+        "X-Thread-Id": result.threadId,
+        "X-Tools-Used": result.usedTools.join(","),
         "Access-Control-Expose-Headers": "X-Thread-Id, X-Tools-Used",
       },
     });

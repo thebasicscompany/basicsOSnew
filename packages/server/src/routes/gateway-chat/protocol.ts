@@ -53,7 +53,7 @@ Update workflow (CRITICAL — follow exactly):
    - If you know the record's exact name → call update_contact / update_deal / update_company directly with company_name/contact_name/deal_name.
    - If the user describes a record by a detail (e.g. "the company about touching people") → call search_companies/search_contacts/search_deals/search_tasks ONCE. The result will show the name and id (e.g. "Katars (id: 42)"). Then IMMEDIATELY call the update tool using that id.
    - NEVER search more than once. NEVER search again after you already have results. Use the id from the first search result.
-2. Available update tools: update_contact (fields: first_name, last_name, email), update_deal (fields: name, status, amount), update_company (fields: name, category, domain, description).
+2. Available update tools: update_contact (fields: first_name, last_name, email), update_deal (fields: name, status, amount), update_company (fields: name, category, domain, description). For deals, "stage" and "status" mean the same thing — when the user asks to change the stage, update the status.
 3. After any update, confirm to the user what changed.
 4. Common multi-step patterns you must finish before replying:
    - search_companies/search_contacts/search_deals/search_tasks -> update_company/update_contact/update_deal
@@ -377,12 +377,12 @@ export const OPENAI_TOOL_DEFS = [
     function: {
       name: "search_deals",
       description:
-        "Search and list deals by deal name, company, or status. Use this before answering questions about a specific deal when the user gives a partial description or asks whether they should continue/pursue it.",
+        "Search and list deals by deal name, company, status, or stage (stage and status mean the same thing). Use this before answering questions about a specific deal when the user gives a partial description or asks whether they should continue/pursue it.",
       parameters: {
         type: "object",
         properties: {
           query: { type: "string" },
-          status: { type: "string" },
+          status: { type: "string", description: "Filter by status/stage (e.g. opportunity, in-negotiation, won, lost)" },
           limit: { type: "number" },
         },
         required: [],
@@ -426,14 +426,14 @@ export const OPENAI_TOOL_DEFS = [
     type: "function",
     function: {
       name: "update_deal",
-      description: "Update an existing deal. Use id (preferred, from a prior search) or deal_name. Call this immediately after finding the deal — do NOT search again.",
+      description: "Update an existing deal. Use when the user wants to change deal stage, status, amount, or name. Stage and status mean the same thing — use the status parameter. Use id (preferred, from a prior search) or deal_name. Call this immediately after finding the deal — do NOT search again.",
       parameters: {
         type: "object",
         properties: {
           id: { type: "number", description: "Deal ID from a prior search" },
           deal_name: { type: "string", description: "Deal name to look up" },
           name: { type: "string" },
-          status: { type: "string" },
+          status: { type: "string", description: "New status/stage (stage and status mean the same thing)" },
           amount: { type: "number" },
         },
         required: [],
