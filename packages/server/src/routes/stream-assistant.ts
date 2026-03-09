@@ -1,6 +1,7 @@
 /**
- * Stream assistant - CRM-aware AI for the voice pill overlay.
- * POST /stream/assistant { message, history } -> SSE data: {token}, data: [DONE]
+ * Stream assistant - voice pill overlay.
+ * Voice is transcribed to text first; then the same chat flow as gateway-chat is used.
+ * POST /stream/assistant { message, history, threadId? } -> SSE data: {token}, data: [DONE]
  */
 
 import { Hono } from "hono";
@@ -8,390 +9,16 @@ import { authMiddleware } from "@/middleware/auth.js";
 import type { Db } from "@/db/client.js";
 import type { Env } from "@/env.js";
 import type { createAuth } from "@/auth.js";
-import { buildCrmSummary, retrieveRelevantContext } from "@/lib/context.js";
 import { resolveOrgAiConfig, buildGatewayHeaders } from "@/lib/org-ai-config.js";
 import { writeUsageLogSafe } from "@/lib/usage-log.js";
-import {
-  ASSISTANT_TOOLS,
-  executeAssistantToolDrizzle,
-} from "@/assistant/tools.js";
 import { PERMISSIONS, requirePermission } from "@/lib/rbac.js";
-import { linkifyRecordNames } from "@/lib/linkify-records.js";
 import {
-  buildRecentConversationContext,
-  deriveToolAnswer,
-  finalizeAssistantText,
-} from "@/routes/gateway-chat/protocol.js";
-import {
-  ensureThread,
-  getThreadMessages,
-  persistMessage,
-  touchThread,
-} from "@/routes/gateway-chat/storage.js";
-import {
-  isLookupFailure,
-  isLookupTool,
-  planToolWorkflow,
-  resolveDeferredToolStep,
-  shouldPlanToolWorkflow,
-} from "@/routes/gateway-chat/workflow.js";
+  processChatTurn,
+  type ProcessChatTurnResult,
+} from "@/routes/gateway-chat.js";
 import { streamAssistantPostSchema } from "@/schemas/stream-assistant.js";
 
 type BetterAuthInstance = ReturnType<typeof createAuth>;
-
-// Loose type so gateway-specific fields (e.g. Gemini thought_signature)
-// survive round-trips through multi-turn tool calling.
-type ChatMessageEntry = Record<string, unknown>;
-
-type ConversationMessage = {
-  role: "user" | "assistant";
-  content: string;
-};
-
-type GatewayToolCall = {
-  id: string;
-  type: "function";
-  function: { name: string; arguments: string };
-};
-
-type SanitizedGatewayToolCalls = {
-  toolCalls: GatewayToolCall[];
-  invalidToolNames: string[];
-};
-
-const MAX_HISTORY_MESSAGES = 12;
-const MAX_HISTORY_CHARS = 16_000;
-const MAX_MESSAGE_CHARS = 4_000;
-const MAX_TOOL_ARGUMENTS_CHARS = 4_000;
-const VALID_ASSISTANT_TOOL_NAMES: ReadonlySet<string> = new Set(
-  ASSISTANT_TOOLS.map((definition) => definition.function.name),
-);
-
-function stableStringify(value: unknown): string {
-  if (Array.isArray(value)) {
-    return `[${value.map((item) => stableStringify(item)).join(",")}]`;
-  }
-  if (value && typeof value === "object") {
-    const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) =>
-      a.localeCompare(b),
-    );
-    return `{${entries.map(([key, item]) => `${JSON.stringify(key)}:${stableStringify(item)}`).join(",")}}`;
-  }
-  return JSON.stringify(value);
-}
-
-function toolCallSignature(name: string, args: Record<string, unknown>): string {
-  return `${name}:${stableStringify(args)}`;
-}
-
-function truncateText(text: string, maxChars = MAX_MESSAGE_CHARS): string {
-  if (text.length <= maxChars) return text;
-  if (maxChars <= 3) return text.slice(0, maxChars);
-  return `${text.slice(0, maxChars - 3).trimEnd()}...`;
-}
-
-function sanitizeConversationMessages(messages: ConversationMessage[]): ConversationMessage[] {
-  const recent = messages
-    .filter((message) => message.content.trim())
-    .map((message) => ({
-      role: message.role,
-      content: truncateText(message.content),
-    }))
-    .slice(-MAX_HISTORY_MESSAGES);
-
-  const kept: ConversationMessage[] = [];
-  let totalChars = 0;
-  for (let index = recent.length - 1; index >= 0; index--) {
-    const message = recent[index]!;
-    if (totalChars + message.content.length > MAX_HISTORY_CHARS && kept.length > 0) {
-      break;
-    }
-    kept.push(message);
-    totalChars += message.content.length;
-  }
-
-  return kept.reverse();
-}
-
-function sanitizeGatewayToolCalls(value: unknown): SanitizedGatewayToolCalls {
-  if (!Array.isArray(value)) {
-    return { toolCalls: [], invalidToolNames: [] };
-  }
-
-  const invalidToolNames = new Set<string>();
-  const toolCalls = value.flatMap((entry) => {
-    if (!entry || typeof entry !== "object") return [];
-    const toolCall = entry as Record<string, unknown>;
-    const fn =
-      toolCall.function && typeof toolCall.function === "object"
-        ? (toolCall.function as Record<string, unknown>)
-        : null;
-    if (typeof toolCall.id !== "string" || typeof fn?.name !== "string") {
-      return [];
-    }
-    if (!VALID_ASSISTANT_TOOL_NAMES.has(fn.name)) {
-      invalidToolNames.add(fn.name);
-      return [];
-    }
-    return [
-      {
-        id: toolCall.id,
-        type: "function" as const,
-        function: {
-          name: fn.name,
-          arguments:
-            typeof fn.arguments === "string"
-              ? truncateText(fn.arguments, MAX_TOOL_ARGUMENTS_CHARS)
-              : "{}",
-        },
-      },
-    ];
-  });
-
-  return {
-    toolCalls,
-    invalidToolNames: [...invalidToolNames],
-  };
-}
-
-function buildInvalidToolRetryMessage(invalidToolNames: string[]): string {
-  return [
-    `Invalid tool call(s): ${invalidToolNames.join(", ")}.`,
-    "Never invent tool names.",
-    `Use only these tools: ${[...VALID_ASSISTANT_TOOL_NAMES].join(", ")}.`,
-    "If you need to list or search companies, use `search_companies`.",
-  ].join(" ");
-}
-
-function sanitizeAssistantGatewayMessage(aiMessage: Record<string, unknown> | undefined): ChatMessageEntry {
-  const message: ChatMessageEntry = { role: "assistant" };
-  const content = aiMessage?.content;
-  if (typeof content === "string") {
-    message.content = truncateText(content);
-  } else if (content == null) {
-    message.content = null;
-  } else {
-    message.content = truncateText(JSON.stringify(content));
-  }
-
-  const { toolCalls } = sanitizeGatewayToolCalls(aiMessage?.tool_calls);
-  if (toolCalls.length > 0) {
-    message.tool_calls = toolCalls;
-  }
-
-  const googleExtra =
-    aiMessage?.extra_content &&
-    typeof aiMessage.extra_content === "object" &&
-    (aiMessage.extra_content as Record<string, unknown>).google &&
-    typeof (aiMessage.extra_content as Record<string, unknown>).google === "object"
-      ? ((aiMessage.extra_content as Record<string, unknown>).google as Record<string, unknown>)
-      : null;
-  const thoughtSignature = googleExtra?.thought_signature;
-  if (typeof thoughtSignature === "string" && thoughtSignature.trim()) {
-    message.extra_content = {
-      google: {
-        thought_signature: truncateText(thoughtSignature, MAX_TOOL_ARGUMENTS_CHARS),
-      },
-    };
-  }
-
-  return message;
-}
-
-type WorkflowHints = {
-  planText: string;
-  nextHintByTool: Record<string, string>;
-};
-
-function inferWorkflowHints(queryText: string): WorkflowHints {
-  const trimmed = queryText.trim();
-  const lower = trimmed.toLowerCase();
-  const nextHintByTool: Record<string, string> = {};
-  const planLines = [
-    "## Multi-step workflow execution",
-    "You currently support multi-step tool workflows.",
-    "Before replying, identify every tool call required by the user's request and complete them in order.",
-    "If a lookup is only preparation for another action, do not stop after the lookup.",
-    "Only reply after all required tool calls are complete, or after a required next step is genuinely blocked.",
-  ];
-
-  const isUpdate = /\b(update|rename|change|edit|set)\b/.test(lower);
-  const isTask = /\b(task|reminder|follow-up|follow up|todo)\b/.test(lower);
-  const isNote = /\bnote\b/.test(lower);
-  const isCreateContact = /\b(create|add|make)\b/.test(lower) && /\b(contact|person|lead)\b/.test(lower);
-  const isCreateDeal =
-    /\b(create|add|make)\b/.test(lower) &&
-    /\b(deal|opportunity|deals|opportunities)\b/.test(lower);
-
-  const entity =
-    /\bcompany|companies|organization\b/.test(lower)
-      ? { label: "company", searchTool: "search_companies" }
-      : /\bcontact|contacts|person|people|lead|leads\b/.test(lower)
-        ? { label: "contact", searchTool: "search_contacts" }
-        : /\bdeal|deals|opportunity|opportunities\b/.test(lower)
-          ? { label: "deal", searchTool: "search_deals" }
-          : null;
-
-  if (isUpdate && entity) {
-    const updateTool = `update_${entity.label}`;
-    planLines.push(
-      `For this request, the required sequence is: identify the ${entity.label} with \`${entity.searchTool}\` if needed, then call \`${updateTool}\`, then confirm the completed change.`,
-      `Apply the requested changes from the user's original request exactly: "${trimmed}".`,
-    );
-    nextHintByTool[entity.searchTool] =
-      `Next required step for this request: call \`${updateTool}\` now using the matching ${entity.label} id or exact ${entity.label} name from the lookup result. Apply the requested change from the user's original request exactly: "${trimmed}". Do not reply yet.`;
-  }
-
-  if (isTask && /\bcontact|contacts|person|people|lead|leads\b/.test(lower)) {
-    planLines.push(
-      "For task requests about a person/contact, the usual sequence is: identify the contact first if needed, then call `create_task`, then confirm the task was created.",
-    );
-    nextHintByTool.search_contacts =
-      `Next required step for this request: call \`create_task\` now using the matching contact id or exact contact name from the lookup result. Apply the user's original request exactly: "${trimmed}". Do not reply yet.`;
-  }
-
-  if (isNote && /\bdeal|deals|opportunity|opportunities\b/.test(lower)) {
-    planLines.push(
-      "For note requests about a deal, the usual sequence is: identify the deal first if needed, then call `add_note`, then confirm the note was added.",
-    );
-    nextHintByTool.search_deals =
-      `Next required step for this request: call \`add_note\` now using the matching deal id or exact deal name from the lookup result. Apply the user's original request exactly: "${trimmed}". Do not reply yet.`;
-  } else if (isNote && /\bcontact|contacts|person|people|lead|leads\b/.test(lower)) {
-    planLines.push(
-      "For note requests about a contact, the usual sequence is: identify the contact first if needed, then call `add_note`, then confirm the note was added.",
-    );
-    nextHintByTool.search_contacts =
-      `Next required step for this request: call \`add_note\` now using the matching contact id or exact contact name from the lookup result. Apply the user's original request exactly: "${trimmed}". Do not reply yet.`;
-  }
-
-  if (isCreateContact && /\bcompany|companies|organization\b/.test(lower)) {
-    planLines.push(
-      "When creating a contact linked to a company, identify the company first if needed, then call `create_contact` with the company id/name, then confirm the contact was created.",
-    );
-    nextHintByTool.search_companies =
-      `Next required step for this request: call \`create_contact\` now using the matching company id or exact company name from the lookup result. Apply the user's original request exactly: "${trimmed}". Do not reply yet.`;
-  }
-
-  if (isCreateDeal && /\bcompany|companies|organization\b/.test(lower)) {
-    planLines.push(
-      "When creating a deal linked to a company, identify the company first if needed, then call `create_deal` with the company id/name, then confirm the deal was created.",
-    );
-    nextHintByTool.search_companies =
-      `Next required step for this request: call \`create_deal\` now using the matching company id or exact company name from the lookup result. Apply the user's original request exactly: "${trimmed}". Do not reply yet.`;
-  }
-
-  return { planText: planLines.join("\n"), nextHintByTool };
-}
-
-function duplicateToolMessage(name: string, nextStepHint?: string): string {
-  if (name.startsWith("search_") || name.startsWith("get_")) {
-    return nextStepHint
-      ? `Skipped duplicate ${name} call — that lookup already ran in this request. Reuse the earlier result and continue to the next action instead of searching again.\n\n${nextStepHint}`
-      : `Skipped duplicate ${name} call — that lookup already ran in this request. Reuse the earlier result and continue to the next action instead of searching again.`;
-  }
-  return `Skipped duplicate ${name} call — it already ran in this request. Continue from the prior tool result instead of repeating it.`;
-}
-
-function buildToolChatContent(
-  name: string,
-  raw: string,
-  nextStepHint?: string,
-): string {
-  const WIKI_TOKEN_RE = /\[\[([a-z][a-z0-9-]*)\/(\d+)\|([^\]]+)\]\]/g;
-  const stripped = raw.replace(
-    WIKI_TOKEN_RE,
-    (_m: string, _slug: string, id: string, label: string) => `${label} (id: ${id})`,
-  );
-
-  if (name.startsWith("search_") || name.startsWith("get_")) {
-    const nextStepBlock = nextStepHint ? `\n\n${nextStepHint}` : "";
-    return `${stripped}\n\nTool guidance: This lookup already produced the candidate records above. Reuse those exact names or IDs for the next tool call. Do not call this same lookup again in this request.${nextStepBlock}`;
-  }
-  if (name.startsWith("create_") || name.startsWith("update_")) {
-    return `${stripped}\n\nTool guidance: The write action is complete. Respond to the user, or only call another tool if the user clearly asked for another action in the same message.`;
-  }
-  return stripped;
-}
-
-async function synthesizeFinalAnswer(args: {
-  gatewayUrl: string;
-  gatewayHeaders: Record<string, string>;
-  queryText: string;
-  toolOutputs: Array<{ name: string; result: unknown }>;
-}): Promise<string> {
-  const deterministic = deriveToolAnswer(args.queryText, args.toolOutputs);
-  if (deterministic) return deterministic;
-
-  if (args.toolOutputs.length === 0) {
-    return "I could not complete that request.";
-  }
-
-  const toolSummary = args.toolOutputs
-    .slice(0, 6)
-    .map((output, index) => {
-      const result =
-        typeof output.result === "string"
-          ? output.result.replace(
-            /\[\[([a-z][a-z0-9-]*)\/(\d+)\|([^\]]+)\]\]/g,
-            (_m: string, _slug: string, id: string, label: string) =>
-              `${label} (id: ${id})`,
-          )
-          : JSON.stringify(output.result);
-      return `${index + 1}. ${output.name}\n${result}`;
-    })
-    .join("\n\n");
-
-  const res = await fetch(`${args.gatewayUrl}/v1/chat/completions`, {
-    method: "POST",
-    headers: args.gatewayHeaders,
-    body: JSON.stringify({
-      model: "basics-chat-smart",
-      messages: [
-        {
-          role: "system",
-          content:
-            "Answer the user's original CRM request using only the tool results provided. Do not mention tools, tool names, raw JSON, or fallback text. If a lookup answered the question, give the direct answer. If a write succeeded, confirm the completed action. If the results are insufficient, say that briefly.",
-        },
-        {
-          role: "user",
-          content: `User request: ${args.queryText}\n\nTool results:\n${toolSummary}`,
-        },
-      ],
-      stream: false,
-      max_tokens: 220,
-    }),
-  });
-  if (!res.ok) {
-    await res.text().catch(() => {});
-    return "I couldn't produce a final answer from the available results.";
-  }
-
-  const json = (await res.json()) as {
-    choices?: Array<{ message?: { content?: string | null } }>;
-  };
-  return finalizeAssistantText(
-    json.choices?.[0]?.message?.content ?? "",
-    [],
-  ) || "I couldn't produce a final answer from the available results.";
-}
-
-const ASSISTANT_SYSTEM_PROMPT = `You are Basics OS Company Assistant - an AI grounded in this company's CRM data.
-
-Rules:
-- Never ask the user for IDs. Users reference records by name or details. Use contact_name, deal_name, or company_name params (or search first and use IDs from results).
-- Use tools to search, create, and update contacts, companies, or deals when the user asks. Pass names the user gives directly — e.g. "add a note to the Acme deal" → deal_name: "Acme".
-- When the user asks to create a person/contact, extract ALL details (name, email, etc.) from the message first, then call create_contact ONCE with all available fields. Never call create_contact more than once per request.
-- After a contact is created, if additional fields are still needed, use update_contact — never create a second contact.
-- When the user provides additional info (like email, phone) for a recently created or mentioned contact, use update_contact with contact_name or the ID from a prior search.
-- After receiving tool results, summarize them in clear, natural language. Never show raw JSON or IDs to the user.
-- Never reply with raw JSON, code fences, arrays, or object literals. Always answer in normal prose or simple bullet points.
-- When mentioning a record by name, use the EXACT name from the tool result (do not paraphrase or abbreviate record names).
-- If the user asks for the latest/newest/most recent or nth latest record, use one matching search/list tool and answer from the ordered results by position.
-- You have full access to search and modify the CRM on behalf of the user.
-- If a search returns no results, say so clearly.
-- If the user asks for multiple actions in one message, complete all of them in order before replying whenever the tools/results are sufficient.
-- Be concise and conversational.
-- The user may be having a multi-turn voice conversation. Use conversation history to understand follow-up requests.`;
 
 export function createStreamAssistantRoutes(
   db: Db,
@@ -422,335 +49,51 @@ export function createStreamAssistantRoutes(
     }
     const { message, history, threadId: threadIdRaw } = parsed.data;
 
-    const historyMapped = history.map((m) => ({
-      role: m.role as "user" | "assistant",
-      content: m.content,
-    }));
-    const threadId = await ensureThread(db, crmUser, threadIdRaw, "voice");
-    const storedHistory = threadIdRaw?.trim()
-      ? await getThreadMessages(db, threadId, crmUser.id)
-      : null;
-    const priorConversationMessages = sanitizeConversationMessages(storedHistory
-      ? storedHistory
-        .filter((entry) => (entry.content ?? "").trim())
-        .map((entry) => ({
-          role: entry.role as "user" | "assistant",
-          content: entry.content ?? "",
-        }))
-      : historyMapped);
-    await persistMessage(db, threadId, "user", message);
-
-    const [crmSummary, ragContext] = await Promise.all([
-      buildCrmSummary(db, crmUser.organizationId!),
-      retrieveRelevantContext(
-        db,
-        env.BASICSOS_API_URL,
-        gatewayHeaders,
-        crmUser.organizationId!,
-        message,
-        5,
-        crmUser.id,
-      ),
-    ]);
-
-    let contextText = `## Your CRM\n${crmSummary}`;
-    if (ragContext) {
-      contextText += `\n\n## Relevant context\n${ragContext}`;
-    }
-    const recentConversationContext = buildRecentConversationContext([
-      ...priorConversationMessages,
-      { role: "user", content: message },
-    ]);
-    if (recentConversationContext) {
-      contextText += `\n\n${recentConversationContext}`;
-    }
-    const workflowHints = inferWorkflowHints(message);
-
-    const systemContent = `${ASSISTANT_SYSTEM_PROMPT}\n\n${contextText}\n\n${workflowHints.planText}`;
-    const chatMessages: ChatMessageEntry[] = [
-      { role: "system", content: systemContent },
-      ...priorConversationMessages,
-      { role: "user", content: message },
+    // Same input shape as chat: messages array + threadId + channel.
+    const messages = [
+      ...history.map((m) => ({ role: m.role, content: m.content })),
+      { role: "user" as const, content: message },
     ];
 
-    let finalContent = "";
-    const MAX_TOOL_ROUNDS = 5;
     const requestStart = Date.now();
-    let totalInputTokens = 0;
-    let totalOutputTokens = 0;
-    let lastToolResult = "";
-    const latestToolOutputs: Array<{ name: string; result: unknown }> = [];
-    // Track write-once tools to prevent the AI from accidentally calling them
-    // multiple times in a single request (e.g. create_contact called 4x).
-    const calledOnceTool = new Set<string>();
-    const executedToolSignatures = new Set<string>();
-    const ONCE_ONLY_TOOLS = new Set(["create_contact", "create_company", "create_deal"]);
-
-    if (!finalContent && shouldPlanToolWorkflow(message)) {
-      const plannedWorkflow = await planToolWorkflow({
-        gatewayUrl: env.BASICSOS_API_URL,
+    let result: ProcessChatTurnResult;
+    try {
+      result = await processChatTurn(db, env, {
+        crmUser,
         gatewayHeaders,
-        model: "basics-chat-smart",
-        queryText: message,
+        gatewayUrl: env.BASICSOS_API_URL,
+        messages,
+        threadId: threadIdRaw?.trim() || undefined,
+        channel: "voice",
       });
-      if (plannedWorkflow?.mode === "multi_tool" && plannedWorkflow.steps.length > 0) {
-        let lastLookupContext:
-          | { tool: string; result: string; failed: boolean }
-          | null = null;
-
-        for (const step of plannedWorkflow.steps) {
-          let toolName = step.tool;
-          let toolArgs = step.args ?? {};
-
-          if (step.deferred) {
-            if (!lastLookupContext || lastLookupContext.failed) {
-              continue;
-            }
-            const resolvedStep = await resolveDeferredToolStep({
-              gatewayUrl: env.BASICSOS_API_URL,
-              gatewayHeaders,
-              model: "basics-chat-smart",
-              queryText: message,
-              expectedTool: step.tool,
-              plannedArgs: step.args ?? {},
-              lookupTool: lastLookupContext.tool,
-              lookupResult: lastLookupContext.result,
-            });
-            if (resolvedStep?.mode === "blocked") {
-              finalContent = resolvedStep.message;
-              break;
-            }
-            if (!resolvedStep || resolvedStep.mode !== "tool") {
-              continue;
-            }
-            toolName = resolvedStep.tool;
-            toolArgs = resolvedStep.args ?? {};
-          }
-
-          const signature = toolCallSignature(toolName, toolArgs);
-          if (executedToolSignatures.has(signature)) {
-            continue;
-          }
-          executedToolSignatures.add(signature);
-
-          const result = await executeAssistantToolDrizzle(
-            db,
-            crmUser.id,
-            crmUser.organizationId!,
-            toolName,
-            toolArgs,
-            {
-              gatewayUrl: env.BASICSOS_API_URL,
-              gatewayHeaders,
-              crmUserId: crmUser.id,
-            },
-          );
-          lastToolResult = result;
-          latestToolOutputs.push({ name: toolName, result });
-          await persistMessage(db, threadId, "tool", result, {
-            toolName,
-            toolArgs,
-            toolResult: result,
-          });
-
-          if (isLookupTool(toolName)) {
-            lastLookupContext = {
-              tool: toolName,
-              result,
-              failed: isLookupFailure(result),
-            };
-          }
-        }
-
-        if (!finalContent && latestToolOutputs.length > 0) {
-          finalContent = await synthesizeFinalAnswer({
-            gatewayUrl: env.BASICSOS_API_URL,
-            gatewayHeaders,
-            queryText: message,
-            toolOutputs: latestToolOutputs,
-          });
-        }
-      }
-    }
-
-    for (let iteration = 0; iteration < MAX_TOOL_ROUNDS && !finalContent; iteration++) {
-      const isLastRound = iteration === MAX_TOOL_ROUNDS - 1;
-
-      let toolCallRes: Response;
-      try {
-        toolCallRes = await fetch(
-          `${env.BASICSOS_API_URL}/v1/chat/completions`,
+    } catch (err) {
+      const status = (err as { status?: number })?.status;
+      const details = (err as { details?: string })?.details;
+      if (status === 502) {
+        return c.json(
           {
-            method: "POST",
-            headers: gatewayHeaders,
-            body: JSON.stringify({
-              model: "basics-chat-smart",
-              messages: chatMessages,
-              ...(isLastRound
-                ? {}
-                : { tools: ASSISTANT_TOOLS, tool_choice: "auto" }),
-              stream: false,
-            }),
+            error: (err as Error).message,
+            ...(details && { details }),
           },
+          502,
         );
-      } catch (err) {
-        console.error("[stream-assistant] fetch error:", err);
-        return c.json({ error: "Failed to reach AI gateway" }, 502);
       }
-
-      if (!toolCallRes.ok) {
-        const errText = await toolCallRes.text().catch(() => "");
-        console.error(
-          "[stream-assistant] gateway error:",
-          toolCallRes.status,
-          errText,
-        );
-        if (lastToolResult) {
-          finalContent = await synthesizeFinalAnswer({
-            gatewayUrl: env.BASICSOS_API_URL,
-            gatewayHeaders,
-            queryText: message,
-            toolOutputs: latestToolOutputs,
-          });
-          break;
-        }
-        return c.json({ error: "Gateway error" }, 502);
+      if ((err as Error).message === "No user message found") {
+        return c.json({ error: "No user message found" }, 400);
       }
-
-      const json = (await toolCallRes.json()) as {
-        choices?: Array<{ message?: Record<string, unknown> }>;
-        usage?: { prompt_tokens?: number; completion_tokens?: number };
-      };
-
-      totalInputTokens += json.usage?.prompt_tokens ?? 0;
-      totalOutputTokens += json.usage?.completion_tokens ?? 0;
-
-      const aiMessage = json.choices?.[0]?.message;
-      const { toolCalls, invalidToolNames } = sanitizeGatewayToolCalls(
-        aiMessage?.tool_calls,
-      );
-
-      if (toolCalls.length === 0 && invalidToolNames.length === 0) {
-        if (latestToolOutputs.length > 0) {
-          finalContent = await synthesizeFinalAnswer({
-            gatewayUrl: env.BASICSOS_API_URL,
-            gatewayHeaders,
-            queryText: message,
-            toolOutputs: latestToolOutputs,
-          });
-        } else {
-          finalContent = finalizeAssistantText(String(aiMessage?.content ?? ""));
-        }
-        break;
+      if ((err as Error).message === "Organization not found") {
+        return c.json({ error: "Organization not found" }, 404);
       }
-
-      // Push the FULL message so gateway-specific fields (e.g. Gemini
-      // thought_signature) are included in the next request for multi-turn tools.
-      chatMessages.push(sanitizeAssistantGatewayMessage(aiMessage));
-      if (invalidToolNames.length > 0) {
-        chatMessages.push({
-          role: "system",
-          content: buildInvalidToolRetryMessage(invalidToolNames),
-        });
-      }
-      if (toolCalls.length === 0) {
-        continue;
-      }
-
-      for (const tc of toolCalls) {
-        let args: Record<string, unknown> = {};
-        try {
-          args = JSON.parse(tc.function.arguments || "{}");
-        } catch {
-          // malformed tool args are treated as empty object
-        }
-
-        // Prevent write-once tools (create_contact, create_company, create_deal)
-        // from being executed more than once in a single request to avoid
-        // duplicate records.
-        if (ONCE_ONLY_TOOLS.has(tc.function.name) && calledOnceTool.has(tc.function.name)) {
-          const skipped = `Skipped duplicate ${tc.function.name} call — record was already created above. Use the appropriate update tool instead.`;
-          chatMessages.push({ role: "tool", tool_call_id: tc.id, content: skipped });
-          continue;
-        }
-        if (ONCE_ONLY_TOOLS.has(tc.function.name)) {
-          calledOnceTool.add(tc.function.name);
-        }
-
-        const nextStepHint = workflowHints.nextHintByTool[tc.function.name];
-        const signature = toolCallSignature(tc.function.name, args);
-        if (executedToolSignatures.has(signature)) {
-          chatMessages.push({
-            role: "tool",
-            tool_call_id: tc.id,
-            content: duplicateToolMessage(tc.function.name, nextStepHint),
-          });
-          continue;
-        }
-        executedToolSignatures.add(signature);
-
-        const result = await executeAssistantToolDrizzle(
-          db,
-          crmUser.id,
-          crmUser.organizationId!,
-          tc.function.name,
-          args,
-          {
-            gatewayUrl: env.BASICSOS_API_URL,
-            gatewayHeaders,
-            crmUserId: crmUser.id,
-          },
-        );
-        lastToolResult = result;
-        latestToolOutputs.push({ name: tc.function.name, result });
-        await persistMessage(db, threadId, "tool", result, {
-          toolName: tc.function.name,
-          toolArgs: args,
-          toolResult: result,
-        });
-
-        chatMessages.push({
-          role: "tool",
-          tool_call_id: tc.id,
-          content: buildToolChatContent(tc.function.name, result, nextStepHint),
-        });
-
-      }
+      throw err;
     }
-
-    if (!finalContent && lastToolResult) {
-      finalContent = await synthesizeFinalAnswer({
-        gatewayUrl: env.BASICSOS_API_URL,
-        gatewayHeaders,
-        queryText: message,
-        toolOutputs: latestToolOutputs,
-      });
-    }
-    if (!finalContent) {
-      finalContent = "I could not complete that action yet. Please try again.";
-    }
-
-    if (latestToolOutputs.length > 0) {
-      finalContent = await synthesizeFinalAnswer({
-        gatewayUrl: env.BASICSOS_API_URL,
-        gatewayHeaders,
-        queryText: message,
-        toolOutputs: latestToolOutputs,
-      });
-    } else {
-      finalContent = finalizeAssistantText(finalContent);
-    }
-    finalContent = await linkifyRecordNames(db, crmUser.organizationId!, finalContent);
-    await persistMessage(db, threadId, "assistant", finalContent);
-    await touchThread(db, threadId);
 
     writeUsageLogSafe(db, {
-      organizationId: crmUser.organizationId!,
+      organizationId: crmUser.organizationId ?? "",
       crmUserId: crmUser.id,
       feature: "assistant",
       model: "basics-chat-smart",
-      inputTokens: totalInputTokens,
-      outputTokens: totalOutputTokens,
+      inputTokens: 0,
+      outputTokens: 0,
       durationMs: Date.now() - requestStart,
     });
 
@@ -759,7 +102,7 @@ export function createStreamAssistantRoutes(
       start(controller) {
         controller.enqueue(
           encoder.encode(
-            `data: ${JSON.stringify({ token: finalContent })}\n\n`,
+            `data: ${JSON.stringify({ token: result.finalContent })}\n\n`,
           ),
         );
         controller.enqueue(encoder.encode("data: [DONE]\n\n"));
@@ -772,7 +115,7 @@ export function createStreamAssistantRoutes(
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
         Connection: "keep-alive",
-        "X-Thread-Id": threadId,
+        "X-Thread-Id": result.threadId,
         "Access-Control-Expose-Headers": "X-Thread-Id",
       },
     });

@@ -17,6 +17,7 @@ export const invitesBodySchema = z.object({
     .max(24 * 30)
     .optional()
     .default(24 * 7),
+  sendEmail: z.boolean().optional().default(false),
 });
 
 export const organizationPatchSchema = z.object({
@@ -32,4 +33,3 @@ export const mePatchSchema = z.object({
   firstName: z.string().trim().min(1).max(255).optional(),
   lastName: z.string().trim().min(1).max(255).optional(),
 });
-

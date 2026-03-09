@@ -25,6 +25,12 @@ const envSchema = z.object({
   SERVER_TRANSCRIPTION_BYOK_API_KEY: z.string().optional(),
   // Path to built frontend static files (e.g. /app/dist). When set, server serves web app + API from same origin.
   STATIC_DIR: z.string().optional(),
+  // Optional SMTP for password reset emails (when not using BasicsOS key). If both SMTP and SERVER_BASICS_API_KEY are set, SMTP takes precedence.
+  MAIL_HOST: z.string().optional(),
+  MAIL_PORT: z.coerce.number().optional(),
+  MAIL_USER: z.string().optional(),
+  MAIL_PASS: z.string().optional(),
+  MAIL_FROM: z.string().email().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

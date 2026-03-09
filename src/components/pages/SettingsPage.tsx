@@ -25,8 +25,19 @@ import {
   useSaveAdminAiConfig,
   useClearAdminAiConfig,
   useSaveAdminTranscriptionByok,
+  useAdminSmtpConfig,
+  useSaveAdminSmtpConfig,
+  useClearAdminSmtpConfig,
 } from "@/hooks/use-admin";
 import { ConnectionsContent } from "@/components/connections";
+import {
+  useEmailSyncStatus,
+  useStartEmailSync,
+  useUpdateSyncSettings,
+  useTriggerSync,
+  useStopEmailSync,
+} from "@/hooks/use-email-sync";
+import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -47,6 +58,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "";
 
@@ -84,6 +96,16 @@ export function SettingsPage() {
   const [showTranscriptionKey, setShowTranscriptionKey] = useState(false);
   const [clearTranscriptionDialogOpen, setClearTranscriptionDialogOpen] =
     useState(false);
+  const { data: smtpConfigData } = useAdminSmtpConfig(isAdmin);
+  const saveSmtpConfig = useSaveAdminSmtpConfig();
+  const clearSmtpConfig = useClearAdminSmtpConfig();
+  const [smtpHost, setSmtpHost] = useState("");
+  const [smtpPort, setSmtpPort] = useState("587");
+  const [smtpUser, setSmtpUser] = useState("");
+  const [smtpPassword, setSmtpPassword] = useState("");
+  const [smtpFrom, setSmtpFrom] = useState("");
+  const [showSmtpPassword, setShowSmtpPassword] = useState(false);
+  const [clearSmtpDialogOpen, setClearSmtpDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!aiConfigData?.config) return;
@@ -92,11 +114,20 @@ export function SettingsPage() {
       setAiByokProvider(aiConfigData.config.byokProvider);
   }, [aiConfigData]);
 
+  useEffect(() => {
+    if (!smtpConfigData?.config) return;
+    setSmtpHost(smtpConfigData.config.host);
+    setSmtpPort(String(smtpConfigData.config.port));
+    setSmtpUser(smtpConfigData.config.user);
+    setSmtpFrom(smtpConfigData.config.fromEmail);
+  }, [smtpConfigData]);
+
   const [orgName, setOrgName] = useState("");
   const [orgLogoUrl, setOrgLogoUrl] = useState("");
   const [savingOrg, setSavingOrg] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteExpiresInHours, setInviteExpiresInHours] = useState("168");
+  const [inviteSendEmail, setInviteSendEmail] = useState(true);
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [inviteExpiresAt, setInviteExpiresAt] = useState<string | null>(null);
   const [creatingInvite, setCreatingInvite] = useState(false);
@@ -177,19 +208,29 @@ export function SettingsPage() {
         body: JSON.stringify({
           email: inviteEmail.trim() || null,
           expiresInHours: Number(inviteExpiresInHours),
+          sendEmail: inviteSendEmail && !!inviteEmail.trim(),
         }),
       });
       const json = (await res.json().catch(() => ({}))) as {
         error?: string;
         token?: string;
         expiresAt?: string;
+        emailSent?: boolean;
+        emailError?: string;
       };
       if (!res.ok || !json.token) {
         throw new Error(json.error ?? "Failed to create invite");
       }
       setInviteToken(json.token);
       setInviteExpiresAt(json.expiresAt ?? null);
-      toast.success("Invite token created");
+      if (json.emailSent) {
+        toast.success("Invite created and email sent");
+      } else if (json.emailError) {
+        toast.success("Invite created");
+        toast.warning(`Email not sent: ${json.emailError}`);
+      } else {
+        toast.success("Invite token created");
+      }
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Failed to create invite",
@@ -222,7 +263,11 @@ export function SettingsPage() {
         }
       };
       try {
-        const electronCopy = (window as unknown as { electronAPI?: { copyToClipboard?: (t: string) => Promise<void> } }).electronAPI?.copyToClipboard;
+        const electronCopy = (
+          window as unknown as {
+            electronAPI?: { copyToClipboard?: (t: string) => Promise<void> };
+          }
+        ).electronAPI?.copyToClipboard;
         if (electronCopy) {
           await electronCopy(value);
         } else if (navigator.clipboard?.writeText) {
@@ -377,8 +422,8 @@ export function SettingsPage() {
                   <p className="text-[12px] text-muted-foreground">
                     Configure the API key used by all users for AI chat, voice,
                     and automations. This key is shared across your
-                    organization. With a BasicsOS key, Deepgram (transcription)
-                    and Resend (email) are included - no BYOK needed.
+                    organization. With a BasicsOS key, transcription and
+                    SMTP (email) are included — we handle it for you.
                   </p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-[180px_minmax(0,1fr)] sm:items-start">
@@ -463,9 +508,7 @@ export function SettingsPage() {
                         size="sm"
                         className="h-9 text-[13px]"
                         onClick={handleSaveAiConfig}
-                        disabled={
-                          !aiKeyInput.trim() || saveAiConfig.isPending
-                        }
+                        disabled={!aiKeyInput.trim() || saveAiConfig.isPending}
                       >
                         {saveAiConfig.isPending ? "Saving..." : "Save"}
                       </Button>
@@ -497,9 +540,7 @@ export function SettingsPage() {
                           </DialogTrigger>
                           <DialogContent className="max-w-sm">
                             <DialogHeader>
-                              <DialogTitle>
-                                Clear AI configuration?
-                              </DialogTitle>
+                              <DialogTitle>Clear AI configuration?</DialogTitle>
                               <DialogDescription>
                                 Chat, voice, and automation features will stop
                                 working for all users until a new key is
@@ -546,16 +587,15 @@ export function SettingsPage() {
                     {aiConfigData?.config?.keyType === "basicsos" ||
                     aiKeyType === "basicsos" ? (
                       <>
-                        With a BasicsOS key, transcription (Deepgram) and email
-                        (Resend) are included - no need to add your own keys.
-                        Only configure this if you use BYOK and want your own
-                        Deepgram key for voice transcription.
+                        With a BasicsOS key, we handle transcription and
+                        SMTP (email) for you — don&apos;t worry! Only configure
+                        below if you use BYOK and want your own Deepgram key.
                       </>
                     ) : (
                       <>
-                        Optional: use your own Deepgram key for voice
-                        transcription (speech-to-text). Leave empty to use the
-                        main AI key for transcription.
+                        Only required if not using a BasicsOS key. Use your own
+                        Deepgram key for voice transcription (speech-to-text).
+                        Leave empty to use the main AI key.
                       </>
                     )}
                   </p>
@@ -563,11 +603,7 @@ export function SettingsPage() {
                     <Label className="pt-2 text-[12px] text-muted-foreground">
                       Provider
                     </Label>
-                    <Select
-                      value="deepgram"
-                      disabled
-                      onValueChange={() => {}}
-                    >
+                    <Select value="deepgram" disabled onValueChange={() => {}}>
                       <SelectTrigger className="h-9 w-full sm:max-w-[260px]">
                         <SelectValue />
                       </SelectTrigger>
@@ -586,9 +622,7 @@ export function SettingsPage() {
                         <div className="relative flex-1">
                           <Input
                             id="transcription-api-key"
-                            type={
-                              showTranscriptionKey ? "text" : "password"
-                            }
+                            type={showTranscriptionKey ? "text" : "password"}
                             placeholder={
                               aiConfigData?.config?.hasTranscriptionKey
                                 ? "Key configured — enter new key to replace"
@@ -606,9 +640,7 @@ export function SettingsPage() {
                             variant="ghost"
                             size="icon"
                             className="absolute right-0.5 top-1/2 size-7 -translate-y-1/2"
-                            onClick={() =>
-                              setShowTranscriptionKey((p) => !p)
-                            }
+                            onClick={() => setShowTranscriptionKey((p) => !p)}
                             aria-label={
                               showTranscriptionKey ? "Hide key" : "Show key"
                             }
@@ -726,6 +758,228 @@ export function SettingsPage() {
                     </div>
                   </div>
                 </div>
+
+                <div className="mt-6 border-t pt-6">
+                  <h3 className="text-[13px] font-medium mb-1">
+                    Email (SMTP)
+                  </h3>
+                  <p className="text-[12px] text-muted-foreground mb-3">
+                    Only required if you&apos;re not using a BasicsOS key above.
+                    With BasicsOS, we handle SMTP (email) for you — don&apos;t
+                    worry! Configure your own SMTP here for password reset and
+                    transactional emails when using BYOK.
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-[180px_minmax(0,1fr)] sm:items-start">
+                    <Label className="pt-2 text-[12px] text-muted-foreground">
+                      Host
+                    </Label>
+                    <Input
+                      placeholder="smtp.resend.com"
+                      value={smtpHost}
+                      onChange={(e) => setSmtpHost(e.target.value)}
+                      className="h-9 sm:max-w-[260px]"
+                    />
+                    <Label className="pt-2 text-[12px] text-muted-foreground">
+                      Port
+                    </Label>
+                    <Input
+                      type="number"
+                      placeholder="587"
+                      value={smtpPort}
+                      onChange={(e) => setSmtpPort(e.target.value)}
+                      className="h-9 sm:max-w-[120px]"
+                    />
+                    <Label className="pt-2 text-[12px] text-muted-foreground">
+                      User
+                    </Label>
+                    <Input
+                      placeholder="resend"
+                      value={smtpUser}
+                      onChange={(e) => setSmtpUser(e.target.value)}
+                      className="h-9 sm:max-w-[260px]"
+                    />
+                    <Label className="pt-2 text-[12px] text-muted-foreground">
+                      Password
+                    </Label>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1 max-w-[260px]">
+                        <Input
+                          type={showSmtpPassword ? "text" : "password"}
+                          placeholder={
+                            smtpConfigData?.config?.hasPassword
+                              ? "•••••••• — enter new to replace"
+                              : "SMTP password"
+                          }
+                          value={smtpPassword}
+                          onChange={(e) => setSmtpPassword(e.target.value)}
+                          className="h-9 pr-9"
+                          autoComplete="off"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-0.5 top-1/2 size-7 -translate-y-1/2"
+                          onClick={() => setShowSmtpPassword((p) => !p)}
+                          aria-label={
+                            showSmtpPassword ? "Hide password" : "Show password"
+                          }
+                        >
+                          {showSmtpPassword ? (
+                            <EyeSlashIcon className="size-3.5" />
+                          ) : (
+                            <EyeIcon className="size-3.5" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                    <Label className="pt-2 text-[12px] text-muted-foreground">
+                      From (email)
+                    </Label>
+                    <Input
+                      type="email"
+                      placeholder="Basics <noreply@yourdomain.com>"
+                      value={smtpFrom}
+                      onChange={(e) => setSmtpFrom(e.target.value)}
+                      className="h-9 sm:max-w-[260px]"
+                    />
+                    <div />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        size="sm"
+                        className="h-9 text-[13px]"
+                        onClick={async () => {
+                          const host = smtpHost.trim();
+                          const port = Number(smtpPort);
+                          const user = smtpUser.trim();
+                          const password = smtpPassword.trim();
+                          const from = smtpFrom.trim();
+                          if (!host || !user || !from) {
+                            toast.error(
+                              "Host, user, and from email are required",
+                            );
+                            return;
+                          }
+                          const hasExisting = smtpConfigData?.config?.hasPassword;
+                          if (!password.trim() && !hasExisting) {
+                            toast.error("Password is required for new config");
+                            return;
+                          }
+                          if (port < 1 || port > 65535) {
+                            toast.error("Port must be 1–65535");
+                            return;
+                          }
+                          if (!/@/.test(from)) {
+                            toast.error("From must contain a valid email address");
+                            return;
+                          }
+                          try {
+                            await saveSmtpConfig.mutateAsync({
+                              host,
+                              port,
+                              user,
+                              ...(password.trim() && { password: password }),
+                              fromEmail: from,
+                            });
+                            setSmtpPassword("");
+                            toast.success("SMTP configuration saved");
+                          } catch (err) {
+                            toast.error(
+                              err instanceof Error
+                                ? err.message
+                                : "Failed to save SMTP config",
+                            );
+                          }
+                        }}
+                        disabled={saveSmtpConfig.isPending}
+                      >
+                        {saveSmtpConfig.isPending ? "Saving..." : "Save SMTP"}
+                      </Button>
+                      {smtpConfigData?.config?.hasPassword && (
+                        <Dialog
+                          open={clearSmtpDialogOpen}
+                          onOpenChange={setClearSmtpDialogOpen}
+                        >
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-9 text-[12px] text-destructive hover:text-destructive"
+                            >
+                              Clear SMTP
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-sm">
+                            <DialogHeader>
+                              <DialogTitle>Clear SMTP configuration?</DialogTitle>
+                              <DialogDescription>
+                                Password reset emails will use the BasicsOS key
+                                (if set) or env vars instead.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <DialogFooter>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setClearSmtpDialogOpen(false)}
+                              >
+                                Cancel
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={async () => {
+                                  try {
+                                    await clearSmtpConfig.mutateAsync();
+                                    setClearSmtpDialogOpen(false);
+                                    setSmtpHost("");
+                                    setSmtpPort("587");
+                                    setSmtpUser("");
+                                    setSmtpPassword("");
+                                    setSmtpFrom("");
+                                    toast.success("SMTP configuration cleared");
+                                  } catch (err) {
+                                    toast.error(
+                                      err instanceof Error
+                                        ? err.message
+                                        : "Failed to clear",
+                                    );
+                                  }
+                                }}
+                              >
+                                Clear
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      )}
+                    </div>
+                    {smtpConfigData?.config && (
+                      <div className="sm:col-span-2">
+                        <span className="text-[12px] text-muted-foreground">
+                          Active: {smtpConfigData.config.host}:{smtpConfigData.config.port} —
+                          last updated{" "}
+                          {new Date(
+                            smtpConfigData.config.updatedAt,
+                          ).toLocaleDateString()}
+                        </span>
+                      </div>
+                    )}
+                    {smtpConfigData?.hasEnvFallback && !smtpConfigData?.config && (
+                      <div className="sm:col-span-2">
+                        <p className="text-[12px] text-muted-foreground">
+                          Using env fallback (
+                          {smtpConfigData.hasEnvSmtp
+                            ? "SMTP"
+                            : smtpConfigData.hasEnvBasicsos
+                              ? "BasicsOS key"
+                              : "—"}
+                          ). Set above to override.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </section>
             </>
           )}
@@ -804,7 +1058,9 @@ export function SettingsPage() {
                 <div className="mb-4">
                   <h2 className="text-[15px] font-semibold">Team Invites</h2>
                   <p className="text-[12px] text-muted-foreground">
-                    Issue secure invite tokens for onboarding new teammates.
+                    Issue secure invite tokens. Enter an email and optionally
+                    send the invite link via your configured method (SMTP or
+                    BasicsOS key).
                   </p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-[180px_minmax(0,1fr)]">
@@ -812,16 +1068,36 @@ export function SettingsPage() {
                     htmlFor="invite-email"
                     className="pt-2 text-[12px] text-muted-foreground"
                   >
-                    Email lock (optional)
+                    Recipient email (optional)
                   </Label>
-                  <Input
-                    id="invite-email"
-                    type="email"
-                    placeholder="teammate@company.com"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    className="h-9 text-[13px]"
-                  />
+                  <div className="space-y-2">
+                    <Input
+                      id="invite-email"
+                      type="email"
+                      placeholder="teammate@company.com"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      className="h-9 text-[13px]"
+                    />
+                    {inviteEmail.trim() && (
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="invite-send-email"
+                          checked={inviteSendEmail}
+                          onCheckedChange={(v) =>
+                            setInviteSendEmail(v === true)
+                          }
+                        />
+                        <Label
+                          htmlFor="invite-send-email"
+                          className="text-[12px] text-muted-foreground font-normal cursor-pointer"
+                        >
+                          Email invite using configured method (SMTP or
+                          BasicsOS key)
+                        </Label>
+                      </div>
+                    )}
+                  </div>
                   <Label className="pt-2 text-[12px] text-muted-foreground">
                     Token expiry
                   </Label>
@@ -1009,6 +1285,8 @@ export function SettingsPage() {
             <ConnectionsContent embeddedInSettings />
           </section>
 
+          <EmailSyncSection isAdmin={isAdmin} />
+
           {hasPendingChanges && (
             <div className="sticky bottom-0 z-20 border-t bg-background/95 px-6 py-3 backdrop-blur-sm sm:px-8">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -1051,6 +1329,176 @@ export function SettingsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function EmailSyncSection({ isAdmin }: { isAdmin: boolean }) {
+  const { data: syncStatus, isLoading } = useEmailSyncStatus();
+  const startSync = useStartEmailSync();
+  const updateSettings = useUpdateSyncSettings();
+  const triggerSync = useTriggerSync();
+  const stopSync = useStopEmailSync();
+  const [confirmStop, setConfirmStop] = useState(false);
+
+  if (isLoading) return null;
+
+  const isActive = syncStatus?.syncStatus !== "not_started";
+  const settings = syncStatus?.settings;
+
+  if (!isActive) {
+    return (
+      <section className="space-y-4">
+        <Separator />
+        <div>
+          <h2 className="text-base font-medium">Email Sync</h2>
+          <p className="text-xs text-muted-foreground">
+            Sync emails from Gmail to discover contacts and link conversations.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          onClick={() =>
+            startSync.mutate(undefined, {
+              onSuccess: () => toast.success("Email sync started"),
+            })
+          }
+          disabled={startSync.isPending}
+        >
+          {startSync.isPending ? "Starting..." : "Enable Email Sync"}
+        </Button>
+      </section>
+    );
+  }
+
+  const lastSynced = syncStatus?.lastSyncedAt
+    ? new Date(syncStatus.lastSyncedAt).toLocaleString()
+    : "Never";
+
+  return (
+    <section className="space-y-4">
+      <Separator />
+      <div>
+        <h2 className="text-base font-medium">Email Sync</h2>
+        <p className="text-xs text-muted-foreground">
+          {syncStatus?.syncStatus === "syncing"
+            ? "Syncing..."
+            : syncStatus?.syncStatus === "error"
+              ? "Error — check logs"
+              : `Active — last synced ${lastSynced}`}
+          {syncStatus?.totalSynced
+            ? ` · ${syncStatus.totalSynced.toLocaleString()} emails synced`
+            : ""}
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        {isAdmin && settings && (
+          <>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <Label className="text-sm">AI enrichment</Label>
+                <p className="text-xs text-muted-foreground">
+                  Enrich accepted contacts with job titles and phone numbers
+                </p>
+              </div>
+              <Switch
+                checked={settings.enrichWithAi}
+                onCheckedChange={(checked) =>
+                  updateSettings.mutate({ enrichWithAi: checked })
+                }
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <Label className="text-sm">Sync period</Label>
+                <p className="text-xs text-muted-foreground">
+                  How far back to sync emails
+                </p>
+              </div>
+              <Select
+                value={String(settings.syncPeriodDays)}
+                onValueChange={(v) =>
+                  updateSettings.mutate({ syncPeriodDays: parseInt(v, 10) })
+                }
+              >
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="30">30 days</SelectItem>
+                  <SelectItem value="60">60 days</SelectItem>
+                  <SelectItem value="90">90 days</SelectItem>
+                  <SelectItem value="180">180 days</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </>
+        )}
+
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              triggerSync.mutate(undefined, {
+                onSuccess: () => toast.success("Sync triggered"),
+              })
+            }
+            disabled={
+              triggerSync.isPending || syncStatus?.syncStatus === "syncing"
+            }
+          >
+            Sync Now
+          </Button>
+          {isAdmin && (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-destructive"
+                onClick={() => setConfirmStop(true)}
+              >
+                Stop Sync
+              </Button>
+              <Dialog open={confirmStop} onOpenChange={setConfirmStop}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Stop email sync?</DialogTitle>
+                    <DialogDescription>
+                      This will stop syncing emails. Existing synced emails and
+                      contact links will be preserved.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => setConfirmStop(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={() =>
+                        stopSync.mutate(undefined, {
+                          onSuccess: () => {
+                            setConfirmStop(false);
+                            toast.success("Email sync stopped");
+                          },
+                        })
+                      }
+                      disabled={stopSync.isPending}
+                    >
+                      {stopSync.isPending ? "Stopping..." : "Stop Sync"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
 

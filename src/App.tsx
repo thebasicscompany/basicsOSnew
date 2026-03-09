@@ -23,6 +23,8 @@ import { ErrorFallback } from "@/components/error-fallback";
 import { ProtectedRoute } from "@/lib/auth";
 import { StartPage } from "@/components/auth/start-page";
 import { SignupPage } from "@/components/auth/signup-page";
+import { ForgotPasswordPage } from "@/components/auth/forgot-password-page";
+import { SetPasswordPage } from "@/components/auth/set-password-page";
 import { HomePage } from "@/components/pages/HomePage";
 import { ProfilePage } from "@/components/pages/ProfilePage";
 import { SettingsPage } from "@/components/pages/SettingsPage";
@@ -31,6 +33,7 @@ import { ImportPage } from "@/components/pages/ImportPage";
 import { ChatPage } from "@/components/pages/ChatPage";
 import { TasksPage } from "@/components/pages/TasksPage";
 import { NotesPage } from "@/components/pages/NotesPage";
+import { MeetingsPage } from "@/components/pages/MeetingsPage";
 import { CommandPalette } from "@/components/command-palette";
 import { ObjectListPage } from "@/components/pages/ObjectListPage";
 import { RecordDetailPage } from "@/components/pages/RecordDetailPage";
@@ -79,6 +82,8 @@ function AppRoutes() {
           {/* Public */}
           <Route path="/" element={<StartPage />} />
           <Route path="/sign-up" element={<SignupPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/set-password" element={<SetPasswordPage />} />
 
           {/* Protected — all inside AppLayout */}
           <Route
@@ -111,6 +116,7 @@ function AppRoutes() {
             />
             <Route path={ROUTES.TASKS} element={<TasksPage />} />
             <Route path={ROUTES.NOTES} element={<NotesPage />} />
+            <Route path={ROUTES.MEETINGS} element={<MeetingsPage />} />
             <Route path={ROUTES.IMPORT} element={<ImportPage />} />
 
             {/* Records (object-registry backed objects) */}

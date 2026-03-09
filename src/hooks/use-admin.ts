@@ -87,11 +87,63 @@ export function useSaveAdminAiConfig() {
 export function useClearAdminAiConfig() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () =>
-      fetchApi("/api/admin/ai-config", { method: "DELETE" }),
+    mutationFn: () => fetchApi("/api/admin/ai-config", { method: "DELETE" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "ai-config"] });
       queryClient.invalidateQueries({ queryKey: ["me"] });
+    },
+  });
+}
+
+export interface OrgSmtpConfigResponse {
+  config: {
+    host: string;
+    port: number;
+    user: string;
+    hasPassword: boolean;
+    fromEmail: string;
+    updatedAt: string;
+  } | null;
+  hasEnvFallback: boolean;
+  hasEnvSmtp: boolean;
+  hasEnvBasicsos: boolean;
+}
+
+export function useAdminSmtpConfig(enabled: boolean) {
+  return useQuery({
+    queryKey: ["admin", "smtp-config"],
+    queryFn: () => fetchApi<OrgSmtpConfigResponse>("/api/admin/smtp-config"),
+    enabled,
+  });
+}
+
+export function useSaveAdminSmtpConfig() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      host: string;
+      port: number;
+      user: string;
+      password?: string;
+      fromEmail: string;
+    }) =>
+      fetchApi("/api/admin/smtp-config", {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "smtp-config"] });
+    },
+  });
+}
+
+export function useClearAdminSmtpConfig() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      fetchApi("/api/admin/smtp-config", { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "smtp-config"] });
     },
   });
 }
@@ -114,9 +166,7 @@ export function useAdminUsageLogs(enabled: boolean, days = 30) {
   return useQuery({
     queryKey: ["admin", "usage", "logs", days],
     queryFn: () =>
-      fetchApi<{ logs: UsageLog[] }>(
-        `/api/admin/usage?days=${days}&limit=200`,
-      ),
+      fetchApi<{ logs: UsageLog[] }>(`/api/admin/usage?days=${days}&limit=200`),
     enabled,
   });
 }
@@ -125,9 +175,7 @@ export function useAdminUsageSummary(enabled: boolean, days = 30) {
   return useQuery({
     queryKey: ["admin", "usage", "summary", days],
     queryFn: () =>
-      fetchApi<UsageSummaryResponse>(
-        `/api/admin/usage/summary?days=${days}`,
-      ),
+      fetchApi<UsageSummaryResponse>(`/api/admin/usage/summary?days=${days}`),
     enabled,
   });
 }
