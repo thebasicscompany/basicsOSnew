@@ -10,18 +10,48 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMeeting, useDeleteMeeting } from "@/hooks/use-meetings";
 
-const SPEAKER_COLORS: Record<string, string> = {
-  You: "text-blue-600 dark:text-blue-400",
-  "Speaker 1": "text-green-600 dark:text-green-400",
-  "Speaker 2": "text-purple-600 dark:text-purple-400",
-  "Speaker 3": "text-orange-600 dark:text-orange-400",
-  "Remote 0": "text-teal-600 dark:text-teal-400",
-  "Remote 1": "text-pink-600 dark:text-pink-400",
-};
+/** Ordered palette — index 0 = "You", rest = other speakers. */
+const SPEAKER_PALETTE = [
+  "text-blue-600 dark:text-blue-400",    // You
+  "text-green-600 dark:text-green-400",   // Speaker 2
+  "text-purple-600 dark:text-purple-400", // Speaker 3
+  "text-orange-600 dark:text-orange-400", // Speaker 4
+  "text-teal-600 dark:text-teal-400",     // Speaker 5
+  "text-pink-600 dark:text-pink-400",     // Speaker 6
+  "text-amber-600 dark:text-amber-400",   // Speaker 7
+  "text-rose-600 dark:text-rose-400",     // Speaker 8
+];
 
-function getSpeakerColor(speaker: string | null): string {
-  if (!speaker) return "text-muted-foreground";
-  return SPEAKER_COLORS[speaker] ?? "text-muted-foreground";
+/**
+ * Normalize raw speaker labels ("Speaker 0", "Remote 0", "You", etc.)
+ * into a unified "You" / "Speaker 2" / "Speaker 3" numbering.
+ *
+ * Speaker 0 → "You" (the local user).
+ * Remote N → sequential "Speaker N" starting from 2.
+ */
+function buildSpeakerMap(
+  rawSpeakers: (string | null)[],
+): Map<string, { label: string; colorIndex: number }> {
+  const map = new Map<string, { label: string; colorIndex: number }>();
+  let nextNum = 2; // "You" is implicitly 1
+
+  const unique = [...new Set(rawSpeakers.filter(Boolean) as string[])];
+  for (const raw of unique) {
+    if (map.has(raw)) continue;
+
+    // "Speaker 0" or "You" → local user
+    if (raw === "Speaker 0" || raw === "You") {
+      map.set(raw, { label: "You", colorIndex: 0 });
+    } else {
+      map.set(raw, { label: `Speaker ${nextNum}`, colorIndex: nextNum - 1 });
+      nextNum++;
+    }
+  }
+  return map;
+}
+
+function getSpeakerColor(colorIndex: number): string {
+  return SPEAKER_PALETTE[colorIndex % SPEAKER_PALETTE.length] ?? "text-muted-foreground";
 }
 
 function formatDuration(seconds: number | null): string {
@@ -30,6 +60,40 @@ function formatDuration(seconds: number | null): string {
   const s = seconds % 60;
   if (m === 0) return `${s}s`;
   return s > 0 ? `${m}m ${s}s` : `${m}m`;
+}
+
+type TranscriptSegment = {
+  id: number;
+  speaker: string | null;
+  text: string;
+  timestampMs: number | null;
+};
+
+/** Group consecutive segments from the same speaker into blocks. */
+function groupTranscripts(
+  segments: TranscriptSegment[],
+  speakerMap: Map<string, { label: string; colorIndex: number }>,
+): { label: string; colorIndex: number; lines: string[]; firstId: number }[] {
+  const groups: {
+    label: string;
+    colorIndex: number;
+    lines: string[];
+    firstId: number;
+  }[] = [];
+
+  for (const seg of segments) {
+    const info = seg.speaker ? speakerMap.get(seg.speaker) : null;
+    const label = info?.label ?? seg.speaker ?? "Unknown";
+    const colorIndex = info?.colorIndex ?? 0;
+
+    const last = groups[groups.length - 1];
+    if (last && last.label === label) {
+      last.lines.push(seg.text);
+    } else {
+      groups.push({ label, colorIndex, lines: [seg.text], firstId: seg.id });
+    }
+  }
+  return groups;
 }
 
 export function MeetingDetailDialog({
@@ -51,6 +115,13 @@ export function MeetingDetailDialog({
       onSuccess: () => onOpenChange(false),
     });
   };
+
+  const speakerMap = meeting
+    ? buildSpeakerMap(meeting.transcripts.map((t) => t.speaker))
+    : new Map();
+  const groups = meeting
+    ? groupTranscripts(meeting.transcripts, speakerMap)
+    : [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -91,23 +162,23 @@ export function MeetingDetailDialog({
             )}
 
             {/* Transcript */}
-            {meeting.transcripts.length > 0 && (
+            {groups.length > 0 && (
               <div className="flex-1 overflow-hidden">
                 <h4 className="text-xs font-semibold uppercase text-muted-foreground mb-2">
                   Transcript
                 </h4>
                 <ScrollArea className="h-[300px] rounded-lg border p-3">
-                  <div className="space-y-1.5">
-                    {meeting.transcripts.map((seg) => (
-                      <div key={seg.id} className="text-sm">
-                        {seg.speaker && (
-                          <span
-                            className={`font-medium ${getSpeakerColor(seg.speaker)}`}
-                          >
-                            {seg.speaker}:{" "}
-                          </span>
-                        )}
-                        <span className="text-foreground">{seg.text}</span>
+                  <div className="space-y-3">
+                    {groups.map((group) => (
+                      <div key={group.firstId}>
+                        <div
+                          className={`text-xs font-semibold mb-0.5 ${getSpeakerColor(group.colorIndex)}`}
+                        >
+                          {group.label}
+                        </div>
+                        <p className="text-sm text-foreground leading-relaxed">
+                          {group.lines.join(" ")}
+                        </p>
                       </div>
                     ))}
                   </div>
