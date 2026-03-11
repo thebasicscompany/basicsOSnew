@@ -46,5 +46,16 @@ export function createAuth(
     session: {
       cookieCache: { enabled: true },
     },
+    // Cross-origin (Electron/localhost -> Railway): cookies must use SameSite=None
+    ...(baseUrl.startsWith("https")
+      ? {
+          advanced: {
+            defaultCookieAttributes: {
+              sameSite: "none" as const,
+              secure: true,
+            },
+          },
+        }
+      : {}),
   });
 }
