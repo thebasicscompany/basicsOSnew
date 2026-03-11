@@ -36,6 +36,7 @@
     "start:electron": "electron-vite preview"
   },
   "dependencies": {
+    "dotenv": "^16.4.0",
     "@ai-sdk/react": "^1.2.12",
     "@basics-os/automations": "workspace:*",
     "@basics-os/hub": "workspace:*",
