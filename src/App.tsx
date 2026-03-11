@@ -1,5 +1,6 @@
 import {
   BrowserRouter,
+  HashRouter,
   Navigate,
   Route,
   Routes,
@@ -167,15 +168,17 @@ function AppRoutes() {
   );
 }
 
+const Router = import.meta.env.VITE_IS_ELECTRON ? HashRouter : BrowserRouter;
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <BrowserRouter>
+      <Router>
         <TooltipProvider>
           <AppRoutes />
           <Toaster />
         </TooltipProvider>
-      </BrowserRouter>
+      </Router>
     </ThemeProvider>
   </QueryClientProvider>
 );

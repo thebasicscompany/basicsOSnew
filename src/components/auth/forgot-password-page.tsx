@@ -22,7 +22,13 @@ export function ForgotPasswordPage() {
 
   const onSubmit = async ({ email }: ForgotPasswordForm) => {
     setError(null);
-    const redirectTo = `${window.location.origin}/set-password`;
+    // Use API URL when origin is file:// (Electron) or otherwise invalid for web redirects
+    const apiBase = import.meta.env.VITE_API_URL ?? "";
+    const origin =
+      window.location.origin?.startsWith("http") && !window.location.origin?.startsWith("file")
+        ? window.location.origin
+        : apiBase.replace(/\/$/, "");
+    const redirectTo = origin ? `${origin}/set-password` : "/set-password";
     const { error: resetError } = await authClient.requestPasswordReset({
       email,
       redirectTo,

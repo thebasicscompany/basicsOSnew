@@ -35,6 +35,10 @@ export default defineConfig({
   },
   renderer: {
     publicDir: path.resolve(__dirname, "public"),
+    base: "./",
+    define: {
+      "import.meta.env.VITE_IS_ELECTRON": JSON.stringify("true"),
+    },
     build: {
       rollupOptions: {
         input: {
