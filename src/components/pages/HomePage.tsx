@@ -10,6 +10,8 @@ import {
   RecentRecordsSection,
   RecentChatsSection,
   SuggestedContactsSection,
+  DealOpportunitiesSection,
+  UnreviewedMeetingsSection,
 } from "@/components/home/home-sections";
 import {
   PromptInput,
@@ -59,7 +61,9 @@ function getGreeting(name: string) {
 /* ------------------------------------------------------------------ */
 
 const HOME_SECTIONS = [
+  { id: "deal-opportunities", component: DealOpportunitiesSection },
   { id: "suggested-contacts", component: SuggestedContactsSection },
+  { id: "unreviewed-meetings", component: UnreviewedMeetingsSection },
   { id: "recent-records", component: RecentRecordsSection },
   { id: "recents", component: RecentsSection },
   { id: "recent-chats", component: RecentChatsSection },

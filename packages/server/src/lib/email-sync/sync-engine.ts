@@ -8,6 +8,7 @@ import { decryptApiKey } from "@/lib/api-key-crypto.js";
 import { buildGatewayHeaders, type AiKeyConfig } from "@/lib/org-ai-config.js";
 import { scoreParticipant, shouldAutoExclude } from "./contact-scorer.js";
 import { enrichContact } from "./ai-enrichment.js";
+import { analyzeDealCandidates } from "./deal-scorer.js";
 
 const log = logger.child({ component: "email-sync-engine" });
 
@@ -74,6 +75,18 @@ export async function startEmailSyncEngine(
     async (jobs) => {
       for (const job of jobs) {
         await syncOrgEmails(job.data.organizationId);
+      }
+    },
+  );
+
+  // Worker for deal analysis jobs
+  await _boss.createQueue("email-deal-analyze");
+  await _boss.work<SyncJobData>(
+    "email-deal-analyze",
+    { batchSize: 1 },
+    async (jobs) => {
+      for (const job of jobs) {
+        await analyzeDealCandidates(_db!, _env!, job.data.organizationId);
       }
     },
   );
@@ -269,6 +282,15 @@ async function syncOrgEmails(orgId: string): Promise<void> {
       .where(eq(schema.emailSyncState.id, syncState.id));
 
     log.info({ orgId, newEmails: totalNewEmails }, "Email sync completed");
+
+    // Enqueue deal analysis if new emails were synced
+    if (totalNewEmails > 0 && _boss) {
+      await _boss.send(
+        "email-deal-analyze",
+        { organizationId: orgId },
+        { singletonKey: `deal-analyze-${orgId}`, singletonSeconds: 300 },
+      );
+    }
   } catch (err) {
     log.error({ err, orgId }, "Email sync failed");
     await _db

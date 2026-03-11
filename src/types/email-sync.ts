@@ -44,6 +44,7 @@ export interface EmailSyncStatus {
   lastSyncedAt: string | null;
   totalSynced: number;
   pendingSuggestions: number;
+  pendingDealSuggestions: number;
   settings: EmailSyncSettings;
 }
 
@@ -51,6 +52,34 @@ export interface EmailSyncSettings {
   syncPeriodDays: number;
   enrichWithAi: boolean;
   autoAcceptThreshold: number | null;
+}
+
+export interface SuggestedDeal {
+  id: number;
+  gmailThreadId: string | null;
+  dealName: string | null;
+  founderName: string | null;
+  founderEmail: string | null;
+  companyName: string | null;
+  companyDomain: string | null;
+  companyCategory: string | null;
+  description: string | null;
+  score: number;
+  signals: DealSignals;
+  status: "pending" | "accepted" | "dismissed";
+  createdDealId: number | null;
+  createdContactId: number | null;
+  createdCompanyId: number | null;
+  createdAt: string;
+}
+
+export interface DealSignals {
+  emailCount: number;
+  threadCount: number;
+  isBidirectional: boolean;
+  isIntroEmail: boolean;
+  hasFounderSignals: boolean;
+  confidence: number;
 }
 
 export interface EmailParticipant {

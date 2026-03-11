@@ -3,6 +3,7 @@ import { fetchApi } from "@/lib/api";
 import type {
   EmailSyncStatus,
   SuggestedContact,
+  SuggestedDeal,
   SyncedEmail,
   EmailSyncSettings,
   EmailParticipant,
@@ -206,6 +207,67 @@ export function useTriggerSync() {
     mutationFn: () =>
       fetchApi<{ ok: boolean }>("/api/email-sync/trigger", { method: "POST" }),
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["email-sync", "status"] });
+    },
+  });
+}
+
+// ─── Deal Suggestions ────────────────────────────────────────────
+
+export function useSuggestedDeals(params?: {
+  status?: string;
+  page?: number;
+  perPage?: number;
+}) {
+  const status = params?.status ?? "pending";
+  const page = params?.page ?? 1;
+  const perPage = params?.perPage ?? 20;
+
+  return useQuery({
+    queryKey: ["email-sync", "deal-suggestions", { status, page, perPage }],
+    queryFn: () =>
+      fetchApi<{
+        data: SuggestedDeal[];
+        total: number;
+        page: number;
+        perPage: number;
+      }>(
+        `/api/email-sync/deal-suggestions?status=${status}&page=${page}&perPage=${perPage}`,
+      ),
+  });
+}
+
+export function useAcceptDealSuggestion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) =>
+      fetchApi<{ ok: boolean; dealId: number; contactId: number | null; companyId: number | null }>(
+        `/api/email-sync/deal-suggestions/${id}/accept`,
+        { method: "POST" },
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["email-sync", "deal-suggestions"] });
+      qc.invalidateQueries({ queryKey: ["email-sync", "status"] });
+      qc.invalidateQueries({ queryKey: ["records", "deals"] });
+      qc.invalidateQueries({ queryKey: ["deals"] });
+      qc.invalidateQueries({ queryKey: ["records", "contacts"] });
+      qc.invalidateQueries({ queryKey: ["contacts_summary"] });
+      qc.invalidateQueries({ queryKey: ["records", "companies"] });
+      qc.invalidateQueries({ queryKey: ["companies_summary"] });
+    },
+  });
+}
+
+export function useDismissDealSuggestion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) =>
+      fetchApi<{ ok: boolean }>(
+        `/api/email-sync/deal-suggestions/${id}/dismiss`,
+        { method: "POST" },
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["email-sync", "deal-suggestions"] });
       qc.invalidateQueries({ queryKey: ["email-sync", "status"] });
     },
   });

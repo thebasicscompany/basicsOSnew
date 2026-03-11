@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 import { authMiddleware } from "@/middleware/auth.js";
 import type { Db } from "@/db/client.js";
 import type { Env } from "@/env.js";
@@ -79,6 +79,47 @@ export function createMeetingsRoutes(
     return c.json(rows);
   });
 
+  // GET /api/meetings/by-record — Get meetings linked to a specific record
+  app.get("/by-record", async (c) => {
+    const crmUser = await getCrmUser(c);
+    if (!crmUser) return c.json({ error: "Unauthorized" }, 401);
+
+    const contactId = c.req.query("contactId") ? parseInt(c.req.query("contactId")!, 10) : undefined;
+    const companyId = c.req.query("companyId") ? parseInt(c.req.query("companyId")!, 10) : undefined;
+    const dealId = c.req.query("dealId") ? parseInt(c.req.query("dealId")!, 10) : undefined;
+
+    if (!contactId && !companyId && !dealId) return c.json([]);
+
+    const conditions = [eq(schema.meetingLinks.organizationId, crmUser.organizationId!)];
+    if (contactId) conditions.push(eq(schema.meetingLinks.contactId, contactId));
+    if (companyId) conditions.push(eq(schema.meetingLinks.companyId, companyId));
+    if (dealId) conditions.push(eq(schema.meetingLinks.dealId, dealId));
+
+    const linkedMeetingIds = await db
+      .select({ meetingId: schema.meetingLinks.meetingId })
+      .from(schema.meetingLinks)
+      .where(and(...conditions));
+
+    if (linkedMeetingIds.length === 0) return c.json([]);
+
+    const ids = linkedMeetingIds.map((l) => l.meetingId);
+    const meetings = await db
+      .select()
+      .from(schema.meetings)
+      .where(sql`${schema.meetings.id} IN (${sql.join(ids.map(id => sql`${id}`), sql`, `)})`)
+      .orderBy(desc(schema.meetings.startedAt));
+
+    // Also fetch summaries for each meeting
+    const summaries = await db
+      .select()
+      .from(schema.meetingSummaries)
+      .where(sql`${schema.meetingSummaries.meetingId} IN (${sql.join(ids.map(id => sql`${id}`), sql`, `)})`);
+
+    const summaryMap = new Map(summaries.map((s) => [s.meetingId, s]));
+
+    return c.json(meetings.map((m) => ({ ...m, summary: summaryMap.get(m.id) ?? null })));
+  });
+
   // GET /api/meetings/:id — Get meeting with transcripts and summary
   app.get("/:id", async (c) => {
     const crmUser = await getCrmUser(c);
@@ -112,7 +153,36 @@ export function createMeetingsRoutes(
       .where(eq(schema.meetingSummaries.meetingId, meetingId))
       .limit(1);
 
-    return c.json({ ...meeting, transcripts, summary: summary ?? null });
+    // Fetch links
+    const links = await db
+      .select()
+      .from(schema.meetingLinks)
+      .where(and(eq(schema.meetingLinks.meetingId, meetingId), eq(schema.meetingLinks.organizationId, crmUser.organizationId!)));
+
+    const contactIds = links.filter((l) => l.contactId).map((l) => l.contactId!);
+    const companyIds = links.filter((l) => l.companyId).map((l) => l.companyId!);
+    const dealIds = links.filter((l) => l.dealId).map((l) => l.dealId!);
+
+    const linkedContacts = contactIds.length > 0
+      ? await db.select({ id: schema.contacts.id, firstName: schema.contacts.firstName, lastName: schema.contacts.lastName })
+          .from(schema.contacts).where(sql`${schema.contacts.id} IN (${sql.join(contactIds.map(id => sql`${id}`), sql`, `)})`)
+      : [];
+    const linkedCompanies = companyIds.length > 0
+      ? await db.select({ id: schema.companies.id, name: schema.companies.name })
+          .from(schema.companies).where(sql`${schema.companies.id} IN (${sql.join(companyIds.map(id => sql`${id}`), sql`, `)})`)
+      : [];
+    const linkedDeals = dealIds.length > 0
+      ? await db.select({ id: schema.deals.id, name: schema.deals.name })
+          .from(schema.deals).where(sql`${schema.deals.id} IN (${sql.join(dealIds.map(id => sql`${id}`), sql`, `)})`)
+      : [];
+
+    const meetingLinks = {
+      contacts: linkedContacts.map((c) => ({ id: c.id, name: [c.firstName, c.lastName].filter(Boolean).join(" ") || `Contact #${c.id}` })),
+      companies: linkedCompanies.map((c) => ({ id: c.id, name: c.name || `Company #${c.id}` })),
+      deals: linkedDeals.map((d) => ({ id: d.id, name: d.name || `Deal #${d.id}` })),
+    };
+
+    return c.json({ ...meeting, transcripts, summary: summary ?? null, links: meetingLinks });
   });
 
   // POST /api/meetings/:id/transcript — Upload transcript segments
@@ -425,6 +495,148 @@ Return ONLY valid JSON, no markdown fences.`,
           eq(schema.meetings.organizationId, crmUser.organizationId!),
         ),
       );
+
+    return c.json({ ok: true });
+  });
+
+  // GET /api/meetings/:id/links — Get links for a meeting with resolved names
+  app.get("/:id/links", async (c) => {
+    const crmUser = await getCrmUser(c);
+    if (!crmUser) return c.json({ error: "Unauthorized" }, 401);
+
+    const meetingId = parseInt(c.req.param("id"), 10);
+    if (isNaN(meetingId)) return c.json({ error: "Invalid ID" }, 400);
+
+    const links = await db
+      .select()
+      .from(schema.meetingLinks)
+      .where(
+        and(
+          eq(schema.meetingLinks.meetingId, meetingId),
+          eq(schema.meetingLinks.organizationId, crmUser.organizationId!),
+        ),
+      );
+
+    // Resolve names
+    const contactIds = links.filter((l) => l.contactId).map((l) => l.contactId!);
+    const companyIds = links.filter((l) => l.companyId).map((l) => l.companyId!);
+    const dealIds = links.filter((l) => l.dealId).map((l) => l.dealId!);
+
+    const contacts = contactIds.length > 0
+      ? await db
+          .select({ id: schema.contacts.id, firstName: schema.contacts.firstName, lastName: schema.contacts.lastName })
+          .from(schema.contacts)
+          .where(sql`${schema.contacts.id} IN (${sql.join(contactIds.map(id => sql`${id}`), sql`, `)})`)
+      : [];
+
+    const companies = companyIds.length > 0
+      ? await db
+          .select({ id: schema.companies.id, name: schema.companies.name })
+          .from(schema.companies)
+          .where(sql`${schema.companies.id} IN (${sql.join(companyIds.map(id => sql`${id}`), sql`, `)})`)
+      : [];
+
+    const deals = dealIds.length > 0
+      ? await db
+          .select({ id: schema.deals.id, name: schema.deals.name })
+          .from(schema.deals)
+          .where(sql`${schema.deals.id} IN (${sql.join(dealIds.map(id => sql`${id}`), sql`, `)})`)
+      : [];
+
+    return c.json({
+      contacts: contacts.map((c) => ({ id: c.id, name: [c.firstName, c.lastName].filter(Boolean).join(" ") || `Contact #${c.id}` })),
+      companies: companies.map((c) => ({ id: c.id, name: c.name || `Company #${c.id}` })),
+      deals: deals.map((d) => ({ id: d.id, name: d.name || `Deal #${d.id}` })),
+    });
+  });
+
+  // POST /api/meetings/:id/links — Create a link between a meeting and a contact/company/deal
+  app.post("/:id/links", async (c) => {
+    const crmUser = await getCrmUser(c);
+    if (!crmUser) return c.json({ error: "Unauthorized" }, 401);
+
+    const meetingId = parseInt(c.req.param("id"), 10);
+    if (isNaN(meetingId)) return c.json({ error: "Invalid ID" }, 400);
+
+    // Verify meeting belongs to org
+    const [meeting] = await db
+      .select({ id: schema.meetings.id })
+      .from(schema.meetings)
+      .where(and(eq(schema.meetings.id, meetingId), eq(schema.meetings.organizationId, crmUser.organizationId!)))
+      .limit(1);
+    if (!meeting) return c.json({ error: "Meeting not found" }, 404);
+
+    const body = await c.req.json<{ contactId?: number; companyId?: number; dealId?: number }>();
+
+    if (body.contactId) {
+      await db.insert(schema.meetingLinks).values({
+        meetingId, organizationId: crmUser.organizationId!, contactId: body.contactId,
+      }).onConflictDoNothing();
+    }
+    if (body.companyId) {
+      await db.insert(schema.meetingLinks).values({
+        meetingId, organizationId: crmUser.organizationId!, companyId: body.companyId,
+      }).onConflictDoNothing();
+    }
+    if (body.dealId) {
+      await db.insert(schema.meetingLinks).values({
+        meetingId, organizationId: crmUser.organizationId!, dealId: body.dealId,
+      }).onConflictDoNothing();
+    }
+
+    return c.json({ ok: true });
+  });
+
+  // DELETE /api/meetings/:id/links — Remove a link
+  app.delete("/:id/links", async (c) => {
+    const crmUser = await getCrmUser(c);
+    if (!crmUser) return c.json({ error: "Unauthorized" }, 401);
+
+    const meetingId = parseInt(c.req.param("id"), 10);
+    if (isNaN(meetingId)) return c.json({ error: "Invalid ID" }, 400);
+
+    const body = await c.req.json<{ contactId?: number; companyId?: number; dealId?: number }>();
+
+    if (body.contactId) {
+      await db.delete(schema.meetingLinks).where(
+        and(eq(schema.meetingLinks.meetingId, meetingId), eq(schema.meetingLinks.contactId, body.contactId), eq(schema.meetingLinks.organizationId, crmUser.organizationId!))
+      );
+    }
+    if (body.companyId) {
+      await db.delete(schema.meetingLinks).where(
+        and(eq(schema.meetingLinks.meetingId, meetingId), eq(schema.meetingLinks.companyId, body.companyId), eq(schema.meetingLinks.organizationId, crmUser.organizationId!))
+      );
+    }
+    if (body.dealId) {
+      await db.delete(schema.meetingLinks).where(
+        and(eq(schema.meetingLinks.meetingId, meetingId), eq(schema.meetingLinks.dealId, body.dealId), eq(schema.meetingLinks.organizationId, crmUser.organizationId!))
+      );
+    }
+
+    return c.json({ ok: true });
+  });
+
+  // POST /api/meetings/:id/action-items-reviewed — Mark action items as reviewed
+  app.post("/:id/action-items-reviewed", async (c) => {
+    const crmUser = await getCrmUser(c);
+    if (!crmUser) return c.json({ error: "Unauthorized" }, 401);
+
+    const meetingId = parseInt(c.req.param("id"), 10);
+    if (isNaN(meetingId)) return c.json({ error: "Invalid ID" }, 400);
+
+    const [summary] = await db
+      .select()
+      .from(schema.meetingSummaries)
+      .where(and(eq(schema.meetingSummaries.meetingId, meetingId), eq(schema.meetingSummaries.organizationId, crmUser.organizationId!)))
+      .limit(1);
+
+    if (!summary) return c.json({ error: "Summary not found" }, 404);
+
+    const updatedJson = { ...(summary.summaryJson ?? {}), _reviewed: true };
+    await db
+      .update(schema.meetingSummaries)
+      .set({ summaryJson: updatedJson })
+      .where(eq(schema.meetingSummaries.id, summary.id));
 
     return c.json({ ok: true });
   });
