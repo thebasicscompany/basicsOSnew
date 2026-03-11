@@ -5,10 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { NoteCard } from "@/components/record-detail/NoteCard";
-import { MeetingCard } from "@/components/meetings/MeetingCard";
-import { MeetingDetailDialog } from "@/components/meetings/MeetingDetailDialog";
 import { getList, getOne } from "@/lib/api/crm";
-import { useMeetings } from "@/hooks/use-meetings";
 import { usePageTitle } from "@/contexts/page-header";
 
 const PER_PAGE = 25;
@@ -173,20 +170,11 @@ export function NotesPage() {
   usePageTitle("Notes");
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<
-    "deals" | "contacts" | "companies" | "meetings"
+    "deals" | "contacts" | "companies"
   >("deals");
   const [dealPage, setDealPage] = useState(1);
   const [contactPage, setContactPage] = useState(1);
   const [companyPage, setCompanyPage] = useState(1);
-  const [meetingPage, setMeetingPage] = useState(1);
-  const [selectedMeetingId, setSelectedMeetingId] = useState<number | null>(
-    null,
-  );
-
-  const { data: meetingsData, isPending: meetingsLoading } = useMeetings({
-    page: meetingPage,
-    perPage: PER_PAGE,
-  });
 
   const dealTab = useNotesTab("deal_notes", "dealId", dealPage);
   const contactTab = useNotesTab("contact_notes", "contactId", contactPage);
@@ -215,14 +203,13 @@ export function NotesPage() {
       <Tabs
         value={activeTab}
         onValueChange={(v) =>
-          setActiveTab(v as "deals" | "contacts" | "companies" | "meetings")
+          setActiveTab(v as "deals" | "contacts" | "companies")
         }
       >
         <TabsList>
           <TabsTrigger value="deals">Deal Notes</TabsTrigger>
           <TabsTrigger value="contacts">Contact Notes</TabsTrigger>
           <TabsTrigger value="companies">Company Notes</TabsTrigger>
-          <TabsTrigger value="meetings">Meetings</TabsTrigger>
         </TabsList>
 
         <TabsContent value="deals" className="mt-4 flex flex-1 flex-col gap-4">
@@ -273,64 +260,7 @@ export function NotesPage() {
             }
           />
         </TabsContent>
-        <TabsContent
-          value="meetings"
-          className="mt-4 flex flex-1 flex-col gap-4"
-        >
-          {meetingsLoading ? (
-            <div className="space-y-2">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <Skeleton key={i} className="h-16 w-full rounded-lg" />
-              ))}
-            </div>
-          ) : !meetingsData || meetingsData.length === 0 ? (
-            <div className="rounded-lg bg-muted/50 py-12 text-center text-sm text-muted-foreground">
-              No meetings yet. Press Cmd+Alt+Space to start recording.
-            </div>
-          ) : (
-            <>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {meetingsData.map((meeting) => (
-                  <MeetingCard
-                    key={meeting.id}
-                    meeting={meeting}
-                    onClick={() => setSelectedMeetingId(meeting.id)}
-                  />
-                ))}
-              </div>
-              {meetingsData.length >= PER_PAGE && (
-                <div className="flex items-center justify-end">
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={meetingPage <= 1}
-                      onClick={() => setMeetingPage((p) => p - 1)}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setMeetingPage((p) => p + 1)}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </TabsContent>
       </Tabs>
-
-      <MeetingDetailDialog
-        meetingId={selectedMeetingId}
-        open={selectedMeetingId !== null}
-        onOpenChange={(open) => {
-          if (!open) setSelectedMeetingId(null);
-        }}
-      />
     </div>
   );
 }

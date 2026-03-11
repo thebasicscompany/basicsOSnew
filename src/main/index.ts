@@ -558,9 +558,25 @@ ipcMain.on(
 );
 
 ipcMain.on("navigate-main", (_event, urlOrPath: string) => {
+  if (!urlOrPath || typeof urlOrPath !== "string") return;
+  const trimmed = urlOrPath.trim();
+
+  // External URLs → open in system browser
+  if (/^https?:\/\//i.test(trimmed)) {
+    const fullUrl = resolveAllowedMainUrl(trimmed);
+    if (fullUrl && mainWindow) {
+      mainWindow.show();
+      mainWindow.loadURL(fullUrl).catch(() => undefined);
+    } else {
+      shell.openExternal(trimmed).catch(() => undefined);
+    }
+    return;
+  }
+
+  // Internal paths → navigate main window
   if (mainWindow) {
     mainWindow.show();
-    const fullUrl = resolveAllowedMainUrl(urlOrPath);
+    const fullUrl = resolveAllowedMainUrl(trimmed);
     if (fullUrl) {
       mainWindow.loadURL(fullUrl).catch(() => undefined);
     }

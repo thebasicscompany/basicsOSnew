@@ -60,8 +60,11 @@ const DEFAULT_SETTINGS: OverlaySettings = {
   meeting: { autoDetect: false, chunkIntervalMs: 5000 },
 };
 
+// Module-level cache survives Vite HMR remounts so notch info isn't lost
+let _cachedNotchInfo: NotchInfo | null = null;
+
 export const OverlayApp = () => {
-  const [config, setConfig] = useState<NotchInfo | null>(null);
+  const [config, setConfig] = useState<NotchInfo | null>(_cachedNotchInfo);
   const [pill, dispatch] = useReducer(pillReducer, initialPillContext);
   const [settings, setSettings] = useState<OverlaySettings>(DEFAULT_SETTINGS);
   const [measuredHeight, setMeasuredHeight] = useState(0);
@@ -69,6 +72,9 @@ export const OverlayApp = () => {
   const measureRef = useRef<HTMLDivElement>(null);
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const streamAbortRef = useRef(false);
+
+  // Response pinning — click pill to pin, X to dismiss
+  const [responsePinned, setResponsePinned] = useState(false);
 
   // Notepad state
   const [notepadOpen, setNotepadOpen] = useState(false);
@@ -111,6 +117,9 @@ export const OverlayApp = () => {
     cancelTTS();
     clearDismissTimer();
     streamAbortRef.current = true;
+    setResponsePinned(false);
+    setShowLastResponse(false);
+    setIgnoreMouse(true);
     const s = speechRef.current;
     if (s?.isListening) {
       void s.stopListening();
@@ -204,7 +213,10 @@ export const OverlayApp = () => {
       .getOverlaySettings?.()
       .then((s) => setSettings(s))
       .catch(() => {});
-    api.onNotchInfo?.((info: NotchInfo) => setConfig(info));
+    api.onNotchInfo?.((info: NotchInfo) => {
+      _cachedNotchInfo = info;
+      setConfig(info);
+    });
     api.onSettingsChanged?.((s: OverlaySettings) => setSettings(s));
 
     api.onActivate?.(activation.handleActivate);
@@ -365,8 +377,8 @@ export const OverlayApp = () => {
   const screenH = window.screen?.height ?? 900;
   const maxResponseBodyHeight = Math.round(screenH * 0.33) - 80;
 
-  // Response layout: title(24) + bodyGap(8) + body(responseContentH) + doneGap(6) + done(~14) + bottomPad(12)
-  const RESPONSE_EXTRA_H = 24 + 8 + 6 + 14 + 12;
+  // Response layout: title(24) + bodyGap(8) + body(responseContentH) + bottomPad(28)
+  const RESPONSE_EXTRA_H = 24 + 8 + 28;
 
   const NOTEPAD_AREA_H = 120; // textarea area height
   const NOTEPAD_GAP = 4;
@@ -459,59 +471,41 @@ export const OverlayApp = () => {
   }, [clearDismissTimer]);
 
   const handleMouseLeave = useCallback(() => {
-    setIgnoreMouse(true);
-    setShowLastResponse(false);
+    // Keep mouse interactive when response is pinned so user can click X
+    if (!responsePinned) {
+      setIgnoreMouse(true);
+      setShowLastResponse(false);
+    }
     // Collapse notepad if not locked
     if (!notepadLocked) {
       setNotepadOpen(false);
     }
-    // Restart dismiss timer if still in response state
-    if (pillRef.current.state === "response") {
+    // Restart dismiss timer if still in response state and not pinned
+    if (pillRef.current.state === "response" && !responsePinned) {
       clearDismissTimer();
       dismissTimerRef.current = setTimeout(
         () => dismissRef.current(),
         settingsRef.current.behavior.autoDismissMs,
       );
     }
-  }, [clearDismissTimer, notepadLocked]);
+  }, [clearDismissTimer, notepadLocked, responsePinned]);
 
   const handlePillClick = useCallback(() => {
     const cur = pillRef.current;
-    const s = speechRef.current;
     if (cur.state === "idle" && cur.meetingActive) {
       // Any click during meeting → open + lock notepad
       setNotepadOpen(true);
       setNotepadLocked(true);
       return;
     }
-    if (cur.state === "idle") {
-      if (!s) return;
-      dispatch({ type: "ACTIVATE", mode: "dictation" as InteractionMode });
-      s.startListening();
-    } else if (
-      cur.state === "listening" &&
-      cur.interactionMode === "dictation"
-    ) {
-      if (!s) return;
-      dispatch({ type: "TRANSCRIBING_START" });
-      s.stopListening().then((transcript) => {
-        if (transcript) {
-          window.electronAPI
-            ?.injectText?.(transcript)
-            .then(() => {
-              dispatch({ type: "TRANSCRIBING_COMPLETE", transcript });
-              flash.show("Copied! ⌘V to paste", FLASH_SHORT_MS);
-              setTimeout(() => dismissRef.current(), FLASH_SHORT_MS);
-            })
-            .catch(() => dismissRef.current());
-        } else {
-          dismissRef.current();
-        }
-      });
-    } else {
-      dismissRef.current();
+    if (cur.state === "response" || (cur.state === "idle" && showLastResponse)) {
+      // Pin the response so it stays visible until X is clicked
+      setResponsePinned(true);
+      clearDismissTimer();
+      return;
     }
-  }, [flash]);
+    // All other clicks do nothing — use keyboard shortcuts to activate
+  }, [showLastResponse, clearDismissTimer]);
 
   return (
     <div style={{ width: "100%", display: "flex", justifyContent: "center" }}>
@@ -556,8 +550,7 @@ export const OverlayApp = () => {
                 : "0 0 16px 16px",
           overflow: "hidden",
           position: "relative",
-          cursor:
-            pill.state === "idle" && !showLastResponse ? "pointer" : "default",
+          cursor: "default",
         }}
       >
         <div
@@ -858,9 +851,36 @@ export const OverlayApp = () => {
                       fontSize: 13.5,
                       fontWeight: 600,
                       letterSpacing: "-0.01em",
+                      flex: 1,
                     }}
                   >
                     {currentResponse.title}
+                  </span>
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      dismissRef.current();
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.stopPropagation();
+                        dismissRef.current();
+                      }
+                    }}
+                    style={{
+                      color: "rgba(255,255,255,0.35)",
+                      fontSize: 13,
+                      cursor: "pointer",
+                      padding: "0 2px",
+                      lineHeight: 1,
+                      transition: "color 0.15s",
+                    }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.7)"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.35)"; }}
+                  >
+                    ✕
                   </span>
                 </motion.div>
                 <motion.div
@@ -871,31 +891,19 @@ export const OverlayApp = () => {
                     delay: STAGGER_MS / 1000,
                   }}
                   style={{
-                    marginTop: 8,
+                    marginTop: 10,
                     paddingLeft: 22,
+                    paddingBottom: 16,
+                    paddingRight: 4,
                     maxHeight: maxResponseBodyHeight,
                     overflowY: "auto",
+                    overflowX: "hidden",
                     scrollbarWidth: "thin",
                     scrollbarColor: "rgba(255,255,255,0.15) transparent",
+                    WebkitOverflowScrolling: "touch",
                   }}
                 >
                   <ResponseBody response={currentResponse} />
-                </motion.div>
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 0.35 }}
-                  transition={{
-                    ...CONTENT_ENTER,
-                    delay: (STAGGER_MS * 2) / 1000,
-                  }}
-                  style={{
-                    textAlign: "right",
-                    marginTop: 6,
-                    fontSize: 11,
-                    color: "rgba(255,255,255,0.35)",
-                  }}
-                >
-                  Done
                 </motion.div>
               </motion.div>
             )}
@@ -925,19 +933,54 @@ export const OverlayApp = () => {
                         fontSize: 13.5,
                         fontWeight: 600,
                         letterSpacing: "-0.01em",
+                        flex: 1,
                       }}
                     >
                       {pill.lastResponseTitle}
+                    </span>
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowLastResponse(false);
+                        setResponsePinned(false);
+                        setIgnoreMouse(true);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.stopPropagation();
+                          setShowLastResponse(false);
+                          setResponsePinned(false);
+                          setIgnoreMouse(true);
+                        }
+                      }}
+                      style={{
+                        color: "rgba(255,255,255,0.35)",
+                        fontSize: 13,
+                        cursor: "pointer",
+                        padding: "0 2px",
+                        lineHeight: 1,
+                        transition: "color 0.15s",
+                      }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.7)"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.35)"; }}
+                    >
+                      ✕
                     </span>
                   </div>
                   <div
                     style={{
                       marginTop: 8,
                       paddingLeft: 22,
+                      paddingBottom: 12,
+                      paddingRight: 4,
                       maxHeight: maxResponseBodyHeight,
                       overflowY: "auto",
+                      overflowX: "hidden",
                       scrollbarWidth: "thin",
                       scrollbarColor: "rgba(255,255,255,0.15) transparent",
+                      WebkitOverflowScrolling: "touch",
                     }}
                   >
                     <ResponseBody

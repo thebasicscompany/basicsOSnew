@@ -290,7 +290,7 @@ export function useRecordDetail(): UseRecordDetailReturn {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !confirmDeleteOpen) {
-        navigate(`/objects/${objectSlug}`);
+        navigate(-1);
       }
     };
     window.addEventListener("keydown", handler);
