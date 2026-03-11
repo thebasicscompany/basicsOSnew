@@ -1339,7 +1339,8 @@ export async function executeValidatedTool(
       }
 
       if (action === "extract_structured" && extract_schema) {
-        const data = await extractStructured(url, extract_schema);
+        const fields = Object.keys(extract_schema);
+        const data = await extractStructured(url, fields, selector);
         const entries = Object.entries(data)
           .filter(([, v]) => v)
           .map(([k, v]) => `- **${k}**: ${v}`)
