@@ -557,6 +557,11 @@ ipcMain.on(
   },
 );
 
+// Forward data-changed from overlay to main window for query invalidation
+ipcMain.on("data-changed", (_event, queryKeys: string[]) => {
+  mainWindow?.webContents.send("data-changed", queryKeys);
+});
+
 ipcMain.on("navigate-main", (_event, urlOrPath: string) => {
   if (!urlOrPath || typeof urlOrPath !== "string") return;
   const trimmed = urlOrPath.trim();
@@ -611,7 +616,7 @@ ipcMain.handle(
         body: "",
       };
     }
-    if (!["GET", "POST"].includes(method)) {
+    if (!["GET", "POST", "PATCH", "PUT", "DELETE"].includes(method)) {
       return {
         ok: false,
         status: 405,

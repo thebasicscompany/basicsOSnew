@@ -1,5 +1,5 @@
 import { useCallback, useRef } from "react";
-import { FLASH_SHORT_MS, FLASH_MEDIUM_MS, FLASH_LONG_MS } from "@/shared-overlay/constants";
+import { FLASH_SHORT_MS, FLASH_MEDIUM_MS } from "@/shared-overlay/constants";
 import { createOverlayLogger } from "./overlay-logger";
 import type { PillAction, PillContext } from "./notch-pill-state";
 import type { MeetingRecorderActions } from "@/overlay/meeting-recorder";
@@ -95,6 +95,10 @@ export const useMeetingControls = (deps: {
       const t = Date.now();
       log.info(`[MEETING:CTRL:HN] handleMeetingStopped entry meetingId=${_meetingId} pillMeetingActive=${pillRef.current.meetingActive} t=${t}`);
 
+      // Capture notes BEFORE dispatch clears state (dispatch triggers useEffect that resets notes ref)
+      const capturedNotes = getNotesRef?.() ?? "";
+      log.info(`[MEETING:CTRL:HN] capturedNotes len=${capturedNotes.length} t=${Date.now()}`);
+
       // Immediately clear the meeting indicator so the pill stops showing "recording"
       dispatch({
         type: "MEETING_UPDATE",
@@ -117,21 +121,18 @@ export const useMeetingControls = (deps: {
         log.info("[MEETING:CTRL:HN] transcript preview (first 200 chars):", result.transcript?.slice(0, 200));
         log.info("[MEETING:CTRL:HN] transcript preview (last 200 chars):", result.transcript?.slice(-200));
 
-        // Flush meeting notes before transcript upload
-        if (result.meetingId && getNotesRef) {
-          const notes = getNotesRef();
-          if (notes.trim()) {
-            log.info(`[MEETING:CTRL:HN] saveMeetingNotes before call meetingId=${result.meetingId} notesLen=${notes.length} t=${Date.now()}`);
-            await saveMeetingNotes(result.meetingId, notes).catch((err) => {
-              log.error(`[MEETING:CTRL:HN] saveMeetingNotes failed err=${err instanceof Error ? err.message : err} t=${Date.now()}`);
-            });
-          }
+        // Flush meeting notes before transcript upload (using captured value from before dispatch)
+        if (result.meetingId && capturedNotes.trim()) {
+          log.info(`[MEETING:CTRL:HN] saveMeetingNotes before call meetingId=${result.meetingId} notesLen=${capturedNotes.length} t=${Date.now()}`);
+          await saveMeetingNotes(result.meetingId, capturedNotes).catch((err) => {
+            log.error(`[MEETING:CTRL:HN] saveMeetingNotes failed err=${err instanceof Error ? err.message : err} t=${Date.now()}`);
+          });
         }
 
-        if (result.meetingId && (result.transcript || result.segments?.length)) {
+        if (result.meetingId) {
           try {
             log.info(`[MEETING:CTRL:HN] uploadMeetingTranscript before call meetingId=${result.meetingId} transcriptLen=${transcriptLen} t=${Date.now()}`);
-            await uploadMeetingTranscript(result.meetingId, result.transcript);
+            await uploadMeetingTranscript(result.meetingId, result.transcript ?? "");
             log.info(`[MEETING:CTRL:HN] uploadMeetingTranscript success t=${Date.now()}`);
             log.info(`[MEETING:CTRL:HN] processMeeting before call meetingId=${result.meetingId} t=${Date.now()}`);
             await processMeeting(result.meetingId);
@@ -142,9 +143,11 @@ export const useMeetingControls = (deps: {
           }
           showFlash("Saved", FLASH_MEDIUM_MS);
         } else {
-          log.warn(`[MEETING:CTRL:HN] no transcript to upload meetingId=${result.meetingId} transcriptLen=${transcriptLen} segmentCount=${segmentCount} t=${Date.now()}`);
+          log.warn(`[MEETING:CTRL:HN] no meetingId, skipping upload transcriptLen=${transcriptLen} segmentCount=${segmentCount} t=${Date.now()}`);
           showFlash("Saved", FLASH_SHORT_MS);
         }
+        // Notify main window to refresh meetings data
+        window.electronAPI?.notifyDataChanged?.(["meetings"]);
       })();
     },
     [dispatch, meetingRecorderRef, showFlash, pillRef, getNotesRef]
