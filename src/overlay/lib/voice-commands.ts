@@ -2,6 +2,12 @@ export type VoiceCommand =
   | { type: "create_task"; title: string }
   | { type: "search"; query: string }
   | { type: "navigate"; module: string; url: string }
+  | { type: "enrich"; transcript: string }
+  | { type: "web_search"; transcript: string }
+  | { type: "delete"; transcript: string }
+  | { type: "report"; transcript: string }
+  | { type: "automation"; transcript: string }
+  | { type: "view"; transcript: string }
   | null;
 
 export const MODULE_ROUTES: Record<string, string> = {
@@ -38,6 +44,26 @@ export const detectCommand = (text: string): VoiceCommand => {
     const url = MODULE_ROUTES[mod];
     if (url) return { type: "navigate", module: mod, url };
   }
+
+  // AI agent tool intent patterns — these flow through the normal assistant
+  // path but allow the pill to show contextual feedback labels.
+  if (/\b(enrich|research)\b.*\b(contact|company)\b/i.test(lower))
+    return { type: "enrich", transcript: text };
+
+  if (/\b(search the web|google|look up online|research online)\b/i.test(lower))
+    return { type: "web_search", transcript: text };
+
+  if (/\b(delete|remove)\b.*\b(contact|company|deal)\b/i.test(lower))
+    return { type: "delete", transcript: text };
+
+  if (/\b(create|make|build)\b.*\b(report|chart|graph)\b/i.test(lower))
+    return { type: "report", transcript: text };
+
+  if (/\b(create|set up|make)\b.*\b(automation|workflow)\b/i.test(lower))
+    return { type: "automation", transcript: text };
+
+  if (/\b(create|make|build)\b.*\b(view|filtered view)\b/i.test(lower))
+    return { type: "view", transcript: text };
 
   return null;
 };
