@@ -23,6 +23,7 @@ import { createMeetingsRoutes } from "@/routes/meetings.js";
 import { createEmailSyncRoutes } from "@/routes/email-sync.js";
 import { createRbacRoutes } from "@/routes/rbac.js";
 import { createAdminRoutes } from "@/routes/admin.js";
+import { createAgentCronRoutes } from "@/routes/agent-cron.js";
 import { sql } from "drizzle-orm";
 
 type RateBucket = {
@@ -193,6 +194,9 @@ export function createApp(db: Db, env: Env) {
 
   // Admin APIs (AI config, usage tracking)
   app.route("/api/admin", createAdminRoutes(db, auth, env));
+
+  // Agent cron jobs (scheduled AI tasks)
+  app.route("/api/agent-cron", createAgentCronRoutes(db, auth, env));
 
   // CRM REST API
   app.route("/api", createCrmRoutes(db, auth, env));

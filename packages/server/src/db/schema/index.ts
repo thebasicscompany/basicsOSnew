@@ -30,3 +30,4 @@ export * from "@/db/schema/email-sync-state.js";
 export * from "@/db/schema/synced-emails.js";
 export * from "@/db/schema/suggested-contacts.js";
 export * from "@/db/schema/email-contact-links.js";
+export * from "@/db/schema/agent-cron.js";
