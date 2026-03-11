@@ -25,6 +25,7 @@ import { createEnrichmentRoutes } from "@/routes/enrichment.js";
 import { createRbacRoutes } from "@/routes/rbac.js";
 import { createAdminRoutes } from "@/routes/admin.js";
 import { createAgentCronRoutes } from "@/routes/agent-cron.js";
+import { createChatWsRoutes } from "@/routes/chat-ws.js";
 import { sql } from "drizzle-orm";
 
 type RateBucket = {
@@ -201,6 +202,9 @@ export function createApp(db: Db, env: Env) {
 
   // Agent cron jobs (scheduled AI tasks)
   app.route("/api/agent-cron", createAgentCronRoutes(db, auth, env));
+
+  // Chat WebSocket session layer (SSE streaming for agent events)
+  app.route("/api/chat-ws", createChatWsRoutes(db, auth, env));
 
   // CRM REST API
   app.route("/api", createCrmRoutes(db, auth, env));
