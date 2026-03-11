@@ -113,8 +113,31 @@ export const useAIResponse = (
             `/chat?q=${encodeURIComponent(cmd.query)}`
           );
           return;
+        // AI agent tool intents — these fall through to the assistant API
+        // but we use the detected type for contextual response titles.
+        case "enrich":
+        case "web_search":
+        case "delete":
+        case "report":
+        case "automation":
+        case "view":
+          break;
       }
     }
+
+    // Map detected command types to contextual response titles
+    const COMMAND_TITLES: Record<string, string> = {
+      enrich: "Enriching",
+      web_search: "Web Search",
+      delete: "Deleting",
+      report: "Report",
+      automation: "Automation",
+      view: "View",
+    };
+    const responseTitle =
+      cmd && cmd.type in COMMAND_TITLES
+        ? COMMAND_TITLES[cmd.type]!
+        : "Assistant";
 
     // Pass prior history (excluding the current user message which is already
     // included as `message` by the server) so the AI has multi-turn context.
@@ -134,7 +157,7 @@ export const useAIResponse = (
       },
       (title, lines) => {
         if (cancelled || streamAbortRef.current) return;
-        dispatch({ type: "AI_COMPLETE", title, lines });
+        dispatch({ type: "AI_COMPLETE", title: responseTitle, lines });
       }
     ).catch((err) => {
       if (cancelled || streamAbortRef.current) return;
