@@ -88,5 +88,11 @@ async function main() {
 
 main().catch((err) => {
   log.error({ err }, "Server failed to start");
+  // Ensure error is visible in Railway/log aggregators that may truncate JSON
+  console.error(
+    "Server failed to start:",
+    err instanceof Error ? err.message : String(err),
+  );
+  if (err instanceof Error && err.stack) console.error(err.stack);
   process.exit(1);
 });
