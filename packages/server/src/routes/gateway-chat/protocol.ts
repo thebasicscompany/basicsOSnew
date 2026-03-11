@@ -334,6 +334,52 @@ export const addNoteSchema = z
     }
   });
 
+export const manageViewSchema = z.object({
+  object_slug: z.string().min(1),
+  action: z.enum(["create", "update", "delete"]),
+  view_name: z.string().min(1).optional(),
+  view_id: z.string().optional(),
+  sorts: z
+    .array(
+      z.object({
+        field: z.string().min(1),
+        direction: z.enum(["asc", "desc"]).default("asc"),
+      }),
+    )
+    .optional(),
+  filters: z
+    .array(
+      z.object({
+        field: z.string().min(1),
+        op: z.string().min(1),
+        value: z.string().optional(),
+      }),
+    )
+    .optional(),
+});
+
+export const createAutomationSchema = z.object({
+  name: z.string().min(1),
+  trigger_type: z.enum(["event", "schedule"]),
+  trigger_config: z.object({
+    event: z.string().optional(),
+    cron: z.string().optional(),
+  }),
+  actions: z.array(
+    z.object({
+      type: z.enum(["email", "ai", "crm", "slack", "web_search"]),
+      config: z.record(z.unknown()).default({}),
+    }),
+  ),
+});
+
+export const generateReportSchema = z.object({
+  entity_type: z.enum(["contacts", "companies", "deals", "tasks"]),
+  report_type: z.enum(["pipeline", "count_by_field", "timeline"]),
+  group_by: z.string().optional(),
+  date_range: z.enum(["7d", "30d", "90d", "365d"]).optional(),
+});
+
 export const OPENAI_TOOL_DEFS = [
   {
     type: "function",
@@ -729,6 +775,138 @@ export const OPENAI_TOOL_DEFS = [
           text: { type: "string", description: "The note content" },
         },
         required: ["text"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "manage_view",
+      description:
+        "Create, update, or delete a saved view for a CRM object list. Views control which columns, sorts, and filters are applied.",
+      parameters: {
+        type: "object",
+        properties: {
+          object_slug: {
+            type: "string",
+            description:
+              "The object type slug (e.g. 'contacts', 'deals', 'companies', 'tasks')",
+          },
+          action: {
+            type: "string",
+            enum: ["create", "update", "delete"],
+          },
+          view_name: { type: "string", description: "Name for the view" },
+          view_id: {
+            type: "string",
+            description: "View ID (required for update/delete)",
+          },
+          sorts: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                field: { type: "string" },
+                direction: { type: "string", enum: ["asc", "desc"] },
+              },
+              required: ["field"],
+            },
+          },
+          filters: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                field: { type: "string" },
+                op: { type: "string" },
+                value: { type: "string" },
+              },
+              required: ["field", "op"],
+            },
+          },
+        },
+        required: ["object_slug", "action"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_automation",
+      description:
+        "Create a new automation workflow with a trigger and one or more action steps.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Automation name" },
+          trigger_type: {
+            type: "string",
+            enum: ["event", "schedule"],
+            description: "Whether the automation fires on an event or a schedule",
+          },
+          trigger_config: {
+            type: "object",
+            properties: {
+              event: {
+                type: "string",
+                description: "Event name (e.g. 'contact_created', 'deal_updated')",
+              },
+              cron: {
+                type: "string",
+                description: "Cron expression for scheduled triggers",
+              },
+            },
+          },
+          actions: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                type: {
+                  type: "string",
+                  enum: ["email", "ai", "crm", "slack", "web_search"],
+                },
+                config: { type: "object", description: "Action-specific config" },
+              },
+              required: ["type"],
+            },
+          },
+        },
+        required: ["name", "trigger_type", "trigger_config", "actions"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "generate_report",
+      description:
+        "Generate a summary report on CRM data. Supports pipeline reports for deals, count-by-field grouping, and timeline analysis.",
+      parameters: {
+        type: "object",
+        properties: {
+          entity_type: {
+            type: "string",
+            enum: ["contacts", "companies", "deals", "tasks"],
+          },
+          report_type: {
+            type: "string",
+            enum: ["pipeline", "count_by_field", "timeline"],
+            description:
+              "pipeline = deal stages summary, count_by_field = group and count by a column, timeline = records created over time",
+          },
+          group_by: {
+            type: "string",
+            description:
+              "Column name to group by (for count_by_field). Allowed: status, category, company_id, type.",
+          },
+          date_range: {
+            type: "string",
+            enum: ["7d", "30d", "90d", "365d"],
+            description: "Time window for timeline reports",
+          },
+        },
+        required: ["entity_type", "report_type"],
       },
     },
   },

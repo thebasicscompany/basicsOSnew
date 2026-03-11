@@ -20,6 +20,9 @@ const TOOL_NAMES = [
   "list_notes",
   "create_note",
   "add_note",
+  "manage_view",
+  "create_automation",
+  "generate_report",
 ] as const;
 
 const LOOKUP_TOOLS = new Set([
