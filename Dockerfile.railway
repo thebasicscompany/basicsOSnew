@@ -29,10 +29,9 @@ COPY --from=server-build /app/packages ./packages
 
 WORKDIR /app/packages/server
 
-EXPOSE 3001
-
 ENV NODE_ENV=production
-ENV PORT=3001
+
+# PORT is injected by Railway at runtime — do not hardcode it
 
 # Run migrations on startup, then serve
 CMD ["sh", "-c", "node dist/db/migrate.js && exec node dist/index.js"]
