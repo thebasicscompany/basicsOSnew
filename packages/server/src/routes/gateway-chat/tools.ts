@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import type { Db } from "@/db/client.js";
 import * as schema from "@/db/schema/index.js";
 import {
@@ -980,15 +980,293 @@ export async function executeValidatedTool(
   }
 
   if (toolName === "manage_view") {
-    return "View management coming soon.";
+    const parsed = manageViewSchema.safeParse(rawArgs);
+    if (!parsed.success)
+      return { error: "Invalid arguments", details: parsed.error.flatten() };
+
+    const { object_slug, action, view_name, view_id, sorts, filters } =
+      parsed.data;
+
+    if (action === "create") {
+      if (!view_name) return { error: "view_name is required for create" };
+      const [view] = await db
+        .insert(schema.views)
+        .values({
+          objectSlug: object_slug,
+          title: view_name,
+          crmUserId,
+          organizationId,
+          type: "grid",
+        })
+        .returning();
+
+      if (!view) return "Failed to create view.";
+
+      if (sorts?.length) {
+        for (const s of sorts) {
+          await db.insert(schema.viewSorts).values({
+            viewId: view.id,
+            fieldId: s.field,
+            direction: s.direction,
+          });
+        }
+      }
+
+      if (filters?.length) {
+        for (const f of filters) {
+          await db.insert(schema.viewFilters).values({
+            viewId: view.id,
+            fieldId: f.field,
+            comparisonOp: f.op,
+            value: f.value ?? null,
+          });
+        }
+      }
+
+      return `Created view "${view_name}" for ${object_slug} (id: ${view.id}).`;
+    }
+
+    if (action === "delete" && view_id) {
+      await db
+        .delete(schema.views)
+        .where(
+          and(
+            eq(schema.views.id, view_id),
+            eq(schema.views.organizationId, organizationId),
+          ),
+        );
+      return `Deleted view "${view_name ?? view_id}".`;
+    }
+
+    if (action === "update" && view_id) {
+      if (view_name) {
+        await db
+          .update(schema.views)
+          .set({ title: view_name })
+          .where(
+            and(
+              eq(schema.views.id, view_id),
+              eq(schema.views.organizationId, organizationId),
+            ),
+          );
+      }
+      return `Updated view "${view_name ?? view_id}".`;
+    }
+
+    return `View ${action} completed.`;
   }
 
   if (toolName === "create_automation") {
-    return "Automation creation coming soon.";
+    const parsed = createAutomationSchema.safeParse(rawArgs);
+    if (!parsed.success)
+      return { error: "Invalid arguments", details: parsed.error.flatten() };
+
+    const { name, trigger_type, trigger_config, actions } = parsed.data;
+
+    // Build workflow definition (nodes + edges)
+    const nodes: Array<{
+      id: string;
+      type: string;
+      position: { x: number; y: number };
+      data: Record<string, unknown>;
+    }> = [];
+    const edges: Array<{
+      id: string;
+      source: string;
+      target: string;
+    }> = [];
+    let y = 0;
+
+    // Trigger node
+    const triggerId = `trigger-${Date.now()}`;
+    nodes.push({
+      id: triggerId,
+      type:
+        trigger_type === "event" ? "trigger_event" : "trigger_schedule",
+      position: { x: 250, y },
+      data:
+        trigger_type === "event"
+          ? { event: trigger_config.event }
+          : { cron: trigger_config.cron },
+    });
+
+    let prevId = triggerId;
+
+    // Action nodes
+    for (const action of actions) {
+      y += 150;
+      const actionId = `action-${Date.now()}-${y}`;
+      const nodeType =
+        action.type === "email"
+          ? "action_email"
+          : action.type === "ai"
+            ? "action_ai"
+            : action.type === "crm"
+              ? "action_crm"
+              : action.type === "slack"
+                ? "action_slack"
+                : action.type === "web_search"
+                  ? "action_web_search"
+                  : "action_ai";
+
+      nodes.push({
+        id: actionId,
+        type: nodeType,
+        position: { x: 250, y },
+        data: action.config,
+      });
+
+      edges.push({
+        id: `edge-${prevId}-${actionId}`,
+        source: prevId,
+        target: actionId,
+      });
+
+      prevId = actionId;
+    }
+
+    const [rule] = await db
+      .insert(schema.automationRules)
+      .values({
+        name,
+        crmUserId,
+        organizationId,
+        enabled: true,
+        workflowDefinition: { nodes, edges },
+      })
+      .returning();
+
+    if (!rule) return "Failed to create automation.";
+
+    return `Created automation "${name}" (id: ${rule.id}). ${nodes.length} nodes, ${edges.length} edges. ${trigger_type === "schedule" ? `Scheduled: ${trigger_config.cron}` : `Trigger: ${trigger_config.event}`}`;
   }
 
   if (toolName === "generate_report") {
-    return "Report generation coming soon.";
+    const parsed = generateReportSchema.safeParse(rawArgs);
+    if (!parsed.success)
+      return { error: "Invalid arguments", details: parsed.error.flatten() };
+
+    const { entity_type, report_type, group_by, date_range } = parsed.data;
+
+    // Table lookup
+    const tableMap = {
+      contacts: schema.contacts,
+      companies: schema.companies,
+      deals: schema.deals,
+      tasks: schema.tasks,
+    } as const;
+    const table = tableMap[entity_type];
+    if (!table) return { error: `Unknown entity type: ${entity_type}` };
+
+    // Date filter
+    let dateFilter;
+    if (date_range) {
+      const daysMap: Record<string, number> = {
+        "7d": 7,
+        "30d": 30,
+        "90d": 90,
+        "1y": 365,
+      };
+      const days = daysMap[date_range] ?? 30;
+      dateFilter = sql`${table.createdAt} > now() - interval '${sql.raw(String(days))} days'`;
+    }
+
+    // Allowed group-by fields to prevent SQL injection
+    const ALLOWED_GROUP_FIELDS = new Set([
+      "status",
+      "source",
+      "industry",
+      "type",
+      "priority",
+      "stage",
+      "assignedTo",
+    ]);
+
+    if (report_type === "pipeline" && entity_type === "deals") {
+      const rows = await db
+        .select({
+          status: schema.deals.status,
+          count: sql<number>`count(*)::int`,
+          total: sql<number>`coalesce(sum(${schema.deals.amount}), 0)::numeric`,
+        })
+        .from(schema.deals)
+        .where(
+          and(
+            eq(schema.deals.organizationId, organizationId),
+            isNull(schema.deals.archivedAt),
+            dateFilter,
+          ),
+        )
+        .groupBy(schema.deals.status);
+
+      return JSON.stringify({
+        __report: true,
+        type: "bar",
+        data: rows.map((r) => ({
+          label: r.status ?? "N/A",
+          value: r.count,
+          amount: Number(r.total),
+        })),
+      });
+    }
+
+    if (report_type === "count_by_field" && group_by) {
+      if (!ALLOWED_GROUP_FIELDS.has(group_by)) {
+        return {
+          error: `Cannot group by "${group_by}". Allowed: ${[...ALLOWED_GROUP_FIELDS].join(", ")}`,
+        };
+      }
+
+      const col = (table as Record<string, unknown>)[group_by];
+      if (!col) {
+        return { error: `Field "${group_by}" not found on ${entity_type}` };
+      }
+
+      const rows = await db
+        .select({
+          label: col as ReturnType<typeof sql>,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(table)
+        .where(
+          and(eq(table.organizationId, organizationId), dateFilter),
+        )
+        .groupBy(col as ReturnType<typeof sql>);
+
+      return JSON.stringify({
+        __report: true,
+        type: "bar",
+        data: rows.map((r: Record<string, unknown>) => ({
+          label: String(r.label ?? "N/A"),
+          value: Number(r.count),
+        })),
+      });
+    }
+
+    if (report_type === "timeline") {
+      const rows = await db
+        .select({
+          date: sql<string>`to_char(${table.createdAt}, 'YYYY-MM-DD')`,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(table)
+        .where(
+          and(eq(table.organizationId, organizationId), dateFilter),
+        )
+        .groupBy(sql`to_char(${table.createdAt}, 'YYYY-MM-DD')`)
+        .orderBy(sql`to_char(${table.createdAt}, 'YYYY-MM-DD')`);
+
+      return JSON.stringify({
+        __report: true,
+        type: "line",
+        data: rows.map((r) => ({
+          label: r.date,
+          value: r.count,
+        })),
+      });
+    }
+
+    return { error: `Unsupported report type: ${report_type}` };
   }
 
   if (toolName === "enrich_record") {
