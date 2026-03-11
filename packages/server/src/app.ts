@@ -138,6 +138,13 @@ export function createApp(db: Db, env: Env) {
 
   app.use("/*", rateLimitMiddleware);
 
+  app.get("/", (c) =>
+    c.json({
+      name: "BasicsOS API",
+      health: "/health",
+      docs: "https://basicsos.com/api-docs",
+    }),
+  );
   app.get("/health", (c) => c.json({ status: "ok" }));
 
   app.get("/health/ready", async (c) => {
