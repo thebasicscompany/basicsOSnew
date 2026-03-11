@@ -7,7 +7,11 @@ import {
   useSearchParams,
 } from "react-router";
 import { useEffect } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { ErrorBoundary } from "react-error-boundary";
 import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -67,10 +71,22 @@ const queryClient = new QueryClient({
  */
 function AppRoutes() {
   const location = useLocation();
+  const qc = useQueryClient();
 
   useEffect(() => {
     installDictationTargetBridge();
   }, []);
+
+  // Listen for data-changed IPC from overlay → invalidate query cache
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api?.onDataChanged) return;
+    api.onDataChanged((queryKeys: string[]) => {
+      for (const key of queryKeys) {
+        qc.invalidateQueries({ queryKey: [key] });
+      }
+    });
+  }, [qc]);
 
   return (
     <ErrorBoundary

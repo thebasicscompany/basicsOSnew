@@ -116,6 +116,11 @@ function extractToolSteps(message: { annotations?: unknown[] }): ToolStep[] {
           status: (ann.success as boolean) ? "complete" : "error",
         });
       }
+    } else if (ann.type === "browser_status") {
+      const existing = steps.find((s) => s.id === ann.id);
+      if (existing) {
+        existing.browserStatus = ann.status as string;
+      }
     }
   }
   return steps;

@@ -56,10 +56,13 @@ export const detectCommand = (text: string): VoiceCommand => {
   if (/\b(delete|remove)\b.*\b(contact|company|deal)\b/i.test(lower))
     return { type: "delete", transcript: text };
 
-  if (/\b(create|make|build)\b.*\b(report|chart|graph)\b/i.test(lower))
+  if (/\b(create|make|build)\b.*\b(report|chart|graph|breakdown|dashboard)\b/i.test(lower))
     return { type: "report", transcript: text };
 
-  if (/\b(create|set up|make)\b.*\b(automation|workflow)\b/i.test(lower))
+  if (/\bwhen\b.*\bthen\b/i.test(lower))
+    return { type: "automation", transcript: text };
+
+  if (/\b(create|set up|make)\b.*\b(automation|workflow)\b/i.test(lower) || /\bautomate\b/i.test(lower))
     return { type: "automation", transcript: text };
 
   if (/\b(create|make|build)\b.*\b(view|filtered view)\b/i.test(lower))

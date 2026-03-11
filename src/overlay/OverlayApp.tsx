@@ -256,18 +256,12 @@ export const OverlayApp = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Flush notes save and reset notepad when meeting ends
+  // Reset notepad UI when meeting ends (notes are saved by handleMeetingStopped)
   useEffect(() => {
     if (!pill.meetingActive) {
-      // Meeting just ended — flush any pending save
       if (notesSaveTimerRef.current) {
         clearTimeout(notesSaveTimerRef.current);
         notesSaveTimerRef.current = null;
-      }
-      // Use lastMeetingIdRef since pill.meetingId is already null by now
-      const mid = lastMeetingIdRef.current;
-      if (meetingNotesRef.current && mid) {
-        saveMeetingNotes(mid, meetingNotesRef.current).catch(() => {});
       }
       setNotepadOpen(false);
       setNotepadLocked(false);
@@ -401,6 +395,14 @@ export const OverlayApp = () => {
     pillHeight = topPad + ACTIVE_HEIGHT;
   }
 
+  // Clear pinned state when pill transitions to an active mode (listening, thinking, etc.)
+  useEffect(() => {
+    if (pill.state !== "response" && pill.state !== "idle") {
+      setResponsePinned(false);
+      setShowLastResponse(false);
+    }
+  }, [pill.state]);
+
   // Dynamic resize via IPC — keep Electron window in sync with pill height
   useEffect(() => {
     window.electronAPI?.resizeOverlay?.(pillHeight);
@@ -453,8 +455,8 @@ export const OverlayApp = () => {
 
   const handleMouseEnter = useCallback(() => {
     setIgnoreMouse(false);
-    // Pause dismiss timer when hovering over response
-    if (pillRef.current.state === "response") {
+    // If pinned, pause dismiss — otherwise let it auto-dismiss normally
+    if (pillRef.current.state === "response" && responsePinned) {
       clearDismissTimer();
     }
     // Show last response on hover when idle
@@ -468,7 +470,7 @@ export const OverlayApp = () => {
     ) {
       setNotepadOpen(true);
     }
-  }, [clearDismissTimer]);
+  }, [clearDismissTimer, responsePinned]);
 
   const handleMouseLeave = useCallback(() => {
     // Keep mouse interactive when response is pinned so user can click X

@@ -1325,40 +1325,94 @@ export async function executeValidatedTool(
     if (!parsed.success)
       return { error: "Invalid arguments", details: parsed.error.flatten() };
 
-    const { url, action, selector, extract_schema } = parsed.data;
+    const { url, action, selector, extract_schema, text: inputText, scroll_direction } = parsed.data;
 
     try {
-      const { extractText, extractStructured } = await import(
-        "../../lib/browser-actions.js"
-      );
+      // Fetch-based actions (fast, no browser needed)
+      if (action === "extract_text" || action === "extract_structured") {
+        const { extractText, extractStructured } = await import(
+          "../../lib/browser-actions.js"
+        );
 
-      if (action === "extract_text") {
-        const text = await extractText(url, selector);
-        if (!text) return `No content found at ${url}.`;
-        return `**Content from ${url}:**\n\n${text.slice(0, 4000)}`;
+        if (action === "extract_text") {
+          if (!url) return { error: "URL is required for extract_text action" };
+          const pageText = await extractText(url, selector);
+          if (!pageText) return `No content found at ${url}.`;
+          return `**Content from ${url}:**\n\n${pageText.slice(0, 4000)}`;
+        }
+
+        if (action === "extract_structured" && extract_schema) {
+          if (!url) return { error: "URL is required for extract_structured action" };
+          const fields = Object.keys(extract_schema);
+          const data = await extractStructured(url, fields, selector);
+          const entries = Object.entries(data)
+            .filter(([, v]) => v)
+            .map(([k, v]) => `- **${k}**: ${v}`)
+            .join("\n");
+          return entries
+            ? `**Extracted from ${url}:**\n${entries}`
+            : `No structured data found at ${url}.`;
+        }
       }
 
-      if (action === "extract_structured" && extract_schema) {
-        const fields = Object.keys(extract_schema);
-        const data = await extractStructured(url, fields, selector);
-        const entries = Object.entries(data)
-          .filter(([, v]) => v)
-          .map(([k, v]) => `- **${k}**: ${v}`)
-          .join("\n");
-        return entries
-          ? `**Extracted from ${url}:**\n${entries}`
-          : `No structured data found at ${url}.`;
+      // Interactive browser actions (Playwright)
+      const { getBrowserSession, BrowserSessionManager } = await import(
+        "../../lib/browser-session.js"
+      );
+      const session = getBrowserSession();
+
+      if (action === "navigate") {
+        if (!url) return { error: "URL is required for navigate action" };
+        await session.navigate(url);
+        const result = await session.buildToolResult({ selector });
+        return BrowserSessionManager.toMultipartResult(result);
+      }
+
+      if (action === "wait_for_user") {
+        await session.waitForUser();
+        const result = await session.buildToolResult({ selector });
+        return BrowserSessionManager.toMultipartResult(result);
+      }
+
+      if (action === "click") {
+        if (!selector) return { error: "Selector is required for click action" };
+        await session.click(selector);
+        const result = await session.buildToolResult();
+        return BrowserSessionManager.toMultipartResult(result);
+      }
+
+      if (action === "scroll") {
+        await session.scroll(scroll_direction ?? "down");
+        const result = await session.buildToolResult();
+        return BrowserSessionManager.toMultipartResult(result);
+      }
+
+      if (action === "type") {
+        if (!selector) return { error: "Selector is required for type action" };
+        if (!inputText) return { error: "Text is required for type action" };
+        await session.type(selector, inputText);
+        const result = await session.buildToolResult();
+        return BrowserSessionManager.toMultipartResult(result);
       }
 
       if (action === "screenshot") {
-        const text = await extractText(url, selector);
-        return `**Page content from ${url}** (screenshot not available, extracted text instead):\n\n${text.slice(0, 4000)}`;
+        if (!session.isOpen) {
+          // Fallback to fetch-based if no browser session
+          if (url) {
+            const { extractText } = await import("../../lib/browser-actions.js");
+            const pageText = await extractText(url, selector);
+            return `**Page content from ${url}** (no browser session, extracted text instead):\n\n${pageText.slice(0, 4000)}`;
+          }
+          return { error: "No browser session open. Use 'navigate' first to open a browser." };
+        }
+        const result = await session.buildToolResult({ selector });
+        return BrowserSessionManager.toMultipartResult(result);
       }
 
-      return `Browsed ${url} successfully.`;
+      return `Browsed ${url ?? "current page"} successfully.`;
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
-      return `Failed to browse ${url}: ${message}`;
+      return `Failed to browse ${url ?? "page"}: ${message}`;
     }
   }
 

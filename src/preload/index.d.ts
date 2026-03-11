@@ -67,6 +67,8 @@ export type OverlayElectronAPI = {
   stopSystemAudio?: () => Promise<Array<{ speaker: string; text: string; timestamp: number }>>;
   removeAllListeners?: () => void;
   resizeOverlay?: (height: number) => Promise<void>;
+  notifyDataChanged?: (queryKeys: string[]) => void;
+  onDataChanged?: (cb: (queryKeys: string[]) => void) => void;
 };
 
 declare global {

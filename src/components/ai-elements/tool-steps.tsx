@@ -2,6 +2,7 @@ import {
   CheckCircle,
   XCircle,
   CircleNotch,
+  Globe,
 } from "@phosphor-icons/react";
 
 const TOOL_LABELS: Record<string, string> = {
@@ -34,6 +35,7 @@ const TOOL_LABELS: Record<string, string> = {
   list_notes: "Listing notes",
   create_note: "Creating note",
   add_note: "Adding note",
+  create_object: "Creating object",
 };
 
 export interface ToolStep {
@@ -43,6 +45,7 @@ export interface ToolStep {
   result?: string;
   success?: boolean;
   status: "running" | "complete" | "error";
+  browserStatus?: string;
 }
 
 export function ToolSteps({ steps }: { steps: ToolStep[] }) {
@@ -51,18 +54,23 @@ export function ToolSteps({ steps }: { steps: ToolStep[] }) {
   return (
     <div className="flex flex-col gap-1 mb-3">
       {steps.map((step) => (
-        <div
-          key={step.id}
-          className="flex items-center gap-2 text-xs text-muted-foreground"
-        >
-          {step.status === "running" ? (
-            <CircleNotch className="h-3 w-3 animate-spin" />
-          ) : step.status === "complete" ? (
-            <CheckCircle className="h-3 w-3 text-green-500" weight="fill" />
-          ) : (
-            <XCircle className="h-3 w-3 text-red-500" weight="fill" />
+        <div key={step.id} className="flex flex-col gap-0.5">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            {step.status === "running" ? (
+              <CircleNotch className="h-3 w-3 animate-spin" />
+            ) : step.status === "complete" ? (
+              <CheckCircle className="h-3 w-3 text-green-500" weight="fill" />
+            ) : (
+              <XCircle className="h-3 w-3 text-red-500" weight="fill" />
+            )}
+            <span>{TOOL_LABELS[step.toolName] ?? step.toolName}</span>
+          </div>
+          {step.browserStatus && (
+            <div className="flex items-center gap-2 text-xs text-amber-600 ml-5">
+              <Globe className="h-3 w-3" />
+              <span>{step.browserStatus}</span>
+            </div>
           )}
-          <span>{TOOL_LABELS[step.toolName] ?? step.toolName}</span>
         </div>
       ))}
     </div>

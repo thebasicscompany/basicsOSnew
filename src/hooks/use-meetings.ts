@@ -32,13 +32,25 @@ export interface MeetingSummary {
     decisions?: string[];
     actionItems?: string[];
     followUps?: string[];
+    _reviewed?: boolean;
   } | null;
   createdAt: string;
+}
+
+export interface MeetingLink {
+  contacts: { id: number; name: string }[];
+  companies: { id: number; name: string }[];
+  deals: { id: number; name: string }[];
+}
+
+export interface MeetingWithSummary extends Meeting {
+  summary: MeetingSummary | null;
 }
 
 export interface MeetingDetail extends Meeting {
   transcripts: MeetingTranscript[];
   summary: MeetingSummary | null;
+  links: MeetingLink;
 }
 
 export function useMeetings(params?: { page?: number; perPage?: number }) {
@@ -49,6 +61,7 @@ export function useMeetings(params?: { page?: number; perPage?: number }) {
     queryKey: ["meetings", { page, perPage }],
     queryFn: () =>
       fetchApi<Meeting[]>(`/api/meetings?page=${page}&perPage=${perPage}`),
+    // List is invalidated via IPC when overlay saves a meeting
   });
 }
 
@@ -57,6 +70,27 @@ export function useMeeting(id: number | null) {
     queryKey: ["meetings", "detail", id],
     queryFn: () => fetchApi<MeetingDetail>(`/api/meetings/${id}`),
     enabled: id != null,
+    // Poll while meeting is still processing so summary appears automatically
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === "recording" || status === "processing" ? 3_000 : false;
+    },
+  });
+}
+
+export function useUpdateMeetingNotes() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, notes }: { id: number; notes: string }) =>
+      fetchApi<{ ok: boolean }>(`/api/meetings/${id}/notes`, {
+        method: "PATCH",
+        body: JSON.stringify({ notes }),
+        headers: { "Content-Type": "application/json" },
+      }),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["meetings", "detail", vars.id] });
+    },
   });
 }
 
@@ -67,6 +101,98 @@ export function useDeleteMeeting() {
     mutationFn: (id: number) =>
       fetchApi<{ ok: boolean }>(`/api/meetings/${id}`, { method: "DELETE" }),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["meetings"] });
+    },
+  });
+}
+
+// ─── Meeting Links (F2) ──────────────────────────────────────────
+
+export function useMeetingsByRecord(params: {
+  contactId?: number;
+  companyId?: number;
+  dealId?: number;
+}) {
+  const qs = new URLSearchParams();
+  if (params.contactId) qs.set("contactId", String(params.contactId));
+  if (params.companyId) qs.set("companyId", String(params.companyId));
+  if (params.dealId) qs.set("dealId", String(params.dealId));
+
+  return useQuery({
+    queryKey: ["meetings", "by-record", params],
+    queryFn: () =>
+      fetchApi<MeetingWithSummary[]>(`/api/meetings/by-record?${qs.toString()}`),
+    enabled: !!(params.contactId || params.companyId || params.dealId),
+  });
+}
+
+export function useLinkMeeting() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      meetingId,
+      ...body
+    }: {
+      meetingId: number;
+      contactId?: number;
+      companyId?: number;
+      dealId?: number;
+    }) =>
+      fetchApi<{ ok: boolean }>(`/api/meetings/${meetingId}/links`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({
+        queryKey: ["meetings", "detail", vars.meetingId],
+      });
+      queryClient.invalidateQueries({ queryKey: ["meetings", "by-record"] });
+    },
+  });
+}
+
+export function useUnlinkMeeting() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      meetingId,
+      ...body
+    }: {
+      meetingId: number;
+      contactId?: number;
+      companyId?: number;
+      dealId?: number;
+    }) =>
+      fetchApi<{ ok: boolean }>(`/api/meetings/${meetingId}/links`, {
+        method: "DELETE",
+        body: JSON.stringify(body),
+      }),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({
+        queryKey: ["meetings", "detail", vars.meetingId],
+      });
+      queryClient.invalidateQueries({ queryKey: ["meetings", "by-record"] });
+    },
+  });
+}
+
+// ─── Action Items Review (F3) ────────────────────────────────────
+
+export function useMarkActionItemsReviewed() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (meetingId: number) =>
+      fetchApi<{ ok: boolean }>(
+        `/api/meetings/${meetingId}/action-items-reviewed`,
+        { method: "POST" },
+      ),
+    onSuccess: (_data, meetingId) => {
+      queryClient.invalidateQueries({
+        queryKey: ["meetings", "detail", meetingId],
+      });
       queryClient.invalidateQueries({ queryKey: ["meetings"] });
     },
   });

@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { eq, and, desc, sql, ilike, gte } from "drizzle-orm";
+import { eq, and, desc, sql, ilike, gte, inArray } from "drizzle-orm";
 import { authMiddleware } from "@/middleware/auth.js";
 import type { Db } from "@/db/client.js";
 import type { Env } from "@/env.js";
@@ -68,6 +68,7 @@ export function createEmailSyncRoutes(db: Db, auth: Auth, _env: Env) {
     }
 
     let pendingCount = 0;
+    let pendingDealCount = 0;
     try {
       const [countResult] = await db
         .select({ count: sql<number>`count(*)::int` })
@@ -83,11 +84,27 @@ export function createEmailSyncRoutes(db: Db, auth: Auth, _env: Env) {
       log.error({ err }, "email-sync status: failed to count suggestions");
     }
 
+    try {
+      const [dealCountResult] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(schema.suggestedDeals)
+        .where(
+          and(
+            eq(schema.suggestedDeals.organizationId, crmUser.organizationId),
+            eq(schema.suggestedDeals.status, "pending"),
+          ),
+        );
+      pendingDealCount = dealCountResult?.count ?? 0;
+    } catch (err) {
+      log.error({ err }, "email-sync status: failed to count deal suggestions");
+    }
+
     return c.json({
       syncStatus: syncState.syncStatus,
       lastSyncedAt: syncState.lastSyncedAt,
       totalSynced: syncState.totalSynced,
       pendingSuggestions: pendingCount,
+      pendingDealSuggestions: pendingDealCount,
       settings: syncState.settings,
     });
   });
@@ -232,6 +249,237 @@ export function createEmailSyncRoutes(db: Db, auth: Auth, _env: Env) {
       page,
       perPage,
     });
+  });
+
+  // ─── Deal Suggestions ─────────────────────────────────────────────
+
+  // GET /api/email-sync/deal-suggestions
+  app.get("/deal-suggestions", async (c) => {
+    const crmUser = await getCrmUser(c);
+    if (!crmUser?.organizationId) return c.json({ error: "Unauthorized" }, 401);
+
+    const status = c.req.query("status") ?? "pending";
+    const page = Math.max(1, parseInt(c.req.query("page") ?? "1", 10));
+    const perPage = Math.min(
+      100,
+      Math.max(1, parseInt(c.req.query("perPage") ?? "20", 10)),
+    );
+    const offset = (page - 1) * perPage;
+
+    const conditions = [
+      eq(schema.suggestedDeals.organizationId, crmUser.organizationId),
+      eq(schema.suggestedDeals.status, status),
+    ];
+
+    const [countResult] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(schema.suggestedDeals)
+      .where(and(...conditions));
+
+    const suggestions = await db
+      .select()
+      .from(schema.suggestedDeals)
+      .where(and(...conditions))
+      .orderBy(desc(schema.suggestedDeals.score))
+      .limit(perPage)
+      .offset(offset);
+
+    return c.json({
+      data: suggestions,
+      total: countResult?.count ?? 0,
+      page,
+      perPage,
+    });
+  });
+
+  // POST /api/email-sync/deal-suggestions/:id/accept
+  app.post("/deal-suggestions/:id/accept", async (c) => {
+    const authz = await requirePermission(c, db, PERMISSIONS.recordsWrite);
+    if (!authz.ok) return authz.response;
+
+    const crmUser = await getCrmUser(c);
+    if (!crmUser?.organizationId) return c.json({ error: "Unauthorized" }, 401);
+
+    const suggestionId = parseInt(c.req.param("id"), 10);
+
+    const [suggestion] = await db
+      .select()
+      .from(schema.suggestedDeals)
+      .where(
+        and(
+          eq(schema.suggestedDeals.id, suggestionId),
+          eq(schema.suggestedDeals.organizationId, crmUser.organizationId),
+        ),
+      )
+      .limit(1);
+
+    if (!suggestion) return c.json({ error: "Suggestion not found" }, 404);
+    if (suggestion.status !== "pending")
+      return c.json({ error: "Already reviewed" }, 400);
+
+    // Find or create company
+    let companyId: number | null = null;
+    if (suggestion.companyDomain) {
+      const [existing] = await db
+        .select({ id: schema.companies.id })
+        .from(schema.companies)
+        .where(
+          and(
+            eq(schema.companies.organizationId, crmUser.organizationId),
+            ilike(schema.companies.domain, suggestion.companyDomain),
+          ),
+        )
+        .limit(1);
+      if (existing) {
+        companyId = existing.id;
+      }
+    }
+    if (!companyId && suggestion.companyName) {
+      const [byName] = await db
+        .select({ id: schema.companies.id })
+        .from(schema.companies)
+        .where(
+          and(
+            eq(schema.companies.organizationId, crmUser.organizationId),
+            ilike(schema.companies.name, suggestion.companyName),
+          ),
+        )
+        .limit(1);
+      if (byName) {
+        companyId = byName.id;
+      }
+    }
+    if (!companyId && suggestion.companyName) {
+      const [newCompany] = await db
+        .insert(schema.companies)
+        .values({
+          name: suggestion.companyName,
+          domain: suggestion.companyDomain,
+          organizationId: crmUser.organizationId,
+          crmUserId: crmUser.id,
+          customFields: {},
+        })
+        .returning({ id: schema.companies.id });
+      companyId = newCompany.id;
+    }
+
+    // Find or create contact
+    let contactId: number | null = null;
+    if (suggestion.founderEmail) {
+      const [existing] = await db
+        .select({ id: schema.contacts.id })
+        .from(schema.contacts)
+        .where(
+          and(
+            eq(schema.contacts.organizationId, crmUser.organizationId),
+            ilike(schema.contacts.email, suggestion.founderEmail),
+          ),
+        )
+        .limit(1);
+      if (existing) {
+        contactId = existing.id;
+      } else {
+        const nameParts = (suggestion.founderName ?? "").trim().split(/\s+/);
+        const firstName = nameParts[0] ?? null;
+        const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : null;
+        const [newContact] = await db
+          .insert(schema.contacts)
+          .values({
+            firstName,
+            lastName,
+            email: suggestion.founderEmail,
+            companyId,
+            crmUserId: crmUser.id,
+            organizationId: crmUser.organizationId,
+            customFields: {},
+          })
+          .returning({ id: schema.contacts.id });
+        contactId = newContact.id;
+      }
+    }
+
+    // Create deal
+    const [newDeal] = await db
+      .insert(schema.deals)
+      .values({
+        name: suggestion.dealName ?? `${suggestion.companyName ?? "New"} Deal`,
+        companyId,
+        status: "New",
+        crmUserId: crmUser.id,
+        organizationId: crmUser.organizationId,
+        customFields: {},
+      })
+      .returning({ id: schema.deals.id });
+
+    // Link deal to contact
+    if (contactId) {
+      await db
+        .insert(schema.dealContacts)
+        .values({
+          dealId: newDeal.id,
+          contactId,
+          organizationId: crmUser.organizationId,
+          crmUserId: crmUser.id,
+        })
+        .onConflictDoNothing();
+    }
+
+    // Update suggestion
+    await db
+      .update(schema.suggestedDeals)
+      .set({
+        status: "accepted",
+        reviewedAt: new Date(),
+        createdDealId: newDeal.id,
+        createdContactId: contactId,
+        createdCompanyId: companyId,
+      })
+      .where(eq(schema.suggestedDeals.id, suggestionId));
+
+    // Queue enrichment for contact
+    if (contactId) {
+      const settings = (
+        await db
+          .select({ settings: schema.emailSyncState.settings })
+          .from(schema.emailSyncState)
+          .where(eq(schema.emailSyncState.organizationId, crmUser.organizationId))
+          .limit(1)
+      )?.[0]?.settings as { enrichWithAi: boolean } | undefined;
+
+      if (settings?.enrichWithAi) {
+        await enqueueEnrichment(crmUser.organizationId, contactId);
+      }
+    }
+
+    return c.json({
+      ok: true,
+      dealId: newDeal.id,
+      contactId,
+      companyId,
+    });
+  });
+
+  // POST /api/email-sync/deal-suggestions/:id/dismiss
+  app.post("/deal-suggestions/:id/dismiss", async (c) => {
+    const authz = await requirePermission(c, db, PERMISSIONS.recordsWrite);
+    if (!authz.ok) return authz.response;
+
+    const crmUser = await getCrmUser(c);
+    if (!crmUser?.organizationId) return c.json({ error: "Unauthorized" }, 401);
+
+    const suggestionId = parseInt(c.req.param("id"), 10);
+
+    await db
+      .update(schema.suggestedDeals)
+      .set({ status: "dismissed", reviewedAt: new Date() })
+      .where(
+        and(
+          eq(schema.suggestedDeals.id, suggestionId),
+          eq(schema.suggestedDeals.organizationId, crmUser.organizationId),
+        ),
+      );
+
+    return c.json({ ok: true });
   });
 
   // POST /api/email-sync/suggestions/:id/accept
@@ -632,7 +880,7 @@ export function createEmailSyncRoutes(db: Db, auth: Auth, _env: Env) {
             .where(
               and(
                 eq(schema.contacts.organizationId, orgId),
-                sql`LOWER(${schema.contacts.email}) = ANY(${emails})`,
+                inArray(sql`LOWER(${schema.contacts.email})`, emails),
               ),
             )
         : [];
@@ -655,7 +903,7 @@ export function createEmailSyncRoutes(db: Db, auth: Auth, _env: Env) {
             .where(
               and(
                 eq(schema.suggestedContacts.organizationId, orgId),
-                sql`LOWER(${schema.suggestedContacts.email}) = ANY(${emails})`,
+                inArray(sql`LOWER(${schema.suggestedContacts.email})`, emails),
               ),
             )
         : [];

@@ -32,6 +32,11 @@ const overlayAPI = {
     ipcRenderer.on("settings-changed", (_e, s: OverlaySettings) => cb(s));
   },
   notifyDismissed: () => ipcRenderer.send("overlay-dismissed"),
+  notifyDataChanged: (queryKeys: string[]) =>
+    ipcRenderer.send("data-changed", queryKeys),
+  onDataChanged: (cb: (queryKeys: string[]) => void) => {
+    ipcRenderer.on("data-changed", (_e, keys: string[]) => cb(keys));
+  },
   setIgnoreMouse: (ignore: boolean) =>
     ipcRenderer.send("set-ignore-mouse", ignore),
   navigateMain: (path: string) => ipcRenderer.send("navigate-main", path),
@@ -165,6 +170,7 @@ const overlayAPI = {
       "system-audio-silent",
       "system-audio-transcript",
       "dictation-insert-request",
+      "data-changed",
     ];
     for (const ch of channels) ipcRenderer.removeAllListeners(ch);
   },

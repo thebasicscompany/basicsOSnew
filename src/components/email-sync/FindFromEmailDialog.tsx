@@ -15,7 +15,11 @@ import {
   CheckCircleIcon,
   ArrowRightIcon,
 } from "@phosphor-icons/react";
-import { useEmailSearch, useAddContactFromEmail } from "@/hooks/use-email-sync";
+import {
+  useEmailSearch,
+  useAddContactFromEmail,
+  useSuggestedContacts,
+} from "@/hooks/use-email-sync";
 import { useDebouncedCallback } from "@/hooks/use-debounced-callback";
 import type { EmailParticipant } from "@/types/email-sync";
 
@@ -72,6 +76,8 @@ export function FindFromEmailDialog({
   const [inputValue, setInputValue] = useState("");
   const [query, setQuery] = useState("");
   const { data, isLoading } = useEmailSearch(query);
+  const { data: suggestionsData, isLoading: suggestionsLoading } =
+    useSuggestedContacts({ status: "pending", page: 1, perPage: 10 });
   const addContact = useAddContactFromEmail();
 
   const debouncedSetQuery = useDebouncedCallback((value: string) => {
@@ -83,7 +89,23 @@ export function FindFromEmailDialog({
     debouncedSetQuery(value.trim());
   };
 
+  const isSearching = query.length >= 2;
   const participants = useMemo(() => data?.data ?? [], [data]);
+  const suggestions = useMemo<EmailParticipant[]>(
+    () =>
+      (suggestionsData?.data ?? []).map((s) => ({
+        email: s.email,
+        name: [s.firstName, s.lastName].filter(Boolean).join(" ") || null,
+        domain: s.domain,
+        emailCount: s.emailCount,
+        lastEmailDate: s.lastEmailDate,
+        isBidirectional: s.signals?.isBidirectional ?? false,
+        status: "suggested" as const,
+        suggestionId: s.id,
+        score: s.score,
+      })),
+    [suggestionsData],
+  );
 
   const handleAdd = (p: EmailParticipant) => {
     // Parse name into first/last
@@ -133,13 +155,56 @@ export function FindFromEmailDialog({
         </div>
 
         <div className="-mx-6 flex-1 overflow-y-auto px-6">
-          {!query || query.length < 2 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <p className="text-sm text-muted-foreground">
-                Type at least 2 characters to search
-              </p>
-            </div>
-          ) : isLoading ? (
+          {isSearching ? (
+            // Search results mode
+            isLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="rounded-lg border p-4">
+                    <div className="flex items-start gap-3">
+                      <Skeleton className="size-10 rounded-full" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-4 w-2/3" />
+                        <Skeleton className="h-3 w-1/2" />
+                        <Skeleton className="h-3 w-1/3" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : participants.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <p className="text-sm text-muted-foreground">
+                  No email participants found
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Try a different search term
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3 pb-2">
+                {participants.map((p) => (
+                  <ParticipantRow
+                    key={p.email}
+                    participant={p}
+                    onAdd={() => handleAdd(p)}
+                    onView={() => {
+                      if (p.contactId) {
+                        onOpenChange(false);
+                        navigate(`/objects/contacts/${p.contactId}`);
+                      }
+                    }}
+                    isAdding={
+                      addContact.isPending &&
+                      (addContact.variables as { email: string })?.email ===
+                        p.email
+                    }
+                  />
+                ))}
+              </div>
+            )
+          ) : // Suggestions mode (no search query)
+          suggestionsLoading ? (
             <div className="space-y-3">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="rounded-lg border p-4">
@@ -154,28 +219,26 @@ export function FindFromEmailDialog({
                 </div>
               ))}
             </div>
-          ) : participants.length === 0 ? (
+          ) : suggestions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <p className="text-sm text-muted-foreground">
-                No email participants found
+                No suggested contacts yet
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Try a different search term
+                Sync your email to discover contacts
               </p>
             </div>
           ) : (
             <div className="space-y-3 pb-2">
-              {participants.map((p) => (
+              <p className="text-xs font-medium text-muted-foreground">
+                Suggested from your emails
+              </p>
+              {suggestions.map((p) => (
                 <ParticipantRow
                   key={p.email}
                   participant={p}
                   onAdd={() => handleAdd(p)}
-                  onView={() => {
-                    if (p.contactId) {
-                      onOpenChange(false);
-                      navigate(`/objects/contacts/${p.contactId}`);
-                    }
-                  }}
+                  onView={() => {}}
                   isAdding={
                     addContact.isPending &&
                     (addContact.variables as { email: string })?.email ===

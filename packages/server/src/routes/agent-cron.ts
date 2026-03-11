@@ -88,6 +88,35 @@ export function createAgentCronRoutes(
     }
   });
 
+  // GET /api/agent-cron/:id — get single job
+  app.get("/:id", authMiddleware(auth, db), async (c) => {
+    const crmUser = await getCrmUser(c);
+    if (!crmUser?.organizationId) {
+      return c.json({ error: "Organization not found" }, 404);
+    }
+    const id = Number(c.req.param("id"));
+    if (Number.isNaN(id)) {
+      return c.json({ error: "Invalid job id" }, 400);
+    }
+    try {
+      const [job] = await db
+        .select()
+        .from(schema.agentCronJobs)
+        .where(
+          and(
+            eq(schema.agentCronJobs.id, id),
+            eq(schema.agentCronJobs.organizationId, crmUser.organizationId),
+          ),
+        )
+        .limit(1);
+      if (!job) return c.json({ error: "Job not found" }, 404);
+      return c.json(job);
+    } catch (err) {
+      console.error("[agent-cron] get error:", err);
+      return c.json({ error: "Failed to get job" }, 500);
+    }
+  });
+
   // PUT /api/agent-cron/:id — update job
   app.put("/:id", authMiddleware(auth, db), async (c) => {
     const crmUser = await getCrmUser(c);

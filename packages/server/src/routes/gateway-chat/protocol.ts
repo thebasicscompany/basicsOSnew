@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+type ToolContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+
 export type ChatMessage =
   | { role: "system"; content: string }
   | { role: "user"; content: string }
@@ -12,7 +16,7 @@ export type ChatMessage =
         function: { name: string; arguments: string };
       }>;
     }
-  | { role: "tool"; tool_call_id: string; content: string };
+  | { role: "tool"; tool_call_id: string; content: string | ToolContentPart[] };
 
 type UiMessage = {
   role: string;
@@ -73,7 +77,7 @@ You can also:
 - **Manage views** with manage_view to create filtered/sorted views for the user
 - **Create automations** with create_automation to set up triggered workflows
 - **Generate reports** with generate_report to create visual data summaries
-- **Browse web pages** with browse_web to navigate URLs, extract text/structured data for research
+- **Browse web pages** with browse_web to navigate URLs, extract text/structured data, or open an interactive browser for JS-heavy sites and sites requiring login. Use 'navigate' to launch a visible browser, then 'click'/'scroll'/'type' to interact. Use 'wait_for_user' when login is needed — sessions are saved so users don't re-login
 - **Update custom fields** on contacts, companies, and deals by passing custom_fields in update tools
 - **Create custom objects** with create_object to define new CRM entity types (e.g. projects, tickets). Max 5 custom objects per org.
 
@@ -492,15 +496,37 @@ export const generateReportSchema = z.object({
 });
 
 export const browseWebSchema = z.object({
-  url: z.string().url().describe("URL to navigate to"),
+  url: z
+    .string()
+    .url()
+    .optional()
+    .describe("URL to navigate to. Required for 'navigate' and fetch-based actions. Omit to act on the current page."),
   action: z
-    .enum(["extract_text", "extract_structured", "screenshot"])
+    .enum([
+      "extract_text",
+      "extract_structured",
+      "navigate",
+      "wait_for_user",
+      "click",
+      "scroll",
+      "type",
+      "screenshot",
+    ])
     .default("extract_text")
     .describe("What to do on the page"),
   selector: z
     .string()
     .optional()
-    .describe("CSS selector to target specific content"),
+    .describe("CSS selector or aria label to target"),
+  text: z
+    .string()
+    .optional()
+    .describe("Text to type (for 'type' action)"),
+  scroll_direction: z
+    .enum(["down", "up"])
+    .default("down")
+    .optional()
+    .describe("Scroll direction (for 'scroll' action)"),
   wait_for: z
     .string()
     .optional()
@@ -1288,27 +1314,41 @@ export const OPENAI_TOOL_DEFS = [
     function: {
       name: "browse_web",
       description:
-        "Navigate to a URL and extract text or structured data for research.",
+        "Browse web pages. For public pages, use 'extract_text' (fast, no browser). For sites requiring login or JS interaction, use 'navigate' to open a visible browser. The browser stays open — follow up with 'click', 'scroll', 'type', 'screenshot'. Use 'wait_for_user' when you see a login page and need the user to log in. Each interactive action returns a screenshot + page structure so you can see what's on the page. Omit 'url' to act on the current page. User sessions are saved automatically.",
       parameters: {
         type: "object",
         properties: {
           url: {
             type: "string",
-            description: "URL to navigate to",
+            description: "URL to navigate to. Required for 'navigate' and fetch-based actions. Omit to act on the current page.",
           },
           action: {
             type: "string",
             enum: [
               "extract_text",
               "extract_structured",
+              "navigate",
+              "wait_for_user",
+              "click",
+              "scroll",
+              "type",
               "screenshot",
             ],
-            description: "What to do on the page",
+            description: "What to do on the page. 'extract_text'/'extract_structured' use fast fetch (no browser). Others open a visible browser.",
           },
           selector: {
             type: "string",
             description:
-              "CSS selector to target specific content",
+              "CSS selector or aria label to target (for click, type, or extract)",
+          },
+          text: {
+            type: "string",
+            description: "Text to type (for 'type' action)",
+          },
+          scroll_direction: {
+            type: "string",
+            enum: ["down", "up"],
+            description: "Scroll direction (for 'scroll' action). Default: down",
           },
           wait_for: {
             type: "string",
@@ -1322,7 +1362,7 @@ export const OPENAI_TOOL_DEFS = [
             additionalProperties: { type: "string" },
           },
         },
-        required: ["url"],
+        required: [],
       },
     },
   },

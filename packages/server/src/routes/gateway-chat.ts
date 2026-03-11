@@ -431,6 +431,7 @@ export interface StreamCallback {
   onToolStart: (id: string, toolName: string, args: Record<string, unknown>) => void;
   onToolResult: (id: string, toolName: string, result: string, success: boolean) => void;
   onTextDelta: (text: string) => void;
+  onBrowserStatus?: (id: string, status: string) => void;
 }
 
 export type ProcessChatTurnParams = {
@@ -783,7 +784,7 @@ export async function processChatTurn(
     }
   }
 
-  const maxToolRounds = toolsEnabled ? 5 : 1;
+  const maxToolRounds = toolsEnabled ? 8 : 1;
   for (let i = 0; i < maxToolRounds && !finalContent; i++) {
     const isLastRound = i === maxToolRounds - 1;
 
@@ -935,12 +936,25 @@ export async function processChatTurn(
         toolResult: result,
       });
 
-      const raw = typeof result === "string" ? result : JSON.stringify(result);
-      chatMessages.push({
-        role: "tool",
-        tool_call_id: tc.id,
-        content: buildToolChatContent(tc.function.name, raw, nextStepHint),
-      });
+      // Handle multi-part results (screenshot + text) from browser sessions
+      if (result && typeof result === "object" && (result as Record<string, unknown>)._multipart) {
+        const mp = result as { text: string; imageBase64: string };
+        chatMessages.push({
+          role: "tool",
+          tool_call_id: tc.id,
+          content: [
+            { type: "text", text: mp.text },
+            { type: "image_url", image_url: { url: `data:image/jpeg;base64,${mp.imageBase64}` } },
+          ],
+        });
+      } else {
+        const raw = typeof result === "string" ? result : JSON.stringify(result);
+        chatMessages.push({
+          role: "tool",
+          tool_call_id: tc.id,
+          content: buildToolChatContent(tc.function.name, raw, nextStepHint),
+        });
+      }
     }
   }
 
@@ -1064,6 +1078,10 @@ export function createGatewayChatRoutes(
         writer.write(encoder.encode(`8:${annotation}\n`));
       },
       onTextDelta: () => {},
+      onBrowserStatus: (id, status) => {
+        const annotation = JSON.stringify([{ type: "browser_status", id, status }]);
+        writer.write(encoder.encode(`8:${annotation}\n`));
+      },
     };
 
     // Run processChatTurn in the background, streaming tool events and final text
