@@ -108,6 +108,9 @@ export default defineConfig({
   },
   build: {
     sourcemap: true,
+    rollupOptions: {
+      external: ["@radix-ui/react-form"],
+    },
   },
   resolve: {
     preserveSymlinks: true,
