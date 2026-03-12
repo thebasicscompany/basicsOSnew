@@ -1155,6 +1155,34 @@ app.whenReady().then(async () => {
     },
   );
 
+  // In packaged Electron builds the renderer loads from file://, which causes
+  // cross-origin requests to the API to carry Origin: null (or no Origin at all).
+  // Better Auth's CSRF middleware rejects that with MISSING_OR_NULL_ORIGIN before
+  // it ever reaches the trustedOrigins callback.  Fix: intercept outbound requests
+  // to the configured API host and replace a null/missing Origin with the actual
+  // API origin so the server-side CSRF check sees a legit, trusted value.
+  try {
+    const apiOrigin = new URL(API_URL).origin;
+    session.defaultSession.webRequest.onBeforeSendHeaders(
+      (details, callback) => {
+        const headers = { ...details.requestHeaders };
+        const origin = headers["Origin"] ?? headers["origin"];
+        if (!origin || origin === "null") {
+          try {
+            if (new URL(details.url).origin === apiOrigin) {
+              headers["Origin"] = apiOrigin;
+            }
+          } catch {
+            // ignore unparseable URLs
+          }
+        }
+        callback({ requestHeaders: headers });
+      },
+    );
+  } catch {
+    // ignore if API_URL is not a valid URL (e.g. relative path fallback)
+  }
+
   // Auto-update (skip in dev)
   if (!is.dev) {
     autoUpdater.checkForUpdatesAndNotify().catch(() => {
