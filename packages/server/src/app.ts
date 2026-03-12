@@ -23,7 +23,7 @@ import { createMeetingsRoutes } from "@/routes/meetings.js";
 import { createEmailSyncRoutes } from "@/routes/email-sync.js";
 import { createRbacRoutes } from "@/routes/rbac.js";
 import { createAdminRoutes } from "@/routes/admin.js";
-import { isTrustedOrigin } from "@/lib/trusted-origins.js";
+import { isTrustedOrigin, isElectronUserAgent } from "@/lib/trusted-origins.js";
 import { sql } from "drizzle-orm";
 
 type RateBucket = {
@@ -105,8 +105,14 @@ export function createApp(db: Db, env: Env) {
     cors({
       origin: (origin, c) => {
         const userAgent = c.req.header("user-agent");
-        return isTrustedOrigin(origin, allowedOriginSet, userAgent)
-          ? origin
+        const effectiveOrigin =
+          origin !== undefined && origin !== ""
+            ? origin
+            : isElectronUserAgent(userAgent)
+              ? "null"
+              : undefined;
+        return effectiveOrigin && isTrustedOrigin(effectiveOrigin, allowedOriginSet, userAgent)
+          ? effectiveOrigin
           : null;
       },
       allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],

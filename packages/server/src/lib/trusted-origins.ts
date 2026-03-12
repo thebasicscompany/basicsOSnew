@@ -1,6 +1,6 @@
 const ELECTRON_RENDERER_ORIGINS = new Set(["null", "file://"]);
 
-function isElectronUserAgent(userAgent: string | undefined | null): boolean {
+export function isElectronUserAgent(userAgent: string | undefined | null): boolean {
   return /\bElectron\//i.test(userAgent ?? "");
 }
 
@@ -9,7 +9,8 @@ export function isTrustedOrigin(
   allowedOrigins: Set<string>,
   userAgent?: string | null,
 ): boolean {
-  if (!origin) return false;
+  // Electron with no Origin header (e.g. some runtimes) — treat as trusted "null"
+  if (!origin) return isElectronUserAgent(userAgent);
 
   if (allowedOrigins.has(origin)) return true;
 

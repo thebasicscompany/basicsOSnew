@@ -3,7 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import type { Db } from "@/db/client.js";
 import type { Env } from "@/env.js";
 import { createSendResetPassword } from "./lib/send-reset-password.js";
-import { isTrustedOrigin } from "./lib/trusted-origins.js";
+import { isTrustedOrigin, isElectronUserAgent } from "./lib/trusted-origins.js";
 
 export function createAuth(
   db: Db,
@@ -24,11 +24,14 @@ export function createAuth(
     secret,
     // Localhost (dev) + ALLOWED_ORIGINS (production)
     trustedOrigins: async (req) => {
-      const origin = req?.headers?.get("origin");
+      const origin = req?.headers?.get("origin") ?? undefined;
       const userAgent = req?.headers?.get("user-agent");
-      return isTrustedOrigin(origin, allowedSet, userAgent) && origin
-        ? [origin]
-        : [];
+      // Electron may send no Origin; treat as "null" so sign-out/auth works (avoids 403)
+      const effectiveOrigin = origin !== undefined && origin !== "" ? origin : (isElectronUserAgent(userAgent) ? "null" : undefined);
+      if (effectiveOrigin && isTrustedOrigin(effectiveOrigin, allowedSet, userAgent)) {
+        return [effectiveOrigin];
+      }
+      return [];
     },
     emailAndPassword: {
       enabled: true,
