@@ -23,6 +23,7 @@ import { createMeetingsRoutes } from "@/routes/meetings.js";
 import { createEmailSyncRoutes } from "@/routes/email-sync.js";
 import { createRbacRoutes } from "@/routes/rbac.js";
 import { createAdminRoutes } from "@/routes/admin.js";
+import { isTrustedOrigin } from "@/lib/trusted-origins.js";
 import { sql } from "drizzle-orm";
 
 type RateBucket = {
@@ -102,19 +103,11 @@ export function createApp(db: Db, env: Env) {
   app.use(
     "/*",
     cors({
-      origin: (origin) => {
-        if (!origin) return null;
-        try {
-          const url = new URL(origin);
-          const isLocalhost =
-            (url.hostname === "localhost" || url.hostname === "127.0.0.1") &&
-            (url.protocol === "http:" || url.protocol === "https:");
-          if (isLocalhost) return origin;
-          if (allowedOriginSet.has(origin)) return origin;
-          return null;
-        } catch {
-          return null;
-        }
+      origin: (origin, c) => {
+        const userAgent = c.req.header("user-agent");
+        return isTrustedOrigin(origin, allowedOriginSet, userAgent)
+          ? origin
+          : null;
       },
       allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
       allowHeaders: ["Content-Type", "Authorization"],

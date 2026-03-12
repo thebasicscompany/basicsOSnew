@@ -27,11 +27,11 @@ export function LoginPage() {
     const { error: signInError } = await authClient.signIn.email({
       email,
       password,
-      callbackURL: ROUTES.CRM,
     });
     if (signInError) {
       setError(signInError.message ?? "Login failed");
     } else {
+      // Electron uses HashRouter in the packaged app, so keep navigation client-side.
       navigate(ROUTES.CRM);
     }
   };

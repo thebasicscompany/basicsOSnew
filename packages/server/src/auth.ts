@@ -3,6 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import type { Db } from "@/db/client.js";
 import type { Env } from "@/env.js";
 import { createSendResetPassword } from "./lib/send-reset-password.js";
+import { isTrustedOrigin } from "./lib/trusted-origins.js";
 
 export function createAuth(
   db: Db,
@@ -24,18 +25,10 @@ export function createAuth(
     // Localhost (dev) + ALLOWED_ORIGINS (production)
     trustedOrigins: async (req) => {
       const origin = req?.headers?.get("origin");
-      if (!origin) return [];
-      try {
-        const url = new URL(origin);
-        const isLocal =
-          (url.hostname === "localhost" || url.hostname === "127.0.0.1") &&
-          (url.protocol === "http:" || url.protocol === "https:");
-        if (isLocal) return [origin];
-        if (allowedSet.has(origin)) return [origin];
-        return [];
-      } catch {
-        return [];
-      }
+      const userAgent = req?.headers?.get("user-agent");
+      return isTrustedOrigin(origin, allowedSet, userAgent) && origin
+        ? [origin]
+        : [];
     },
     emailAndPassword: {
       enabled: true,
