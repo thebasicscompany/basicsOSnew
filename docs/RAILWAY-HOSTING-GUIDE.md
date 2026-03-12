@@ -50,6 +50,13 @@ The **Electron desktop app** is built locally and distributed separately. Users 
 3. Wait for it to deploy
 4. The PostgreSQL service will expose `DATABASE_URL`
 
+### pgvector (Required)
+
+BasicsOS uses pgvector for `context_embeddings` (AI chat context retrieval). Migrations run `CREATE EXTENSION IF NOT EXISTS vector`, which requires pgvector to be installed on the Postgres instance. Use one of:
+
+- **pgvector template (recommended)**: Deploy from [Railway’s pgvector template](https://railway.com/deploy/3jJFCA) instead of plain PostgreSQL.
+- **Enable on existing Postgres**: Run `CREATE EXTENSION IF NOT EXISTS vector;` in your database — only works if pgvector is installed on the underlying instance (not all Railway Postgres images include it).
+
 ---
 
 ## Step 3: Configure the BasicsOS Service

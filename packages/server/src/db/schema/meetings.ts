@@ -11,8 +11,8 @@ import {
   index,
   unique,
 } from "drizzle-orm/pg-core";
-import { crmUsers } from "@/db/schema/crm_users";
-import { organizations } from "@/db/schema/organizations";
+import { crmUsers } from "@/db/schema/crm_users.js";
+import { organizations } from "@/db/schema/organizations.js";
 
 export const meetings = pgTable(
   "meetings",
@@ -30,6 +30,7 @@ export const meetings = pgTable(
     endedAt: timestamp("ended_at", { withTimezone: true }),
     duration: integer("duration"),
     status: varchar("status", { length: 32 }).notNull().default("recording"),
+    notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow(),
   },

@@ -10,6 +10,8 @@ import {
   RecentRecordsSection,
   RecentChatsSection,
   SuggestedContactsSection,
+  DealOpportunitiesSection,
+  UnreviewedMeetingsSection,
 } from "@/components/home/home-sections";
 import {
   PromptInput,
@@ -19,6 +21,7 @@ import {
   PromptInputSubmit,
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input";
+import { HomeOnboardingChecklist } from "@/components/help/HomeOnboardingChecklist";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "";
 
@@ -59,7 +62,9 @@ function getGreeting(name: string) {
 /* ------------------------------------------------------------------ */
 
 const HOME_SECTIONS = [
+  { id: "deal-opportunities", component: DealOpportunitiesSection },
   { id: "suggested-contacts", component: SuggestedContactsSection },
+  { id: "unreviewed-meetings", component: UnreviewedMeetingsSection },
   { id: "recent-records", component: RecentRecordsSection },
   { id: "recents", component: RecentsSection },
   { id: "recent-chats", component: RecentChatsSection },
@@ -155,6 +160,14 @@ export function HomePage() {
               <PromptInputSubmit />
             </PromptInputFooter>
           </PromptInput>
+        </div>
+
+        <div className="mt-6">
+          <HomeOnboardingChecklist
+            userId={me?.id}
+            isAdmin={Boolean(me?.administrator)}
+            hasApiKey={hasKey || Boolean(me?.hasApiKey)}
+          />
         </div>
 
         {/* Dynamic sections */}

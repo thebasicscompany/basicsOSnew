@@ -133,7 +133,7 @@ export function RecordDetailPage() {
             variant="ghost"
             size="icon"
             className="size-7 shrink-0"
-            onClick={() => navigate(`/objects/${objectSlug}`)}
+            onClick={() => navigate(-1)}
           >
             <ArrowLeftIcon className="size-4" />
           </Button>

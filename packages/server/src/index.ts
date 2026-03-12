@@ -13,7 +13,7 @@ import {
   stopEmailSyncEngine,
 } from "@/lib/email-sync/sync-engine.js";
 import { logger } from "@/lib/logger.js";
-import { attachTranscribeWs } from "@/ws/transcribe.js";
+import { attachTranscribeWs } from "@/websocket/transcribe.js";
 
 const log = logger.child({ component: "server" });
 
@@ -32,12 +32,14 @@ async function main() {
     env.BETTER_AUTH_URL,
     env.BETTER_AUTH_SECRET,
     allowedOrigins,
+    env,
   );
 
   const server = serve(
     {
       fetch: app.fetch,
       port: env.PORT,
+      hostname: "0.0.0.0",
     },
     (info) => {
       log.info(
@@ -86,5 +88,11 @@ async function main() {
 
 main().catch((err) => {
   log.error({ err }, "Server failed to start");
+  // Ensure error is visible in Railway/log aggregators that may truncate JSON
+  console.error(
+    "Server failed to start:",
+    err instanceof Error ? err.message : String(err),
+  );
+  if (err instanceof Error && err.stack) console.error(err.stack);
   process.exit(1);
 });

@@ -1,5 +1,6 @@
 import {
   BrowserRouter,
+  HashRouter,
   Navigate,
   Route,
   Routes,
@@ -21,6 +22,7 @@ import { GatewayProvider } from "@/providers/GatewayProvider";
 import { ObjectRegistryProvider } from "@/providers/ObjectRegistryProvider";
 import { ErrorFallback } from "@/components/error-fallback";
 import { ProtectedRoute } from "@/lib/auth";
+import { HelpCenterProvider } from "@/contexts/help-center";
 import { StartPage } from "@/components/auth/start-page";
 import { SignupPage } from "@/components/auth/signup-page";
 import { ForgotPasswordPage } from "@/components/auth/forgot-password-page";
@@ -50,7 +52,7 @@ function RedirectToSettingsConnections() {
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 60 * 1000, // 1 minute
+      staleTime: 0,
       retry: 1,
     },
   },
@@ -90,10 +92,12 @@ function AppRoutes() {
             element={
               <ProtectedRoute>
                 <ObjectRegistryProvider>
-                  <>
-                    <AppLayout />
-                    <CommandPalette />
-                  </>
+                  <HelpCenterProvider>
+                    <>
+                      <AppLayout />
+                      <CommandPalette />
+                    </>
+                  </HelpCenterProvider>
                 </ObjectRegistryProvider>
               </ProtectedRoute>
             }
@@ -167,15 +171,17 @@ function AppRoutes() {
   );
 }
 
+const Router = import.meta.env.VITE_IS_ELECTRON ? HashRouter : BrowserRouter;
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <BrowserRouter>
+      <Router>
         <TooltipProvider>
           <AppRoutes />
           <Toaster />
         </TooltipProvider>
-      </BrowserRouter>
+      </Router>
     </ThemeProvider>
   </QueryClientProvider>
 );

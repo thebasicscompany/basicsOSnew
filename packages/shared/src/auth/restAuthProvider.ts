@@ -1,5 +1,5 @@
 import { createAuthClient } from "better-auth/react";
-import { canAccess } from "./canAccess";
+import { canAccess } from "./canAccess.js";
 
 /** REST auth provider compatible with React Admin-style consumers. */
 export interface RestAuthProvider {

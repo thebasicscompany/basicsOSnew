@@ -18,6 +18,7 @@ import { useFlashMessage } from "./lib/use-flash-message";
 import { useAIResponse } from "./lib/use-ai-response";
 import { useActivationHandler } from "./lib/use-activation-handler";
 import { useMeetingControls } from "./lib/use-meeting-controls";
+import { saveMeetingNotes } from "./api";
 import {
   ACTIVE_HEIGHT,
   CONTENT_ENTER,
@@ -59,8 +60,11 @@ const DEFAULT_SETTINGS: OverlaySettings = {
   meeting: { autoDetect: false, chunkIntervalMs: 5000 },
 };
 
+// Module-level cache survives Vite HMR remounts so notch info isn't lost
+let _cachedNotchInfo: NotchInfo | null = null;
+
 export const OverlayApp = () => {
-  const [config, setConfig] = useState<NotchInfo | null>(null);
+  const [config, setConfig] = useState<NotchInfo | null>(_cachedNotchInfo);
   const [pill, dispatch] = useReducer(pillReducer, initialPillContext);
   const [settings, setSettings] = useState<OverlaySettings>(DEFAULT_SETTINGS);
   const [measuredHeight, setMeasuredHeight] = useState(0);
@@ -68,6 +72,19 @@ export const OverlayApp = () => {
   const measureRef = useRef<HTMLDivElement>(null);
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const streamAbortRef = useRef(false);
+
+  // Response pinning — click pill to pin, X to dismiss
+  const [responsePinned, setResponsePinned] = useState(false);
+
+  // Notepad state
+  const [notepadOpen, setNotepadOpen] = useState(false);
+  const [notepadLocked, setNotepadLocked] = useState(false);
+  const [meetingNotes, setMeetingNotes] = useState("");
+  const notesSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const meetingNotesRef = useRef(meetingNotes);
+  meetingNotesRef.current = meetingNotes;
+  // Track last known meetingId so we can flush notes even after meetingId is cleared
+  const lastMeetingIdRef = useRef<string | null>(null);
 
   const flash = useFlashMessage();
   const handleRecorderError = useCallback(
@@ -83,6 +100,7 @@ export const OverlayApp = () => {
 
   const pillRef = useRef(pill);
   pillRef.current = pill;
+  if (pill.meetingId) lastMeetingIdRef.current = pill.meetingId;
   const speechRef = useRef<SpeechRecognitionState | null>(null);
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
@@ -99,6 +117,9 @@ export const OverlayApp = () => {
     cancelTTS();
     clearDismissTimer();
     streamAbortRef.current = true;
+    setResponsePinned(false);
+    setShowLastResponse(false);
+    setIgnoreMouse(true);
     const s = speechRef.current;
     if (s?.isListening) {
       void s.stopListening();
@@ -122,6 +143,7 @@ export const OverlayApp = () => {
     pillRef,
     meetingRecorderRef,
     showFlash: flash.show,
+    getNotesRef: () => meetingNotesRef.current,
   });
 
   useAIResponse(
@@ -191,7 +213,10 @@ export const OverlayApp = () => {
       .getOverlaySettings?.()
       .then((s) => setSettings(s))
       .catch(() => {});
-    api.onNotchInfo?.((info: NotchInfo) => setConfig(info));
+    api.onNotchInfo?.((info: NotchInfo) => {
+      _cachedNotchInfo = info;
+      setConfig(info);
+    });
     api.onSettingsChanged?.((s: OverlaySettings) => setSettings(s));
 
     api.onActivate?.(activation.handleActivate);
@@ -231,6 +256,105 @@ export const OverlayApp = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Flush notes save and reset notepad when meeting ends
+  useEffect(() => {
+    if (!pill.meetingActive) {
+      // Meeting just ended — flush any pending save
+      if (notesSaveTimerRef.current) {
+        clearTimeout(notesSaveTimerRef.current);
+        notesSaveTimerRef.current = null;
+      }
+      // Use lastMeetingIdRef since pill.meetingId is already null by now
+      const mid = lastMeetingIdRef.current;
+      if (meetingNotesRef.current && mid) {
+        saveMeetingNotes(mid, meetingNotesRef.current).catch(() => {});
+      }
+      setNotepadOpen(false);
+      setNotepadLocked(false);
+      setMeetingNotes("");
+      lastMeetingIdRef.current = null;
+    }
+  }, [pill.meetingActive]);
+
+  const debouncedSaveNotes = useCallback(
+    (text: string) => {
+      if (notesSaveTimerRef.current) clearTimeout(notesSaveTimerRef.current);
+      notesSaveTimerRef.current = setTimeout(() => {
+        const mid = pillRef.current.meetingId ?? lastMeetingIdRef.current;
+        if (mid && text) {
+          saveMeetingNotes(mid, text).catch(() => {});
+        }
+      }, 1500);
+    },
+    [],
+  );
+
+  const handleNotesChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const text = e.target.value;
+      setMeetingNotes(text);
+      debouncedSaveNotes(text);
+    },
+    [debouncedSaveNotes],
+  );
+
+  const handleNotesBlur = useCallback(() => {
+    // Immediate save on blur
+    if (notesSaveTimerRef.current) {
+      clearTimeout(notesSaveTimerRef.current);
+      notesSaveTimerRef.current = null;
+    }
+    const mid = pillRef.current.meetingId ?? lastMeetingIdRef.current;
+    if (mid && meetingNotesRef.current) {
+      saveMeetingNotes(mid, meetingNotesRef.current).catch(() => {});
+    }
+  }, []);
+
+  // Auto-insert bullet points on Enter
+  const handleNotesKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.key === "Enter") {
+        const textarea = e.currentTarget;
+        const { selectionStart, value } = textarea;
+        const lineStart = value.lastIndexOf("\n", selectionStart - 1) + 1;
+        const currentLine = value.slice(lineStart, selectionStart);
+
+        // If current line starts with "• " or "- ", auto-continue the bullet
+        const bulletMatch = currentLine.match(/^([•-]\s)/);
+        if (bulletMatch) {
+          // If the line is just a bullet with no content, remove it instead
+          if (currentLine.trim() === bulletMatch[1].trim()) {
+            e.preventDefault();
+            const newValue =
+              value.slice(0, lineStart) + "\n" + value.slice(selectionStart);
+            setMeetingNotes(newValue);
+            debouncedSaveNotes(newValue);
+            // Set cursor position after React re-render
+            requestAnimationFrame(() => {
+              textarea.selectionStart = textarea.selectionEnd = lineStart + 1;
+            });
+            return;
+          }
+          e.preventDefault();
+          const bullet = bulletMatch[1];
+          const insertion = "\n" + bullet;
+          const newValue =
+            value.slice(0, selectionStart) +
+            insertion +
+            value.slice(selectionStart);
+          setMeetingNotes(newValue);
+          debouncedSaveNotes(newValue);
+          requestAnimationFrame(() => {
+            textarea.selectionStart = textarea.selectionEnd =
+              selectionStart + insertion.length;
+          });
+        }
+      }
+      e.stopPropagation();
+    },
+    [debouncedSaveNotes],
+  );
+
   // Measure response content height using ResizeObserver for reliable layout measurement
   useEffect(() => {
     const el = measureRef.current;
@@ -253,8 +377,11 @@ export const OverlayApp = () => {
   const screenH = window.screen?.height ?? 900;
   const maxResponseBodyHeight = Math.round(screenH * 0.33) - 80;
 
-  // Response layout: title(24) + bodyGap(8) + body(responseContentH) + doneGap(6) + done(~14) + bottomPad(12)
-  const RESPONSE_EXTRA_H = 24 + 8 + 6 + 14 + 12;
+  // Response layout: title(24) + bodyGap(8) + body(responseContentH) + bottomPad(28)
+  const RESPONSE_EXTRA_H = 24 + 8 + 28;
+
+  const NOTEPAD_AREA_H = 120; // textarea area height
+  const NOTEPAD_GAP = 4;
 
   let pillHeight: number;
   const responseContentH = Math.min(
@@ -263,6 +390,9 @@ export const OverlayApp = () => {
   );
   if (pill.state === "idle" && showLastResponse) {
     pillHeight = topPad + RESPONSE_EXTRA_H + responseContentH;
+  } else if (pill.state === "idle" && pill.meetingActive && notepadOpen) {
+    // menuBar + gap + textarea + bottom padding
+    pillHeight = menuBarHeight + NOTEPAD_GAP + NOTEPAD_AREA_H + 10;
   } else if (pill.state === "idle") {
     pillHeight = menuBarHeight;
   } else if (pill.state === "response") {
@@ -331,52 +461,51 @@ export const OverlayApp = () => {
     if (pillRef.current.state === "idle" && pillRef.current.lastResponseTitle) {
       setShowLastResponse(true);
     }
+    // Expand notepad on hover during meeting
+    if (
+      pillRef.current.state === "idle" &&
+      pillRef.current.meetingActive
+    ) {
+      setNotepadOpen(true);
+    }
   }, [clearDismissTimer]);
 
   const handleMouseLeave = useCallback(() => {
-    setIgnoreMouse(true);
-    setShowLastResponse(false);
-    // Restart dismiss timer if still in response state
-    if (pillRef.current.state === "response") {
+    // Keep mouse interactive when response is pinned so user can click X
+    if (!responsePinned) {
+      setIgnoreMouse(true);
+      setShowLastResponse(false);
+    }
+    // Collapse notepad if not locked
+    if (!notepadLocked) {
+      setNotepadOpen(false);
+    }
+    // Restart dismiss timer if still in response state and not pinned
+    if (pillRef.current.state === "response" && !responsePinned) {
       clearDismissTimer();
       dismissTimerRef.current = setTimeout(
         () => dismissRef.current(),
         settingsRef.current.behavior.autoDismissMs,
       );
     }
-  }, [clearDismissTimer]);
+  }, [clearDismissTimer, notepadLocked, responsePinned]);
 
   const handlePillClick = useCallback(() => {
     const cur = pillRef.current;
-    const s = speechRef.current;
-    if (cur.state === "idle") {
-      if (!s) return;
-      dispatch({ type: "ACTIVATE", mode: "dictation" as InteractionMode });
-      s.startListening();
-    } else if (
-      cur.state === "listening" &&
-      cur.interactionMode === "dictation"
-    ) {
-      if (!s) return;
-      dispatch({ type: "TRANSCRIBING_START" });
-      s.stopListening().then((transcript) => {
-        if (transcript) {
-          window.electronAPI
-            ?.injectText?.(transcript)
-            .then(() => {
-              dispatch({ type: "TRANSCRIBING_COMPLETE", transcript });
-              flash.show("Copied! ⌘V to paste", FLASH_SHORT_MS);
-              setTimeout(() => dismissRef.current(), FLASH_SHORT_MS);
-            })
-            .catch(() => dismissRef.current());
-        } else {
-          dismissRef.current();
-        }
-      });
-    } else {
-      dismissRef.current();
+    if (cur.state === "idle" && cur.meetingActive) {
+      // Any click during meeting → open + lock notepad
+      setNotepadOpen(true);
+      setNotepadLocked(true);
+      return;
     }
-  }, [flash]);
+    if (cur.state === "response" || (cur.state === "idle" && showLastResponse)) {
+      // Pin the response so it stays visible until X is clicked
+      setResponsePinned(true);
+      clearDismissTimer();
+      return;
+    }
+    // All other clicks do nothing — use keyboard shortcuts to activate
+  }, [showLastResponse, clearDismissTimer]);
 
   return (
     <div style={{ width: "100%", display: "flex", justifyContent: "center" }}>
@@ -413,11 +542,15 @@ export const OverlayApp = () => {
         style={{
           width: "100%",
           background: "#000",
-          borderRadius: pill.state === "idle" ? "0 0 8px 8px" : "0 0 16px 16px",
+          borderRadius:
+            pill.state === "idle" && notepadOpen
+              ? "0 0 14px 14px"
+              : pill.state === "idle"
+                ? "0 0 8px 8px"
+                : "0 0 16px 16px",
           overflow: "hidden",
           position: "relative",
-          cursor:
-            pill.state === "idle" && !showLastResponse ? "pointer" : "default",
+          cursor: "default",
         }}
       >
         <div
@@ -429,70 +562,131 @@ export const OverlayApp = () => {
           }}
         >
           {pill.state === "idle" && !flash.message && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "flex-start",
-                height: menuBarHeight,
-                gap: 6,
-              }}
-            >
-              <CompanyLogo />
-              {pill.meetingActive && (
-                <>
-                  <motion.div
-                    animate={{ opacity: [1, 0.3, 1] }}
-                    transition={{
-                      duration: 1.5,
-                      repeat: Infinity,
-                      ease: "easeInOut",
-                    }}
-                    style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: "50%",
-                      background: "#ef4444",
-                      flexShrink: 0,
-                    }}
-                  />
-                  <MeetingTimer startedAt={pill.meetingStartedAt} />
-                </>
-              )}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void window.electronAPI?.hideOverlay?.();
-                }}
+            <>
+              <div
                 style={{
-                  marginLeft: "auto",
-                  background: "none",
-                  border: "none",
-                  padding: "2px 3px",
-                  cursor: "pointer",
-                  color: "rgba(255,255,255,0.6)",
-                  fontSize: 11,
-                  lineHeight: 1,
-                  flexShrink: 0,
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
-                  borderRadius: 3,
-                  transition: "color 0.15s",
+                  justifyContent: "flex-start",
+                  height: menuBarHeight,
+                  gap: 6,
                 }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.color =
-                    "rgba(255,255,255,1)";
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.color =
-                    "rgba(255,255,255,0.6)";
-                }}
-                aria-label="Close"
               >
-                ✕
-              </button>
-            </div>
+                <CompanyLogo />
+                {pill.meetingActive && (
+                  <>
+                    <motion.div
+                      animate={{ opacity: [1, 0.3, 1] }}
+                      transition={{
+                        duration: 1.5,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                      }}
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: "50%",
+                        background: "#ef4444",
+                        flexShrink: 0,
+                      }}
+                    />
+                    <MeetingTimer startedAt={pill.meetingStartedAt} />
+                  </>
+                )}
+                {/* spacer + toggle */}
+                <div style={{ marginLeft: "auto" }} />
+                {notepadOpen && (
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (notepadLocked) {
+                        setNotepadLocked(false);
+                        setNotepadOpen(false);
+                      } else {
+                        setNotepadLocked(true);
+                      }
+                    }}
+                    style={{
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 20,
+                      height: 20,
+                      borderRadius: 5,
+                      background: notepadLocked
+                        ? "rgba(255,255,255,0.12)"
+                        : "transparent",
+                      transition: "all 0.15s ease",
+                    }}
+                    title={notepadLocked ? "Close notepad" : "Keep notepad open"}
+                  >
+                    {notepadLocked ? (
+                      // X icon to close
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                        <path d="M2 2L8 8M8 2L2 8" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" strokeLinecap="round" />
+                      </svg>
+                    ) : (
+                      // Pin dot to lock
+                      <div
+                        style={{
+                          width: 5,
+                          height: 5,
+                          borderRadius: "50%",
+                          background: "rgba(255,255,255,0.3)",
+                        }}
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+              {notepadOpen && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: NOTEPAD_AREA_H }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.18, ease: "easeOut" }}
+                  style={{ marginTop: NOTEPAD_GAP }}
+                >
+                  {/* Subtle separator line */}
+                  <div
+                    style={{
+                      height: 1,
+                      background:
+                        "linear-gradient(90deg, transparent 5%, rgba(255,255,255,0.06) 30%, rgba(255,255,255,0.06) 70%, transparent 95%)",
+                      marginBottom: 6,
+                    }}
+                  />
+                  <textarea
+                    value={meetingNotes}
+                    onChange={handleNotesChange}
+                    onBlur={handleNotesBlur}
+                    onKeyDown={handleNotesKeyDown}
+                    onClick={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    placeholder="- Key points, decisions, action items..."
+                    autoFocus={notepadLocked}
+                    style={{
+                      width: "100%",
+                      height: NOTEPAD_AREA_H - 7, // minus separator
+                      background: "transparent",
+                      border: "none",
+                      color: "rgba(255,255,255,0.85)",
+                      fontSize: 12.5,
+                      lineHeight: "1.65",
+                      padding: "4px 2px",
+                      resize: "none",
+                      outline: "none",
+                      fontFamily:
+                        '-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif',
+                      letterSpacing: "-0.01em",
+                      boxSizing: "border-box",
+                      caretColor: "rgba(255,255,255,0.6)",
+                    }}
+                  />
+                </motion.div>
+              )}
+            </>
           )}
 
           {pill.state === "idle" && flash.message && (
@@ -500,21 +694,21 @@ export const OverlayApp = () => {
               style={{
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "flex-start",
+                justifyContent: "flex-end",
                 height: menuBarHeight,
               }}
             >
-              <motion.span
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
+              <span
                 style={{
-                  color: "#4ade80",
-                  fontSize: 12.5,
-                  fontWeight: 600,
+                  color: "rgba(255,255,255,0.5)",
+                  fontSize: 11,
+                  fontWeight: 500,
+                  opacity: flash.fading ? 0 : 1,
+                  transition: "opacity 0.4s ease-out",
                 }}
               >
                 {flash.message}
-              </motion.span>
+              </span>
             </div>
           )}
 
@@ -567,38 +761,6 @@ export const OverlayApp = () => {
                   )}
                 </div>
                 <Waveform level={speech.audioLevel} />
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    dismiss();
-                  }}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    padding: "2px 3px",
-                    cursor: "pointer",
-                    color: "rgba(255,255,255,0.6)",
-                    fontSize: 12,
-                    lineHeight: 1,
-                    flexShrink: 0,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    borderRadius: 3,
-                    transition: "color 0.15s",
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.color =
-                      "rgba(255,255,255,1)";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.color =
-                      "rgba(255,255,255,0.6)";
-                  }}
-                  aria-label="Close"
-                >
-                  ✕
-                </button>
               </motion.div>
             )}
 
@@ -689,9 +851,36 @@ export const OverlayApp = () => {
                       fontSize: 13.5,
                       fontWeight: 600,
                       letterSpacing: "-0.01em",
+                      flex: 1,
                     }}
                   >
                     {currentResponse.title}
+                  </span>
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      dismissRef.current();
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.stopPropagation();
+                        dismissRef.current();
+                      }
+                    }}
+                    style={{
+                      color: "rgba(255,255,255,0.35)",
+                      fontSize: 13,
+                      cursor: "pointer",
+                      padding: "0 2px",
+                      lineHeight: 1,
+                      transition: "color 0.15s",
+                    }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.7)"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.35)"; }}
+                  >
+                    ✕
                   </span>
                 </motion.div>
                 <motion.div
@@ -702,31 +891,19 @@ export const OverlayApp = () => {
                     delay: STAGGER_MS / 1000,
                   }}
                   style={{
-                    marginTop: 8,
+                    marginTop: 10,
                     paddingLeft: 22,
+                    paddingBottom: 16,
+                    paddingRight: 4,
                     maxHeight: maxResponseBodyHeight,
                     overflowY: "auto",
+                    overflowX: "hidden",
                     scrollbarWidth: "thin",
                     scrollbarColor: "rgba(255,255,255,0.15) transparent",
+                    WebkitOverflowScrolling: "touch",
                   }}
                 >
                   <ResponseBody response={currentResponse} />
-                </motion.div>
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 0.35 }}
-                  transition={{
-                    ...CONTENT_ENTER,
-                    delay: (STAGGER_MS * 2) / 1000,
-                  }}
-                  style={{
-                    textAlign: "right",
-                    marginTop: 6,
-                    fontSize: 11,
-                    color: "rgba(255,255,255,0.35)",
-                  }}
-                >
-                  Done
                 </motion.div>
               </motion.div>
             )}
@@ -756,19 +933,54 @@ export const OverlayApp = () => {
                         fontSize: 13.5,
                         fontWeight: 600,
                         letterSpacing: "-0.01em",
+                        flex: 1,
                       }}
                     >
                       {pill.lastResponseTitle}
+                    </span>
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowLastResponse(false);
+                        setResponsePinned(false);
+                        setIgnoreMouse(true);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.stopPropagation();
+                          setShowLastResponse(false);
+                          setResponsePinned(false);
+                          setIgnoreMouse(true);
+                        }
+                      }}
+                      style={{
+                        color: "rgba(255,255,255,0.35)",
+                        fontSize: 13,
+                        cursor: "pointer",
+                        padding: "0 2px",
+                        lineHeight: 1,
+                        transition: "color 0.15s",
+                      }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.7)"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.35)"; }}
+                    >
+                      ✕
                     </span>
                   </div>
                   <div
                     style={{
                       marginTop: 8,
                       paddingLeft: 22,
+                      paddingBottom: 12,
+                      paddingRight: 4,
                       maxHeight: maxResponseBodyHeight,
                       overflowY: "auto",
+                      overflowX: "hidden",
                       scrollbarWidth: "thin",
                       scrollbarColor: "rgba(255,255,255,0.15) transparent",
+                      WebkitOverflowScrolling: "touch",
                     }}
                   >
                     <ResponseBody

@@ -60,15 +60,22 @@ export function ObjectListPage() {
   const [suggestionsSheetOpen, setSuggestionsSheetOpen] = useState(false);
   const [findFromEmailOpen, setFindFromEmailOpen] = useState(false);
   const [suggestionsBannerDismissed, setSuggestionsBannerDismissed] =
-    useState(false);
+    useState(() => localStorage.getItem("email-suggestions-banner-dismissed") === "true");
+  const [dealBannerDismissed, setDealBannerDismissed] =
+    useState(() => localStorage.getItem("deal-suggestions-banner-dismissed") === "true");
 
   const obj = useObject(objectSlug);
   const attributes = useAttributes(objectSlug);
   const isContacts = objectSlug === "contacts";
+  const isDealsObj = objectSlug === "deals";
   const { data: syncStatus } = useEmailSyncStatus();
   const pendingSuggestions =
     isContacts && !suggestionsBannerDismissed
       ? (syncStatus?.pendingSuggestions ?? 0)
+      : 0;
+  const pendingDealSuggestions =
+    isDealsObj && !dealBannerDismissed
+      ? (syncStatus?.pendingDealSuggestions ?? 0)
       : 0;
 
   usePageTitle(obj?.pluralName ?? "");
@@ -329,10 +336,10 @@ export function ObjectListPage() {
 
   useEffect(() => {
     if (obj) {
-      document.title = `${obj.pluralName} | Basics CRM`;
+      document.title = `${obj.pluralName} | Basics OS`;
     }
     return () => {
-      document.title = "Basics CRM";
+      document.title = "Basics OS";
     };
   }, [obj]);
 
@@ -429,7 +436,41 @@ export function ObjectListPage() {
               size="icon"
               variant="ghost"
               className="size-6 text-muted-foreground"
-              onClick={() => setSuggestionsBannerDismissed(true)}
+              onClick={() => {
+                localStorage.setItem("email-suggestions-banner-dismissed", "true");
+                setSuggestionsBannerDismissed(true);
+              }}
+            >
+              <XIcon className="size-3.5" />
+            </Button>
+          </div>
+        )}
+
+        {pendingDealSuggestions > 0 && (
+          <div className="mx-1 flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 dark:border-amber-900 dark:bg-amber-950/30">
+            <SparkleIcon className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span className="text-sm">
+              <strong>{pendingDealSuggestions}</strong> potential deal
+              {pendingDealSuggestions !== 1 ? "s" : ""} discovered from your
+              email
+            </span>
+            <div className="flex-1" />
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs"
+              onClick={() => navigate("/home")}
+            >
+              Review
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="size-6 text-muted-foreground"
+              onClick={() => {
+                localStorage.setItem("deal-suggestions-banner-dismissed", "true");
+                setDealBannerDismissed(true);
+              }}
             >
               <XIcon className="size-3.5" />
             </Button>

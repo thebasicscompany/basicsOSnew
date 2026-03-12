@@ -3,6 +3,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import type { Db } from "@/db/client.js";
 import type { Env } from "@/env.js";
 import { createSendResetPassword } from "./lib/send-reset-password.js";
+import { isTrustedOrigin, isElectronUserAgent } from "./lib/trusted-origins.js";
 
 export function createAuth(
   db: Db,
@@ -23,19 +24,14 @@ export function createAuth(
     secret,
     // Localhost (dev) + ALLOWED_ORIGINS (production)
     trustedOrigins: async (req) => {
-      const origin = req?.headers?.get("origin");
-      if (!origin) return [];
-      try {
-        const url = new URL(origin);
-        const isLocal =
-          (url.hostname === "localhost" || url.hostname === "127.0.0.1") &&
-          (url.protocol === "http:" || url.protocol === "https:");
-        if (isLocal) return [origin];
-        if (allowedSet.has(origin)) return [origin];
-        return [];
-      } catch {
-        return [];
+      const origin = req?.headers?.get("origin") ?? undefined;
+      const userAgent = req?.headers?.get("user-agent");
+      // Electron may send no Origin; treat as "null" so sign-out/auth works (avoids 403)
+      const effectiveOrigin = origin !== undefined && origin !== "" ? origin : (isElectronUserAgent(userAgent) ? "null" : undefined);
+      if (effectiveOrigin && isTrustedOrigin(effectiveOrigin, allowedSet, userAgent)) {
+        return [effectiveOrigin];
       }
+      return [];
     },
     emailAndPassword: {
       enabled: true,
@@ -46,5 +42,16 @@ export function createAuth(
     session: {
       cookieCache: { enabled: true },
     },
+    // Cross-origin (Electron/localhost -> Railway): cookies must use SameSite=None
+    ...(baseUrl.startsWith("https")
+      ? {
+          advanced: {
+            defaultCookieAttributes: {
+              sameSite: "none" as const,
+              secure: true,
+            },
+          },
+        }
+      : {}),
   });
 }

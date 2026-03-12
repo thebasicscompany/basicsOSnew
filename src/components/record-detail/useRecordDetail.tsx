@@ -280,17 +280,17 @@ export function useRecordDetail(): UseRecordDetailReturn {
 
   useEffect(() => {
     if (displayName && displayName !== "\u2026") {
-      document.title = `${displayName} | Basics CRM`;
+      document.title = `${displayName} | Basics OS`;
     }
     return () => {
-      document.title = "Basics CRM";
+      document.title = "Basics OS";
     };
   }, [displayName]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !confirmDeleteOpen) {
-        navigate(`/objects/${objectSlug}`);
+        navigate(-1);
       }
     };
     window.addEventListener("keydown", handler);

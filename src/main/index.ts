@@ -1,3 +1,6 @@
+import path from "path";
+import { fileURLToPath } from "node:url";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import {
   app,
   BrowserWindow,
@@ -8,8 +11,6 @@ import {
   session,
   globalShortcut,
   shell,
-  systemPreferences,
-  dialog,
 } from "electron";
 
 if (process.env["REMOTE_DEBUGGING_PORT"]) {
@@ -19,17 +20,24 @@ if (process.env["REMOTE_DEBUGGING_PORT"]) {
   );
 }
 
+// Prevent GPU process crash from killing the app (macOS Mission Control + transparent windows)
+app.commandLine.appendSwitch("disable-gpu-process-crash-limit");
+
 import electronUpdater from "electron-updater";
 const { autoUpdater } = electronUpdater;
-import path from "path";
 import fs from "fs";
 import { exec, execSync } from "child_process";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
-import { getOverlaySettings, setOverlaySettings } from "./settings-store";
+import { getOverlaySettings, setOverlaySettings, OVERLAY_DEFAULTS } from "./settings-store";
 import { createShortcutManager } from "./shortcut-manager";
 import type { ShortcutManager } from "./shortcut-manager";
 import { createHoldKeyDetector } from "./hold-key-detector";
 import { createMeetingManager } from "./meeting-manager";
+import {
+  createKeyboardHook,
+  DEFAULT_BINDINGS,
+  type KeyboardHook,
+} from "./keyboard-hook";
 import {
   startSystemAudioCapture,
   stopSystemAudioCapture,
@@ -41,16 +49,47 @@ import type {
 } from "@/shared-overlay/types";
 import { PILL_WIDTH, PILL_HEIGHT } from "@/shared-overlay/constants";
 
+/** Electron accelerator must include a non-modifier key (e.g. Space). Returns default if invalid. */
+const ensureValidAccelerator = (acc: string, defaultAcc: string): string => {
+  if (!acc || typeof acc !== "string") return defaultAcc;
+  const parts = acc.split("+").map((p) => p.trim().toLowerCase());
+  const last = parts[parts.length - 1];
+  const modifiers = new Set([
+    "control",
+    "ctrl",
+    "alt",
+    "option",
+    "shift",
+    "command",
+    "cmd",
+    "meta",
+  ]);
+  if (!last || modifiers.has(last)) return defaultAcc;
+  return acc;
+};
+
 let mainWindow: BrowserWindow | null = null;
 let overlayWindow: BrowserWindow | null = null;
 let overlayActive = false;
+/** Intended position (primary display) so we can re-apply after OS or drag-induced drift */
+let overlayAnchorX = 0;
+let overlayAnchorY = 0;
 let activeMode: ActivationMode = "assistant";
 let shortcutMgr: ShortcutManager | null = null;
 let holdDetector: ReturnType<typeof createHoldKeyDetector> | null = null;
 let meetingMgr: ReturnType<typeof createMeetingManager> | null = null;
+let keyboardHook: KeyboardHook | null = null;
 let registeredMeetingAccelerator: string | null = null;
 let registeredDictationAccelerator: string | null = null;
 let dictationToggleActive = false;
+/** Tracks the current session type for the keyboard hook */
+let hookSessionType:
+  | "idle"
+  | "hold-dictation"
+  | "continuous-dictation"
+  | "hold-assistant"
+  | "continuous-assistant"
+  | "single-assistant" = "idle";
 const pendingDictationInsertRequests = new Map<
   string,
   {
@@ -69,6 +108,162 @@ const ALLOWED_PROXY_PATHS = new Set([
   "/v1/audio/speech",
   "/stream/assistant",
 ]);
+const AUTH_COOKIE_NAMES = [
+  "__Secure-better-auth.session_token",
+  "better-auth.session_token",
+] as const;
+
+const isLoopbackHost = (hostname: string): boolean =>
+  hostname === "localhost" || hostname === "127.0.0.1";
+
+const cookieMatchesHost = (
+  cookieDomain: string | undefined,
+  hostname: string,
+): boolean => {
+  if (!cookieDomain || !hostname) return false;
+  const normalizedCookieDomain = cookieDomain.replace(/^\./, "");
+  return (
+    normalizedCookieDomain === hostname ||
+    hostname.endsWith(`.${normalizedCookieDomain}`)
+  );
+};
+
+const toDomainList = (domain?: string): string[] => (domain ? [domain] : []);
+
+type SessionTokenLookup = {
+  token: string | null;
+  source:
+    | "request-url"
+    | "base-url"
+    | "host-match"
+    | "localhost-fallback"
+    | "first-available"
+    | "missing";
+  apiHost: string;
+  cookieDomain?: string;
+  availableDomains: string[];
+};
+
+const getSessionTokenForApi = async (
+  targetUrl: string,
+): Promise<SessionTokenLookup> => {
+  let apiHost = "";
+  let baseUrl = API_URL.replace(/\/$/, "");
+  try {
+    const url = new URL(targetUrl);
+    apiHost = url.hostname;
+    baseUrl = url.origin;
+  } catch {
+    // keep fallback base URL
+  }
+
+  const requestCookies = (
+    await Promise.all(
+      AUTH_COOKIE_NAMES.map((name) =>
+        session.defaultSession.cookies.get({
+          url: targetUrl,
+          name,
+        }),
+      ),
+    )
+  ).flat();
+  const requestCookie = requestCookies[0];
+  if (requestCookie?.value) {
+    return {
+      token: requestCookie.value,
+      source: "request-url",
+      apiHost,
+      cookieDomain: requestCookie.domain,
+      availableDomains: toDomainList(requestCookie.domain),
+    };
+  }
+
+  const baseCookies = (
+    await Promise.all(
+      AUTH_COOKIE_NAMES.map((name) =>
+        session.defaultSession.cookies.get({
+          url: `${baseUrl}/`,
+          name,
+        }),
+      ),
+    )
+  ).flat();
+  const baseCookie = baseCookies[0];
+  if (baseCookie?.value) {
+    return {
+      token: baseCookie.value,
+      source: "base-url",
+      apiHost,
+      cookieDomain: baseCookie.domain,
+      availableDomains: toDomainList(baseCookie.domain),
+    };
+  }
+
+  const allCookies = (
+    await Promise.all(
+      AUTH_COOKIE_NAMES.map((name) =>
+        session.defaultSession.cookies.get({
+          name,
+        }),
+      ),
+    )
+  ).flat();
+  const availableDomains = Array.from(
+    new Set(
+      allCookies
+        .map((cookie) => cookie.domain)
+        .filter((domain): domain is string => Boolean(domain)),
+    ),
+  );
+
+  if (apiHost) {
+    const apiHostCookie = allCookies.find((cookie) =>
+      cookieMatchesHost(cookie.domain, apiHost),
+    );
+    if (apiHostCookie?.value) {
+      return {
+        token: apiHostCookie.value,
+        source: "host-match",
+        apiHost,
+        cookieDomain: apiHostCookie.domain,
+        availableDomains,
+      };
+    }
+  }
+
+  if (isLoopbackHost(apiHost)) {
+    const localhostCookie = allCookies.find((cookie) =>
+      isLoopbackHost(cookie.domain?.replace(/^\./, "") ?? ""),
+    );
+    if (localhostCookie?.value) {
+      return {
+        token: localhostCookie.value,
+        source: "localhost-fallback",
+        apiHost,
+        cookieDomain: localhostCookie.domain,
+        availableDomains,
+      };
+    }
+  }
+
+  const firstCookie = allCookies[0];
+  if (firstCookie?.value) {
+    return {
+      token: firstCookie.value,
+      source: "first-available",
+      apiHost,
+      cookieDomain: firstCookie.domain,
+      availableDomains,
+    };
+  }
+
+  return {
+    token: null,
+    source: "missing",
+    apiHost,
+    availableDomains,
+  };
+};
 
 const getAllowedOrigins = (): Set<string> => {
   const origins = new Set<string>();
@@ -152,6 +347,7 @@ const presentOverlayWindow = (focus: boolean): void => {
 };
 
 const activateOverlay = (mode: ActivationMode): void => {
+  if (!overlayWindow) createOverlayWindow();
   if (!overlayWindow) return;
   overlayActive = true;
   activeMode = mode;
@@ -161,6 +357,7 @@ const activateOverlay = (mode: ActivationMode): void => {
 };
 
 const startDictationOverlay = (): void => {
+  if (!overlayWindow) createOverlayWindow();
   if (!overlayWindow) return;
   overlayActive = true;
   activeMode = "dictation";
@@ -237,7 +434,28 @@ function createMainWindow(): void {
   });
 
   mainWindow.on("closed", () => {
+    if (overlayWindow && !overlayWindow.isDestroyed()) {
+      overlayWindow.close();
+    }
     mainWindow = null;
+  });
+
+  // Re-pin overlay position after main window is dragged (stops drift/jitter when dragging near the pill)
+  let mainMoveDebounce: ReturnType<typeof setTimeout> | null = null;
+  mainWindow.on("moved", () => {
+    if (mainMoveDebounce) clearTimeout(mainMoveDebounce);
+    mainMoveDebounce = setTimeout(() => {
+      mainMoveDebounce = null;
+      if (overlayWindow && !overlayWindow.isDestroyed()) {
+        const b = overlayWindow.getBounds();
+        overlayWindow.setBounds({
+          x: overlayAnchorX,
+          y: overlayAnchorY,
+          width: b.width,
+          height: b.height,
+        });
+      }
+    }, 150);
   });
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -252,6 +470,41 @@ function createMainWindow(): void {
     }
   });
 
+  // Fix 3: Crash recovery for the main window (overlay already has this)
+  mainWindow.webContents.on("render-process-gone", (_event, details) => {
+    console.warn(`[main] Main renderer crashed: reason=${details.reason} exitCode=${details.exitCode}`);
+    if (details.reason !== "killed" && details.reason !== "clean-exit") {
+      setTimeout(() => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.reload();
+        } else {
+          createMainWindow();
+        }
+      }, 1000);
+    }
+  });
+
+  mainWindow.webContents.on("did-fail-load", (_event, errorCode, errorDescription) => {
+    console.warn(`[main] Main window load failed: ${errorCode} ${errorDescription}`);
+    setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
+          mainWindow.loadURL(process.env["ELECTRON_RENDERER_URL"]);
+        } else {
+          mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
+        }
+      }
+    }, 2000);
+  });
+
+  // Fix 5: macOS close-to-hide pattern — closing the window hides it, dock icon stays
+  mainWindow.on("close", (event) => {
+    if (process.platform === "darwin" && !(app as any).isQuitting) {
+      event.preventDefault();
+      mainWindow?.hide();
+    }
+  });
+
   if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
     mainWindow.loadURL(process.env["ELECTRON_RENDERER_URL"]);
   } else {
@@ -261,13 +514,14 @@ function createMainWindow(): void {
 
 function createOverlayWindow(): void {
   const { width: screenW } = screen.getPrimaryDisplay().workAreaSize;
-  const x = Math.round((screenW - PILL_WIDTH) / 2);
+  overlayAnchorX = Math.round((screenW - PILL_WIDTH) / 2);
+  overlayAnchorY = 0;
 
   overlayWindow = new BrowserWindow({
     width: PILL_WIDTH,
     height: PILL_HEIGHT,
-    x,
-    y: 0,
+    x: overlayAnchorX,
+    y: overlayAnchorY,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -330,11 +584,26 @@ function createOverlayWindow(): void {
     broadcastOverlayStatus();
   });
 
+  // Recover overlay if its renderer crashes (e.g. GPU process restart during Mission Control)
+  overlayWindow.webContents.on("render-process-gone", (_event, details) => {
+    console.warn(`[main] Overlay render process gone reason=${details.reason} exitCode=${details.exitCode} — recreating`);
+    if (details.reason !== "killed" && details.reason !== "clean-exit") {
+      // Delay slightly to let GPU process restart
+      setTimeout(() => {
+        if (!overlayWindow || overlayWindow.isDestroyed()) {
+          createOverlayWindow();
+        } else {
+          overlayWindow.webContents.reload();
+        }
+      }, 1000);
+    }
+  });
+
   overlayWindow.webContents.on("did-finish-load", () => {
     overlayWindow?.webContents.send("notch-info", detectNotch());
   });
 
-  overlayWindow.showInactive();
+  // Do not show on startup; user opens pill via shortcut or UI
 }
 
 ipcMain.handle("get-api-url", () => API_URL);
@@ -347,33 +616,137 @@ ipcMain.handle(
     const updated = setOverlaySettings(
       partial as Parameters<typeof setOverlaySettings>[0],
     );
-    if (shortcutMgr) {
-      shortcutMgr.registerAll(
-        updated.shortcuts.assistantToggle,
-        updated.behavior.doubleTapWindowMs,
+
+    if (keyboardHook && process.platform === "darwin") {
+      // Re-register keyboard hook slots with updated bindings
+      const dict =
+        updated.shortcuts.dictation ?? DEFAULT_BINDINGS.dictation;
+      const assist =
+        updated.shortcuts.assistant ?? DEFAULT_BINDINGS.assistant;
+      const meet =
+        updated.shortcuts.meeting ?? DEFAULT_BINDINGS.meeting;
+      // The hook slots are re-registered via the same pattern used in whenReady
+      // We need to re-set slots since bindings may have changed
+      keyboardHook.setSlots([
+        {
+          id: "dictation",
+          binding: dict,
+          holdThresholdMs: updated.behavior.holdThresholdMs,
+          doubleTapWindowMs: updated.behavior.doubleTapWindowMs,
+          onKeyDown: () => {
+            if (hookSessionType === "continuous-dictation") {
+              overlayWindow?.webContents.send("activate-overlay", "dictation");
+              hookSessionType = "idle";
+              return true;
+            }
+            return false;
+          },
+          onHoldStart: () => {
+            if (!overlayWindow) return;
+            hookSessionType = "hold-dictation";
+            startDictationOverlay();
+          },
+          onHoldEnd: () => {
+            if (hookSessionType === "hold-dictation") {
+              hookSessionType = "idle";
+              stopDictationOverlay();
+            }
+          },
+          onDoubleTap: () => {
+            if (!overlayWindow) return;
+            hookSessionType = "continuous-dictation";
+            activateOverlay("dictation");
+          },
+        },
+        {
+          id: "assistant",
+          binding: assist,
+          holdThresholdMs: updated.behavior.holdThresholdMs,
+          doubleTapWindowMs: updated.behavior.doubleTapWindowMs,
+          onKeyDown: () => {
+            if (
+              hookSessionType === "continuous-assistant" ||
+              hookSessionType === "single-assistant"
+            ) {
+              overlayWindow?.webContents.send("activate-overlay", activeMode);
+              hookSessionType = "idle";
+              return true;
+            }
+            return false;
+          },
+          onHoldStart: () => {
+            if (!overlayWindow) return;
+            hookSessionType = "hold-assistant";
+            activateOverlay("assistant");
+          },
+          onHoldEnd: () => {
+            if (hookSessionType === "hold-assistant") {
+              overlayWindow?.webContents.send("activate-overlay", "assistant");
+              hookSessionType = "idle";
+            }
+          },
+          onDoubleTap: () => {
+            if (!overlayWindow) return;
+            hookSessionType = "continuous-assistant";
+            activateOverlay("continuous");
+          },
+          onSingleTap: () => {
+            if (!overlayWindow) return;
+            hookSessionType = "single-assistant";
+            activateOverlay("assistant");
+          },
+        },
+        {
+          id: "meeting",
+          binding: meet,
+          onKeyDown: () => {
+            overlayWindow?.webContents.send("meeting-toggle");
+            return true;
+          },
+        },
+      ]);
+    } else {
+      // Legacy fallback for non-macOS
+      if (shortcutMgr) {
+        shortcutMgr.registerAll(
+          ensureValidAccelerator(
+            updated.shortcuts.assistantToggle,
+            OVERLAY_DEFAULTS.shortcuts.assistantToggle,
+          ),
+          updated.behavior.doubleTapWindowMs,
+        );
+      }
+      if (registeredMeetingAccelerator) {
+        globalShortcut.unregister(registeredMeetingAccelerator);
+        registeredMeetingAccelerator = null;
+      }
+      const meetingAcc = ensureValidAccelerator(
+        updated.shortcuts.meetingToggle,
+        OVERLAY_DEFAULTS.shortcuts.meetingToggle,
       );
-    }
-    if (registeredMeetingAccelerator) {
-      globalShortcut.unregister(registeredMeetingAccelerator);
-      registeredMeetingAccelerator = null;
-    }
-    globalShortcut.register(updated.shortcuts.meetingToggle, () =>
-      overlayWindow?.webContents.send("meeting-toggle"),
-    );
-    registeredMeetingAccelerator = updated.shortcuts.meetingToggle;
-    if (holdDetector) {
-      holdDetector.updateConfig({
-        accelerator: updated.shortcuts.dictationHoldKey,
-        holdThresholdMs: updated.behavior.holdThresholdMs,
-      });
-    }
-    if (process.platform === "win32") {
+      globalShortcut.register(meetingAcc, () =>
+        overlayWindow?.webContents.send("meeting-toggle"),
+      );
+      registeredMeetingAccelerator = meetingAcc;
+      if (holdDetector) {
+        holdDetector.updateConfig({
+          accelerator: ensureValidAccelerator(
+            updated.shortcuts.dictationHoldKey,
+            OVERLAY_DEFAULTS.shortcuts.dictationHoldKey,
+          ),
+          holdThresholdMs: updated.behavior.holdThresholdMs,
+        });
+      }
       if (registeredDictationAccelerator) {
         globalShortcut.unregister(registeredDictationAccelerator);
         registeredDictationAccelerator = null;
         dictationToggleActive = false;
       }
-      globalShortcut.register(updated.shortcuts.dictationHoldKey, () => {
+      const dictationAcc = ensureValidAccelerator(
+        updated.shortcuts.dictationHoldKey,
+        OVERLAY_DEFAULTS.shortcuts.dictationHoldKey,
+      );
+      globalShortcut.register(dictationAcc, () => {
         if (!overlayWindow) return;
         if (!dictationToggleActive) {
           startDictationOverlay();
@@ -383,8 +756,9 @@ ipcMain.handle(
           dictationToggleActive = false;
         }
       });
-      registeredDictationAccelerator = updated.shortcuts.dictationHoldKey;
+      registeredDictationAccelerator = dictationAcc;
     }
+
     overlayWindow?.webContents.send("settings-changed", updated);
     return updated;
   },
@@ -397,7 +771,12 @@ ipcMain.handle("resize-overlay", (_event, height: number) => {
   const clampedH = Math.max(PILL_HEIGHT, Math.min(maxH, Math.round(height)));
   // Temporarily enable resizable — macOS can ignore setBounds on non-resizable windows
   overlayWindow.setResizable(true);
-  overlayWindow.setSize(PILL_WIDTH, clampedH);
+  overlayWindow.setBounds({
+    x: overlayAnchorX,
+    y: overlayAnchorY,
+    width: PILL_WIDTH,
+    height: clampedH,
+  });
   overlayWindow.setResizable(false);
 });
 
@@ -412,6 +791,7 @@ ipcMain.on("set-ignore-mouse", (_event, ignore: boolean) => {
 ipcMain.on("overlay-dismissed", () => {
   overlayActive = false;
   dictationToggleActive = false;
+  hookSessionType = "idle";
   broadcastOverlayStatus();
 });
 
@@ -433,10 +813,31 @@ ipcMain.on(
   },
 );
 
+// Forward data-changed from overlay to main window for query invalidation
+ipcMain.on("data-changed", (_event, queryKeys: string[]) => {
+  mainWindow?.webContents.send("data-changed", queryKeys);
+});
+
 ipcMain.on("navigate-main", (_event, urlOrPath: string) => {
+  if (!urlOrPath || typeof urlOrPath !== "string") return;
+  const trimmed = urlOrPath.trim();
+
+  // External URLs → open in system browser
+  if (/^https?:\/\//i.test(trimmed)) {
+    const fullUrl = resolveAllowedMainUrl(trimmed);
+    if (fullUrl && mainWindow) {
+      mainWindow.show();
+      mainWindow.loadURL(fullUrl).catch(() => undefined);
+    } else {
+      shell.openExternal(trimmed).catch(() => undefined);
+    }
+    return;
+  }
+
+  // Internal paths → navigate main window
   if (mainWindow) {
     mainWindow.show();
-    const fullUrl = resolveAllowedMainUrl(urlOrPath);
+    const fullUrl = resolveAllowedMainUrl(trimmed);
     if (fullUrl) {
       mainWindow.loadURL(fullUrl).catch(() => undefined);
     }
@@ -456,6 +857,16 @@ ipcMain.handle(
   ) => {
     const method = (req.method ?? "GET").toUpperCase();
     const pathName = req.path?.trim();
+    const fullUrl = `${API_URL.replace(/\/$/, "")}${pathName ?? ""}`;
+    console.warn(
+      "[proxy-overlay] request",
+      method,
+      pathName,
+      "->",
+      fullUrl,
+      "API_URL=",
+      API_URL,
+    );
     if (
       !pathName ||
       !(
@@ -463,6 +874,7 @@ ipcMain.handle(
         pathName.startsWith("/api/meetings")
       )
     ) {
+      console.warn("[proxy-overlay] rejected: path not allowed");
       return {
         ok: false,
         status: 400,
@@ -471,7 +883,8 @@ ipcMain.handle(
         body: "",
       };
     }
-    if (!["GET", "POST"].includes(method)) {
+    if (!["GET", "POST", "PATCH", "PUT", "DELETE"].includes(method)) {
+      console.warn("[proxy-overlay] rejected: method not allowed");
       return {
         ok: false,
         status: 405,
@@ -481,11 +894,40 @@ ipcMain.handle(
       };
     }
 
-    const cookies = await session.defaultSession.cookies.get({
-      name: "better-auth.session_token",
-    });
-    const token = cookies[0]?.value;
+    const tokenLookup = await getSessionTokenForApi(fullUrl);
+    const token = tokenLookup.token;
+    if (
+      tokenLookup.source === "localhost-fallback" &&
+      tokenLookup.apiHost &&
+      !isLoopbackHost(tokenLookup.apiHost)
+    ) {
+      console.warn(
+        "[proxy-overlay] no cookie for API host; using localhost session token against configured API",
+        tokenLookup.apiHost,
+        "cookieDomain=",
+        tokenLookup.cookieDomain,
+      );
+    } else if (tokenLookup.source === "host-match") {
+      console.warn(
+        "[proxy-overlay] using session cookie for API host",
+        tokenLookup.apiHost,
+        "domain=",
+        tokenLookup.cookieDomain,
+      );
+    }
     if (!token) {
+      console.warn(
+        "[proxy-overlay] 401: no session cookie for",
+        `${API_URL.replace(/\/$/, "")}/`,
+        "cookiesFound=",
+        0,
+        "lookupSource=",
+        tokenLookup.source,
+        "allAuthCookies=",
+        tokenLookup.availableDomains.length,
+        "domains=",
+        tokenLookup.availableDomains,
+      );
       return {
         ok: false,
         status: 401,
@@ -503,6 +945,20 @@ ipcMain.handle(
       headers,
       body: req.body,
     });
+    if (!res.ok) {
+      const errSnippet = (await res.clone().text()).slice(0, 200);
+      console.warn(
+        "[proxy-overlay] fetch failed",
+        res.status,
+        res.statusText,
+        "path=",
+        pathName,
+        "body=",
+        errSnippet,
+      );
+    } else {
+      console.warn("[proxy-overlay] ok", res.status, pathName);
+    }
     const contentType = res.headers.get("content-type") ?? "";
     const isBinary =
       pathName === "/v1/audio/speech" || contentType.startsWith("audio/");
@@ -600,24 +1056,48 @@ ipcMain.on("log-from-overlay", (_event, msg: string) => {
 
 ipcMain.handle("start-meeting", async () => {
   console.warn("[IPC] start-meeting received, meetingMgr=", !!meetingMgr);
+  console.warn(`[MEETING:MAIN:HN] start-meeting entry meetingMgr=${!!meetingMgr} t=${Date.now()}`);
   if (!meetingMgr) return;
-  const apiUrl = process.env["BASICSOS_API_URL"] ?? "http://localhost:3001";
-  const cookies = await session.defaultSession.cookies.get({
-    name: "better-auth.session_token",
-  });
-  const token = cookies[0]?.value;
-  console.warn("[IPC] start-meeting: apiUrl=", apiUrl, "hasToken=", !!token);
+  const apiUrl = API_URL;
+  const tokenLookup = await getSessionTokenForApi(apiUrl);
+  const token = tokenLookup.token;
+  console.warn(
+    "[IPC] start-meeting: apiUrl=",
+    apiUrl,
+    "hasToken=",
+    !!token,
+    "source=",
+    tokenLookup.source,
+    "domain=",
+    tokenLookup.cookieDomain ?? "n/a",
+  );
+  console.warn(`[MEETING:MAIN:HN] start-meeting tokenPresent=${!!token} t=${Date.now()}`);
   if (!token) throw new Error("No session token");
-  await meetingMgr.start(apiUrl, token);
-  console.warn("[IPC] start-meeting completed");
+  try {
+    console.warn(`[MEETING:MAIN:HN] start-meeting before meetingMgr.start apiUrl=${apiUrl} t=${Date.now()}`);
+    await meetingMgr.start(apiUrl, token);
+    console.warn("[IPC] start-meeting completed");
+    console.warn(`[MEETING:MAIN:HN] start-meeting success t=${Date.now()}`);
+  } catch (err) {
+    console.warn(`[MEETING:MAIN:HN] start-meeting error msg=${(err as Error).message} t=${Date.now()}`);
+    throw err;
+  }
 });
 
 ipcMain.handle("stop-meeting", async () => {
   console.warn("[IPC] stop-meeting received, meetingMgr=", !!meetingMgr);
+  console.warn(`[MEETING:MAIN:HN] stop-meeting entry meetingMgr=${!!meetingMgr} t=${Date.now()}`);
   if (!meetingMgr) return;
-  const apiUrl = process.env["BASICSOS_API_URL"] ?? "http://localhost:3001";
-  await meetingMgr.stop(apiUrl);
-  console.warn("[IPC] stop-meeting completed");
+  const apiUrl = API_URL;
+  try {
+    console.warn(`[MEETING:MAIN:HN] stop-meeting before meetingMgr.stop t=${Date.now()}`);
+    await meetingMgr.stop(apiUrl);
+    console.warn("[IPC] stop-meeting completed");
+    console.warn(`[MEETING:MAIN:HN] stop-meeting success t=${Date.now()}`);
+  } catch (err) {
+    console.warn(`[MEETING:MAIN:HN] stop-meeting error msg=${(err as Error).message} t=${Date.now()}`);
+    throw err;
+  }
 });
 
 ipcMain.handle("meeting-state", () => {
@@ -631,16 +1111,19 @@ ipcMain.handle("get-persisted-meeting", () => {
 });
 
 ipcMain.handle("start-system-audio", async (_event, meetingId: string) => {
-  const cookies = await session.defaultSession.cookies.get({
-    name: "better-auth.session_token",
-  });
-  const token = cookies[0]?.value;
+  console.warn(`[MEETING:MAIN:HN] start-system-audio entry meetingId=${meetingId} t=${Date.now()}`);
+  const tokenLookup = await getSessionTokenForApi(API_URL);
+  const token = tokenLookup.token;
+  console.warn(`[MEETING:MAIN:HN] start-system-audio tokenPresent=${!!token} meetingId=${meetingId} t=${Date.now()}`);
   if (!token) return false;
   return startSystemAudioCapture(meetingId, API_URL, token);
 });
 
 ipcMain.handle("stop-system-audio", async () => {
-  return stopSystemAudioCapture();
+  console.warn(`[MEETING:MAIN:HN] stop-system-audio entry t=${Date.now()}`);
+  const result = stopSystemAudioCapture();
+  console.warn(`[MEETING:MAIN:HN] stop-system-audio result=${result} t=${Date.now()}`);
+  return result;
 });
 
 ipcMain.handle("check-system-audio-permission", () => {
@@ -661,10 +1144,8 @@ ipcMain.handle("prompt-screen-recording", () => {
 });
 
 ipcMain.handle("get-session-token", async () => {
-  const cookies = await session.defaultSession.cookies.get({
-    name: "better-auth.session_token",
-  });
-  return cookies[0]?.value ?? "";
+  const tokenLookup = await getSessionTokenForApi(API_URL);
+  return tokenLookup.token ?? "";
 });
 
 ipcMain.handle("show-overlay", () => {
@@ -693,16 +1174,20 @@ ipcMain.handle("get-overlay-status", () => {
 });
 
 const registerMeetingShortcut = (accelerator: string): void => {
+  const acc = ensureValidAccelerator(
+    accelerator,
+    OVERLAY_DEFAULTS.shortcuts.meetingToggle,
+  );
   if (registeredMeetingAccelerator) {
     globalShortcut.unregister(registeredMeetingAccelerator);
     registeredMeetingAccelerator = null;
   }
-  const ok = globalShortcut.register(accelerator, () => {
+  const ok = globalShortcut.register(acc, () => {
     console.warn("[SHORTCUT] Meeting toggle fired, overlayWindow=", !!overlayWindow);
     overlayWindow?.webContents.send("meeting-toggle");
   });
-  if (ok) registeredMeetingAccelerator = accelerator;
-  console.warn("[SHORTCUT] Meeting shortcut registered:", accelerator, "ok=", ok);
+  if (ok) registeredMeetingAccelerator = acc;
+  console.warn("[SHORTCUT] Meeting shortcut registered:", acc, "ok=", ok);
 };
 
 app.whenReady().then(async () => {
@@ -719,19 +1204,49 @@ app.whenReady().then(async () => {
 
   // Handle getDisplayMedia requests — auto-select entire screen with system audio loopback
   // This avoids the native screen picker (Finder-like window)
+  // audio: 'loopback' requests system audio on macOS and Windows (when supported by Electron/Chromium)
   session.defaultSession.setDisplayMediaRequestHandler(
     (_request, callback) => {
       desktopCapturer.getSources({ types: ["screen"] }).then((srcs) => {
         const primary = srcs[0];
         if (primary) {
-          // enableLocalEcho: false so captured audio doesn't echo back
-          // Passing video source — Electron will provide system audio loopback
-          // automatically when the renderer requests audio: true in getDisplayMedia
-          callback({ video: primary, enableLocalEcho: false });
+          callback({
+            video: primary,
+            audio: "loopback",
+            enableLocalEcho: false,
+          });
         } else {
           callback({});
         }
       }).catch(() => callback({}));
+    },
+  );
+
+  // In packaged Electron builds the renderer loads from file://, which causes
+  // cross-origin requests to the API to carry Origin: null (or no Origin at all).
+  // Better Auth's CSRF middleware rejects that with MISSING_OR_NULL_ORIGIN before
+  // it ever reaches the trustedOrigins callback.
+  // Fix: for any outbound request that has a null/missing Origin, inject the
+  // target URL's own origin.  We use the *target* origin rather than API_URL
+  // because API_URL is a runtime env var that may not be set in the installed
+  // app (VITE_API_URL is baked into the renderer at build time, but the main
+  // process can only read env vars present at launch).
+  session.defaultSession.webRequest.onBeforeSendHeaders(
+    (details, callback) => {
+      const headers = { ...details.requestHeaders };
+      const origin = headers["Origin"] ?? headers["origin"];
+      if (!origin || origin === "null") {
+        try {
+          const targetOrigin = new URL(details.url).origin;
+          // Only inject for http/https targets (skip file://, chrome-extension://, etc.)
+          if (targetOrigin.startsWith("http")) {
+            headers["Origin"] = targetOrigin;
+          }
+        } catch {
+          // ignore unparseable URLs
+        }
+      }
+      callback({ requestHeaders: headers });
     },
   );
 
@@ -742,75 +1257,242 @@ app.whenReady().then(async () => {
     });
   }
 
-  // Ensure Accessibility permission (required for globalShortcut on macOS)
-  if (process.platform === "darwin") {
-    const trusted = systemPreferences.isTrustedAccessibilityClient(true);
-    if (!trusted) {
-      await dialog.showMessageBox({
-        type: "warning",
-        title: "Accessibility Permission Required",
-        message:
-          "BasicsOS needs Accessibility permission for keyboard shortcuts.\n\n" +
-          "Please grant access in System Settings → Privacy & Security → Accessibility, then restart the app.",
-      });
-    }
-  }
-
   app.on("browser-window-created", (_, window) => {
     optimizer.watchWindowShortcuts(window);
+  });
+
+  // Handle GPU process crash (e.g. from Mission Control on macOS with transparent windows)
+  app.on("child-process-gone", (_event, details) => {
+    if (details.type === "GPU" || details.name === "GPU") {
+      console.warn(`[main] GPU process gone reason=${details.reason} exitCode=${details.exitCode} — app will recover`);
+      // Don't crash the app — Electron will restart the GPU process automatically
+    }
   });
 
   meetingMgr = createMeetingManager({
     onMeetingStart: (meetingId) => {
       console.warn("[meeting-manager] onMeetingStart callback: sending meeting-started IPC, meetingId=", meetingId, "overlayWindow=", !!overlayWindow);
+      console.warn(`[MEETING:MAIN:HN] onMeetingStart meetingId=${meetingId} overlayWindow=${!!overlayWindow} t=${Date.now()}`);
       overlayWindow?.webContents.send("meeting-started", meetingId);
     },
     onMeetingStop: (meetingId) => {
       console.warn("[meeting-manager] onMeetingStop callback: sending meeting-stopped IPC, meetingId=", meetingId, "overlayWindow=", !!overlayWindow);
+      console.warn(`[MEETING:MAIN:HN] onMeetingStop meetingId=${meetingId} overlayWindow=${!!overlayWindow} t=${Date.now()}`);
       overlayWindow?.webContents.send("meeting-stopped", meetingId);
+      mainWindow?.webContents.send("meeting-stopped", meetingId);
     },
   });
-
-  shortcutMgr = createShortcutManager({
-    onAssistantPress: () => {
-      if (!overlayWindow) return;
-      if (overlayActive) {
-        overlayWindow.webContents.send("activate-overlay", activeMode);
-      } else {
-        activateOverlay("assistant");
-      }
-    },
-    onAssistantDoubleTap: () => {
-      if (!overlayWindow) return;
-      if (overlayActive) {
-        deactivateOverlay();
-      } else {
-        activateOverlay("continuous");
-      }
-    },
-  });
-
-  holdDetector = createHoldKeyDetector(
-    {
-      accelerator: getOverlaySettings().shortcuts.dictationHoldKey,
-      holdThresholdMs: getOverlaySettings().behavior.holdThresholdMs,
-    },
-    {
-      onHoldStart: () => startDictationOverlay(),
-      onHoldEnd: () => stopDictationOverlay(),
-    },
-  );
 
   const settings = getOverlaySettings();
-  shortcutMgr.registerAll(
-    settings.shortcuts.assistantToggle,
-    settings.behavior.doubleTapWindowMs,
-  );
-  holdDetector.start();
-  registerMeetingShortcut(settings.shortcuts.meetingToggle);
 
-  if (process.platform === "win32") {
-    globalShortcut.register(settings.shortcuts.dictationHoldKey, () => {
+  if (process.platform === "darwin") {
+    // ── macOS: use native keyboard hook (CGEventTap) ──────────────────
+    // Supports Fn key, hold-to-talk, double-tap, single modifier keys
+    keyboardHook = createKeyboardHook();
+
+    const dictBinding =
+      settings.shortcuts.dictation ?? DEFAULT_BINDINGS.dictation;
+    const assistBinding =
+      settings.shortcuts.assistant ?? DEFAULT_BINDINGS.assistant;
+    const meetBinding =
+      settings.shortcuts.meeting ?? DEFAULT_BINDINGS.meeting;
+
+    const registerHookSlots = (
+      dict = dictBinding,
+      assist = assistBinding,
+      meet = meetBinding,
+    ): void => {
+      keyboardHook?.setSlots([
+        {
+          id: "dictation",
+          binding: dict,
+          holdThresholdMs: settings.behavior.holdThresholdMs,
+          doubleTapWindowMs: settings.behavior.doubleTapWindowMs,
+          onKeyDown: () => {
+            // If overlay is in continuous dictation, stop immediately
+            if (hookSessionType === "continuous-dictation") {
+              overlayWindow?.webContents.send("activate-overlay", "dictation");
+              hookSessionType = "idle";
+              return true;
+            }
+            return false;
+          },
+          onHoldStart: () => {
+            if (!overlayWindow) return;
+            hookSessionType = "hold-dictation";
+            startDictationOverlay();
+          },
+          onHoldEnd: () => {
+            if (hookSessionType === "hold-dictation") {
+              hookSessionType = "idle";
+              stopDictationOverlay();
+            }
+          },
+          onDoubleTap: () => {
+            if (!overlayWindow) return;
+            hookSessionType = "continuous-dictation";
+            activateOverlay("dictation");
+          },
+          onSingleTap: () => {
+            // Single tap dictation key: no action (avoid accidental triggers)
+          },
+        },
+        {
+          id: "assistant",
+          binding: assist,
+          holdThresholdMs: settings.behavior.holdThresholdMs,
+          doubleTapWindowMs: settings.behavior.doubleTapWindowMs,
+          onKeyDown: () => {
+            // If overlay is active via assistant, stop immediately
+            if (
+              hookSessionType === "continuous-assistant" ||
+              hookSessionType === "single-assistant"
+            ) {
+              overlayWindow?.webContents.send("activate-overlay", activeMode);
+              hookSessionType = "idle";
+              return true;
+            }
+            return false;
+          },
+          onHoldStart: () => {
+            if (!overlayWindow) return;
+            hookSessionType = "hold-assistant";
+            activateOverlay("assistant");
+          },
+          onHoldEnd: () => {
+            if (hookSessionType === "hold-assistant") {
+              // Send activation again to toggle off (overlay handles this)
+              overlayWindow?.webContents.send("activate-overlay", "assistant");
+              hookSessionType = "idle";
+            }
+          },
+          onDoubleTap: () => {
+            if (!overlayWindow) return;
+            hookSessionType = "continuous-assistant";
+            activateOverlay("continuous");
+          },
+          onSingleTap: () => {
+            if (!overlayWindow) return;
+            hookSessionType = "single-assistant";
+            activateOverlay("assistant");
+          },
+        },
+        {
+          id: "meeting",
+          binding: meet,
+          onKeyDown: () => {
+            console.warn(`[MEETING:MAIN:HN] meeting-toggle sent to overlay via keyboard hook t=${Date.now()}`);
+            overlayWindow?.webContents.send("meeting-toggle");
+            return true; // No timing detection needed
+          },
+        },
+      ]);
+    };
+
+    registerHookSlots();
+    keyboardHook.start();
+
+    // Register combo shortcuts with globalShortcut to suppress system handlers
+    // (e.g., prevent Cmd+Space from opening Spotlight)
+    // Only for non-modifier-only bindings (Fn alone can't be registered)
+    const MODIFIER_KEYCODES_SET = new Set([
+      55, 54, 56, 60, 58, 61, 59, 62, 63, 57,
+    ]);
+    if (!MODIFIER_KEYCODES_SET.has(assistBinding.keyCode)) {
+      try {
+        globalShortcut.register(
+          ensureValidAccelerator(
+            settings.shortcuts.assistantToggle,
+            OVERLAY_DEFAULTS.shortcuts.assistantToggle,
+          ),
+          () => {
+            /* suppressed — keyboard hook handles timing */
+          },
+        );
+      } catch {
+        /* ignore registration failure */
+      }
+    }
+    if (!MODIFIER_KEYCODES_SET.has(meetBinding.keyCode)) {
+      try {
+        globalShortcut.register(
+          ensureValidAccelerator(
+            settings.shortcuts.meetingToggle,
+            OVERLAY_DEFAULTS.shortcuts.meetingToggle,
+          ),
+          () => {
+            /* suppressed — keyboard hook handles it */
+          },
+        );
+      } catch {
+        /* ignore */
+      }
+    }
+
+    // IPC for shortcut recording
+    ipcMain.handle("start-shortcut-recording", async () => {
+      if (!keyboardHook) return null;
+      return keyboardHook.startRecording();
+    });
+    ipcMain.handle("cancel-shortcut-recording", () => {
+      keyboardHook?.cancelRecording();
+    });
+  } else {
+    // ── Non-macOS: fall back to Electron globalShortcut (legacy) ───────
+    shortcutMgr = createShortcutManager({
+      onAssistantPress: () => {
+        if (!overlayWindow) return;
+        if (overlayActive) {
+          overlayWindow.webContents.send("activate-overlay", activeMode);
+        } else {
+          activateOverlay("assistant");
+        }
+      },
+      onAssistantDoubleTap: () => {
+        if (!overlayWindow) return;
+        if (overlayActive) {
+          deactivateOverlay();
+        } else {
+          activateOverlay("continuous");
+        }
+      },
+    });
+
+    holdDetector = createHoldKeyDetector(
+      {
+        accelerator: ensureValidAccelerator(
+          settings.shortcuts.dictationHoldKey,
+          OVERLAY_DEFAULTS.shortcuts.dictationHoldKey,
+        ),
+        holdThresholdMs: settings.behavior.holdThresholdMs,
+      },
+      {
+        onHoldStart: () => startDictationOverlay(),
+        onHoldEnd: () => stopDictationOverlay(),
+      },
+    );
+
+    shortcutMgr.registerAll(
+      ensureValidAccelerator(
+        settings.shortcuts.assistantToggle,
+        OVERLAY_DEFAULTS.shortcuts.assistantToggle,
+      ),
+      settings.behavior.doubleTapWindowMs,
+    );
+    holdDetector.start();
+    registerMeetingShortcut(
+      ensureValidAccelerator(
+        settings.shortcuts.meetingToggle,
+        OVERLAY_DEFAULTS.shortcuts.meetingToggle,
+      ),
+    );
+
+    globalShortcut.register(
+      ensureValidAccelerator(
+        settings.shortcuts.dictationHoldKey,
+        OVERLAY_DEFAULTS.shortcuts.dictationHoldKey,
+      ),
+      () => {
       if (!overlayWindow) return;
       if (!dictationToggleActive) {
         startDictationOverlay();
@@ -820,15 +1502,33 @@ app.whenReady().then(async () => {
         dictationToggleActive = false;
       }
     });
-    registeredDictationAccelerator = settings.shortcuts.dictationHoldKey;
+    registeredDictationAccelerator = ensureValidAccelerator(
+      settings.shortcuts.dictationHoldKey,
+      OVERLAY_DEFAULTS.shortcuts.dictationHoldKey,
+    );
+
+    // IPC for shortcut recording (no-op on non-macOS; handlers must exist to avoid "No handler registered")
+    ipcMain.handle("start-shortcut-recording", async () => null);
+    ipcMain.handle("cancel-shortcut-recording", () => {});
   }
 
   createMainWindow();
   createOverlayWindow();
 
+  // Fix 1: Force dock visibility — both windows start with show:false and the overlay
+  // uses skipTaskbar:true, so macOS may never set the activation policy to "regular".
+  if (process.platform === "darwin" && app.dock) {
+    app.dock.show();
+  }
+
+  // Fix 2: Properly handle dock icon click — the overlay always exists so
+  // BrowserWindow.getAllWindows().length is never 0.
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
+    if (!mainWindow || mainWindow.isDestroyed()) {
       createMainWindow();
+    } else {
+      mainWindow.show();
+      mainWindow.focus();
     }
   });
 });
@@ -839,7 +1539,13 @@ app.on("window-all-closed", () => {
   }
 });
 
+// Fix 5 (cont.): Track when the user actually wants to quit (Cmd+Q / app menu Quit)
+app.on("before-quit", () => {
+  (app as any).isQuitting = true;
+});
+
 app.on("will-quit", () => {
+  keyboardHook?.stop();
   shortcutMgr?.unregisterAll();
   holdDetector?.stop();
   if (registeredDictationAccelerator) {

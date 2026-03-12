@@ -27,11 +27,11 @@ export function LoginPage() {
     const { error: signInError } = await authClient.signIn.email({
       email,
       password,
-      callbackURL: ROUTES.CRM,
     });
     if (signInError) {
       setError(signInError.message ?? "Login failed");
     } else {
+      // Electron uses HashRouter in the packaged app, so keep navigation client-side.
       navigate(ROUTES.CRM);
     }
   };
@@ -47,7 +47,7 @@ export function LoginPage() {
           />
           <div className="text-center space-y-1">
             <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
-            <p className="text-sm text-muted-foreground">Basics CRM</p>
+            <p className="text-sm text-muted-foreground">Basics OS</p>
           </div>
         </div>
         {error && (

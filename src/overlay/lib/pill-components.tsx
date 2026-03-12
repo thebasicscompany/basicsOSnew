@@ -3,30 +3,79 @@ import { motion } from "motion/react";
 import { MicrophoneIcon } from "@phosphor-icons/react";
 import { navigateMain } from "./ipc";
 
-const MD_LINK_RE = /\[([^\]]+)\]\((\/objects\/[^)]+|\/automations\/[^)]+)\)/g;
+/* ── Inline markdown parser ─────────────────────────────────────── */
 
-type LineSegment = { type: "text"; content: string } | { type: "link"; label: string; path: string };
+type InlineSeg =
+  | { type: "text"; content: string }
+  | { type: "bold"; content: string }
+  | { type: "italic"; content: string }
+  | { type: "link"; label: string; url: string };
 
-function parseLineWithLinks(line: string): LineSegment[] {
-  const segments: LineSegment[] = [];
-  let lastIndex = 0;
+// Matches: [label](url), **bold**, *italic*, bare https://… URLs
+const INLINE_RE =
+  /\[([^\]]+)\]\(([^)]+)\)|\*\*(.+?)\*\*|\*(.+?)\*|(https?:\/\/[^\s)]+)/g;
+
+function parseInlineMarkdown(text: string): InlineSeg[] {
+  const segs: InlineSeg[] = [];
+  let last = 0;
   let m: RegExpExecArray | null;
-  MD_LINK_RE.lastIndex = 0;
-  while ((m = MD_LINK_RE.exec(line)) !== null) {
-    if (m.index > lastIndex) {
-      segments.push({ type: "text", content: line.slice(lastIndex, m.index) });
+  INLINE_RE.lastIndex = 0;
+  while ((m = INLINE_RE.exec(text)) !== null) {
+    if (m.index > last) segs.push({ type: "text", content: text.slice(last, m.index) });
+    if (m[1] != null && m[2] != null) {
+      // [label](url)
+      segs.push({ type: "link", label: m[1], url: m[2] });
+    } else if (m[3] != null) {
+      // **bold**
+      segs.push({ type: "bold", content: m[3] });
+    } else if (m[4] != null) {
+      // *italic*
+      segs.push({ type: "italic", content: m[4] });
+    } else if (m[5] != null) {
+      // bare URL
+      segs.push({ type: "link", label: m[5], url: m[5] });
     }
-    segments.push({ type: "link", label: m[1] ?? "", path: m[2] ?? "" });
-    lastIndex = MD_LINK_RE.lastIndex;
+    last = INLINE_RE.lastIndex;
   }
-  if (lastIndex < line.length) {
-    segments.push({ type: "text", content: line.slice(lastIndex) });
-  }
-  if (segments.length === 0) {
-    segments.push({ type: "text", content: line });
-  }
-  return segments;
+  if (last < text.length) segs.push({ type: "text", content: text.slice(last) });
+  if (segs.length === 0) segs.push({ type: "text", content: text });
+  return segs;
 }
+
+function handleLinkClick(url: string) {
+  navigateMain(url);
+}
+
+const InlineContent = ({ text }: { text: string }) => {
+  const segs = parseInlineMarkdown(text);
+  return (
+    <>
+      {segs.map((seg, i) => {
+        switch (seg.type) {
+          case "bold":
+            return <strong key={i} style={{ fontWeight: 600, color: "#fff" }}>{seg.content}</strong>;
+          case "italic":
+            return <em key={i}>{seg.content}</em>;
+          case "link":
+            return (
+              <span
+                key={i}
+                role="link"
+                tabIndex={0}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleLinkClick(seg.url); }}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleLinkClick(seg.url); } }}
+                style={{ textDecoration: "underline", cursor: "pointer", color: "rgba(140,180,255,0.9)" }}
+              >
+                {seg.label}
+              </span>
+            );
+          default:
+            return <span key={i}>{seg.content}</span>;
+        }
+      })}
+    </>
+  );
+};
 
 export const Sparkle = ({ active }: { active: boolean }) => (
   <motion.div
@@ -181,79 +230,80 @@ const lineBaseStyle = {
   lineHeight: 1.5 as const,
 };
 
-const ResponseLine = ({
-  line,
-  primary,
-  delay,
-}: {
-  line: string;
-  primary: boolean;
-  delay: number;
-}) => {
-  const segments = parseLineWithLinks(line);
-  return (
-    <motion.div
-      initial={{ opacity: 0, filter: "blur(4px)" }}
-      animate={{ opacity: 1, filter: "blur(0px)" }}
-      transition={{ duration: 0.35, delay, ease: "easeOut" }}
-      style={{
-        ...lineBaseStyle,
-        color: primary ? "#fff" : "rgba(255,255,255,0.7)",
-        fontSize: primary ? 13.5 : 12.5,
-        marginTop: primary ? 0 : 2,
-      }}
-    >
-      {segments.map((seg, j) =>
-        seg.type === "text" ? (
-          <span key={j}>{seg.content}</span>
-        ) : (
-          <span
-            key={j}
-            role="link"
-            tabIndex={0}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              navigateMain(seg.path);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                navigateMain(seg.path);
-              }
-            }}
-            style={{
-              textDecoration: "underline",
-              cursor: "pointer",
-            }}
-          >
-            {seg.label}
-          </span>
-        ),
-      )}
-    </motion.div>
-  );
-};
+/* ── Block-level markdown: paragraphs + bullet lists ────────────── */
+
+type Block =
+  | { type: "paragraph"; text: string }
+  | { type: "bullet"; text: string };
+
+function parseBlocks(lines: string[]): Block[] {
+  const blocks: Block[] = [];
+  for (const raw of lines) {
+    const trimmed = raw.trim();
+    if (!trimmed) continue;
+    // Bullet: "* text", "- text", "• text"  (also handles "* **bold**: …")
+    const bulletMatch = trimmed.match(/^(?:[*•-])\s+(.+)/);
+    if (bulletMatch) {
+      blocks.push({ type: "bullet", text: bulletMatch[1] ?? trimmed });
+    } else {
+      blocks.push({ type: "paragraph", text: trimmed });
+    }
+  }
+  return blocks;
+}
 
 export const ResponseBody = ({
   response,
 }: {
   response: { title: string; lines: string[] };
-}) => (
-  <div>
-    {response.lines[0] != null && (
-      <ResponseLine line={response.lines[0]} primary delay={0} />
-    )}
-    {response.lines.slice(1).map((line, i) => (
-      <ResponseLine
-        key={`${response.title}-${i}`}
-        line={line}
-        primary={false}
-        delay={(i + 1) * 0.08}
-      />
-    ))}
-  </div>
-);
+}) => {
+  const blocks = parseBlocks(response.lines);
+  return (
+    <div>
+      {blocks.map((block, i) => {
+        const isPrimary = i === 0 && block.type === "paragraph";
+        const delay = i * 0.06;
+        if (block.type === "bullet") {
+          return (
+            <motion.div
+              key={`${response.title}-${i}`}
+              initial={{ opacity: 0, filter: "blur(4px)" }}
+              animate={{ opacity: 1, filter: "blur(0px)" }}
+              transition={{ duration: 0.35, delay, ease: "easeOut" }}
+              style={{
+                ...lineBaseStyle,
+                color: "rgba(255,255,255,0.7)",
+                fontSize: 12.5,
+                marginTop: i === 0 ? 0 : 3,
+                display: "flex",
+                gap: 6,
+              }}
+            >
+              <span style={{ color: "rgba(255,255,255,0.35)", flexShrink: 0 }}>•</span>
+              <span><InlineContent text={block.text} /></span>
+            </motion.div>
+          );
+        }
+        return (
+          <motion.div
+            key={`${response.title}-${i}`}
+            initial={{ opacity: 0, filter: "blur(4px)" }}
+            animate={{ opacity: 1, filter: "blur(0px)" }}
+            transition={{ duration: 0.35, delay, ease: "easeOut" }}
+            style={{
+              ...lineBaseStyle,
+              color: isPrimary ? "#fff" : "rgba(255,255,255,0.7)",
+              fontSize: isPrimary ? 13.5 : 12.5,
+              marginTop: i === 0 ? 0 : 4,
+            }}
+          >
+            <InlineContent text={block.text} />
+          </motion.div>
+        );
+      })}
+    </div>
+  );
+};
 
 export const MeetingTimer = ({
   startedAt,

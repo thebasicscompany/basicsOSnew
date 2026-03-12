@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { Link } from "react-router";
 import type { ComponentType } from "react";
 import {
@@ -17,6 +17,8 @@ import {
   GearIcon,
   NotePencilIcon,
   ListChecksIcon,
+  CheckIcon,
+  XIcon,
 } from "@phosphor-icons/react";
 import { useRecentPages } from "@/hooks/use-recent-pages";
 import { useThreads, type Thread } from "@/hooks/use-threads";
@@ -29,7 +31,12 @@ import {
   useSuggestedContacts,
   useAcceptSuggestion,
   useDismissSuggestion,
+  useSuggestedDeals,
+  useAcceptDealSuggestion,
+  useDismissDealSuggestion,
 } from "@/hooks/use-email-sync";
+import { useMeetings } from "@/hooks/use-meetings";
+import { MeetingDetailDialog } from "@/components/meetings/MeetingDetailDialog";
 import { SuggestedContactCard } from "@/components/email-sync/SuggestedContactCard";
 
 /* ------------------------------------------------------------------ */
@@ -694,6 +701,196 @@ export function SuggestedContactsSection() {
       </div>
     </div>
   );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Section: Deal Opportunities from email sync (F1)                  */
+/* ------------------------------------------------------------------ */
+
+function DealScoreDots({ score }: { score: number }) {
+  const filled = Math.max(1, Math.min(5, Math.round(score / 20)));
+  return (
+    <div className="flex items-center gap-0.5">
+      {Array.from({ length: 5 }, (_, i) => (
+        <span
+          key={i}
+          className={`inline-block size-1.5 rounded-full ${
+            i < filled ? "bg-primary" : "bg-muted-foreground/25"
+          }`}
+        />
+      ))}
+    </div>
+  );
+}
+
+function getCompanyInitial(name: string | null): string {
+  if (!name) return "?";
+  return name.charAt(0).toUpperCase();
+}
+
+export function DealOpportunitiesSection() {
+  const { data: syncStatus } = useEmailSyncStatus();
+  const pending = syncStatus?.pendingDealSuggestions ?? 0;
+  const { data } = useSuggestedDeals({
+    status: "pending",
+    page: 1,
+    perPage: 4,
+  });
+  const suggestions = data?.data ?? [];
+  const acceptMutation = useAcceptDealSuggestion();
+  const dismissMutation = useDismissDealSuggestion();
+
+  if (pending === 0 || suggestions.length === 0) return null;
+
+  return (
+    <div className="space-y-3">
+      <SectionHeader
+        title="Deal opportunities from your email"
+        count={pending}
+        action={<SectionLink to="/objects/deals" label="View deals" />}
+      />
+      <div className="-mx-3.5 space-y-0.5">
+        {suggestions.slice(0, 4).map((deal) => (
+          <div
+            key={deal.id}
+            className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-accent/50"
+          >
+            {/* Company initial avatar */}
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-xs font-medium text-amber-600 dark:text-amber-400">
+              {getCompanyInitial(deal.companyName)}
+            </div>
+
+            {/* Info */}
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">
+                {deal.dealName ?? deal.companyName ?? "Untitled Deal"}
+              </p>
+              <div className="flex items-center gap-2 truncate text-xs text-muted-foreground">
+                {deal.companyName && <span>{deal.companyName}</span>}
+                {deal.companyCategory && (
+                  <>
+                    <span className="text-border">·</span>
+                    <span>{deal.companyCategory}</span>
+                  </>
+                )}
+                {deal.founderName && (
+                  <>
+                    <span className="text-border">·</span>
+                    <span>{deal.founderName}</span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Score + actions */}
+            <DealScoreDots score={deal.score} />
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary disabled:opacity-50"
+                onClick={() => acceptMutation.mutate(deal.id)}
+                disabled={
+                  acceptMutation.isPending &&
+                  acceptMutation.variables === deal.id
+                }
+                title="Accept and create deal"
+              >
+                <CheckIcon className="size-3.5" />
+              </button>
+              <button
+                className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+                onClick={() => dismissMutation.mutate(deal.id)}
+                disabled={
+                  dismissMutation.isPending &&
+                  dismissMutation.variables === deal.id
+                }
+                title="Dismiss"
+              >
+                <XIcon className="size-3.5" />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Section: Unreviewed Meeting Action Items (F3)                      */
+/* ------------------------------------------------------------------ */
+
+export function UnreviewedMeetingsSection() {
+  const { data: meetings } = useMeetings({ page: 1, perPage: 10 });
+  const [selectedMeetingId, setSelectedMeetingId] = useState<number | null>(
+    null,
+  );
+
+  // Filter to completed meetings from last 7 days
+  const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const unreviewedMeetings = useMemo(() => {
+    if (!meetings) return [];
+    return meetings
+      .filter((m) => {
+        if (m.status !== "completed") return false;
+        if (new Date(m.startedAt).getTime() < cutoff) return false;
+        return true;
+      })
+      .slice(0, 3);
+  }, [meetings, cutoff]);
+
+  if (unreviewedMeetings.length === 0) return null;
+
+  return (
+    <div className="space-y-3">
+      <SectionHeader
+        title="Recent meetings"
+        count={unreviewedMeetings.length}
+      />
+      <div className="-mx-3.5 space-y-0.5">
+        {unreviewedMeetings.map((meeting) => (
+          <button
+            key={meeting.id}
+            onClick={() => setSelectedMeetingId(meeting.id)}
+            className="group flex w-full items-center gap-3 rounded-lg px-3.5 py-2.5 text-left transition-all hover:bg-accent/50"
+          >
+            <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-purple-500/15 text-purple-600 dark:bg-purple-500/10 dark:text-purple-400">
+              <MicrophoneIcon className="size-3.5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm">
+                {meeting.title ?? "Untitled Meeting"}
+              </p>
+              <p className="truncate text-[11px] text-muted-foreground">
+                {formatMeetingDate(meeting.startedAt)}
+                {meeting.duration
+                  ? ` · ${Math.round(meeting.duration / 60)}m`
+                  : ""}
+              </p>
+            </div>
+          </button>
+        ))}
+      </div>
+      <MeetingDetailDialog
+        meetingId={selectedMeetingId}
+        open={selectedMeetingId != null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedMeetingId(null);
+        }}
+      />
+    </div>
+  );
+}
+
+function formatMeetingDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diffDays = Math.floor(
+    (now.getTime() - d.getTime()) / (1000 * 60 * 60 * 24),
+  );
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  if (diffDays < 7) return `${diffDays} days ago`;
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 /* ------------------------------------------------------------------ */
