@@ -881,7 +881,7 @@ export const OverlayApp = () => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
                 transition={CONTENT_ENTER}
-                style={{ paddingBottom: 16, paddingLeft: 6, paddingRight: 6 }}
+                style={{ paddingBottom: 8, paddingLeft: 6, paddingRight: 6 }}
               >
                 <NotificationPill
                   title={pill.notificationTitle}
