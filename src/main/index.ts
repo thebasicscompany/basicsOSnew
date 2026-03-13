@@ -43,6 +43,10 @@ import {
   stopSystemAudioCapture,
   checkSystemAudioPermission,
 } from "./system-audio-capture";
+import {
+  connectNotificationStream,
+  setNotificationStreamOverlay,
+} from "./notification-stream";
 import type {
   ActivationMode,
   DictationInsertResult,
@@ -571,6 +575,8 @@ function createOverlayWindow(): void {
     backgroundColor: "#00000000",
   });
 
+  setNotificationStreamOverlay(overlayWindow);
+
   overlayWindow.setAlwaysOnTop(true, "screen-saver");
   overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
@@ -608,6 +614,7 @@ function createOverlayWindow(): void {
   overlayWindow.on("show", broadcastOverlayStatus);
   overlayWindow.on("hide", broadcastOverlayStatus);
   overlayWindow.on("closed", () => {
+    setNotificationStreamOverlay(null);
     overlayWindow = null;
     overlayActive = false;
     broadcastOverlayStatus();
@@ -855,25 +862,21 @@ ipcMain.on("navigate-main", (_event, urlOrPath: string) => {
   if (!urlOrPath || typeof urlOrPath !== "string") return;
   const trimmed = urlOrPath.trim();
 
-  // External URLs → open in system browser
+  // External URLs → always open in the system browser.
+  // Loading an external URL via mainWindow.loadURL would replace the Electron
+  // app renderer with the web page, which is never the right behaviour.
   if (/^https?:\/\//i.test(trimmed)) {
-    const fullUrl = resolveAllowedMainUrl(trimmed);
-    if (fullUrl && mainWindow) {
-      mainWindow.show();
-      mainWindow.loadURL(fullUrl).catch(() => undefined);
-    } else {
-      shell.openExternal(trimmed).catch(() => undefined);
-    }
+    shell.openExternal(trimmed).catch(() => undefined);
     return;
   }
 
-  // Internal paths → navigate main window
-  if (mainWindow) {
+  // Internal paths → navigate via React Router inside the main window.
+  // The main window uses HashRouter, so we must NOT call loadURL with the
+  // bare path (that would strip the hash and render the wrong route).
+  // Instead, send an IPC to the renderer which calls navigate() in-app.
+  if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.show();
-    const fullUrl = resolveAllowedMainUrl(trimmed);
-    if (fullUrl) {
-      mainWindow.loadURL(fullUrl).catch(() => undefined);
-    }
+    mainWindow.webContents.send("navigate-in-app", trimmed);
   }
 });
 
@@ -1624,6 +1627,13 @@ app.whenReady().then(async () => {
 
   createMainWindow();
   createOverlayWindow();
+
+  connectNotificationStream(
+    async () => (await getSessionTokenForApi(API_URL)).token,
+    API_URL,
+    overlayWindow,
+    mainWindow,
+  );
 
   // Fix 1: Force dock visibility — both windows start with show:false and the overlay
   // uses skipTaskbar:true, so macOS may never set the activation policy to "regular".

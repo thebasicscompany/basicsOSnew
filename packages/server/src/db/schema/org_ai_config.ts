@@ -25,6 +25,12 @@ export const orgAiConfig = pgTable("org_ai_config", {
     length: 20,
   }),
   transcriptionApiKeyEnc: text("transcription_api_key_enc"),
+  /** Slack bot token (xoxb-*) for Events API — encrypted */
+  slackBotTokenEnc: text("slack_bot_token_enc"),
+  /** Slack signing secret for request verification */
+  slackSigningSecret: varchar("slack_signing_secret", { length: 64 }),
+  /** Slack team/workspace ID for mapping events to org */
+  slackTeamId: varchar("slack_team_id", { length: 32 }),
   configuredBy: bigint("configured_by", { mode: "number" }).references(
     () => crmUsers.id,
     { onDelete: "set null" },

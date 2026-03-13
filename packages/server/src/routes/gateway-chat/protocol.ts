@@ -59,12 +59,43 @@ Update workflow (CRITICAL — follow exactly):
    - search_companies/search_contacts/search_deals/search_tasks -> update_company/update_contact/update_deal
    - search_contacts/search_companies/search_tasks -> create_task
    - search_contacts/search_deals -> add_note
-   - search_companies -> create_contact/create_deal`;
+
+Record creation workflow (CRITICAL):
+- Before creating ANY record, check what fields the user has provided vs what's missing.
+- If required or important fields are missing, ask for them SPECIFICALLY — name the exact fields AND the person/company you need them for.
+- Contact fields: first_name/last_name (required), email (ask if missing), company (ask if missing), phone (ask if missing). Example: "What's Sarah's email address, phone number, and company?"
+- For BULK contacts (multiple people at once without details), ask per-person: "For Mike Torres — what's his email, phone, and company? For Elena Vasquez — same info?"
+- Deal fields: name (required), amount (ask: "What's the deal value?"), stage/status (ask: "What stage — Lead, Qualified, Proposal, or Closed Won?"), company (ask if missing).
+- Company fields: name (required), domain (ask: "What's their website domain?"), category (ask: "What category — e.g. B2B, SaaS, Enterprise?").
+- Ask for ALL missing important fields in ONE focused question per entity, not multiple rounds.
+- Only proceed to create AFTER you have the missing fields, OR if the user explicitly says to skip them (e.g. "just add the name for now").
+- When creating a contact or deal with a company_name, pass company_name directly — do NOT search for the company first. The tool will auto-create the company if it does not exist.
+- After creating a contact with a company, or a deal with a company, confirm the linkage explicitly in your response (e.g. "Created John Smith and linked to Acme Corp (newly created)").
+- If a user mentions both a person and a company in the same request, create both entities.
+
+Meeting follow-up workflow (CRITICAL — triggers when context contains "meeting_id"):
+- You HAVE the \`link_meeting_to_contact\` tool. Use it to link a completed meeting (by meeting_id) to a contact and/or company. Never say you do not have a tool to link meetings, search meetings, or add contacts to meetings — you do.
+- When the user provides post-meeting info (who it was with, company, action items), you MUST call tools — do NOT just acknowledge.
+- Required sequence: (1) call \`link_meeting_to_contact\` using the meeting_id from context and the contact name/id the user gave — pass contact_name directly, no need to search first; (2) create any tasks or action items with \`create_task\`; (3) confirm everything was saved.
+- If the user only mentions a company but no contact name, call \`link_meeting_to_contact\` with company_name instead of contact_name.
+- Never say "I'm unable to link" or "I don't have a tool for meetings" — the tool exists. Always attempt it.
+
+Delete workflow (CRITICAL):
+- NEVER delete or archive a record without explicit confirmation from the user.
+- Always search first and show the exact record (name, key details) before asking to confirm.
+- Ask "Are you sure you want to delete [exact name]?" before calling any delete action.
+- For deals, deletion is a soft archive — the deal is hidden but not permanently removed.
+
+Clarification behavior:
+- If a request is ambiguous or missing required context, ask ONE focused clarifying question that names the specific fields needed.
+- Do NOT ask "Can you provide more details?" — instead ask "What's [Name]'s email address?" or "What's the deal value and which stage?"
+- Keep clarifying questions short and specific — list only the missing fields, not every possible option.
+- After getting the answer, complete the full action without asking again.`;
 
 export const requestSchema = z.object({
   messages: z.array(z.any()),
   threadId: z.string().optional(),
-  channel: z.enum(["chat", "voice", "automation"]).optional(),
+  channel: z.enum(["chat", "voice", "automation", "slack"]).optional(),
 });
 
 export const searchContactsSchema = z.object({
@@ -298,6 +329,7 @@ export const createNoteSchema = z
   .object({
     contact_id: z.number().int().positive().optional(),
     contact_name: z.string().min(1).optional(),
+    title: z.string().min(1).optional(),
     text: z.string().min(1),
     type: z.string().optional(),
   })
@@ -309,12 +341,30 @@ export const createNoteSchema = z
       });
     }
   });
+export const linkMeetingToContactSchema = z
+  .object({
+    meeting_id: z.number().int().positive(),
+    contact_id: z.number().int().positive().optional(),
+    contact_name: z.string().min(1).optional(),
+    company_id: z.number().int().positive().optional(),
+    company_name: z.string().min(1).optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (!v.contact_id && !v.contact_name) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Provide contact_id or contact_name",
+      });
+    }
+  });
+
 export const addNoteSchema = z
   .object({
     contact_id: z.number().int().positive().optional(),
     contact_name: z.string().min(1).optional(),
     deal_id: z.number().int().positive().optional(),
     deal_name: z.string().min(1).optional(),
+    title: z.string().min(1).optional(),
     text: z.string().min(1),
   })
   .superRefine((v, ctx) => {
@@ -371,7 +421,7 @@ export const OPENAI_TOOL_DEFS = [
     function: {
       name: "create_contact",
       description:
-        "Create a new contact. Use company_name to link to a company by name.",
+        "Create a new contact. Use company_name to link to a company by name. If the company does not exist it will be created automatically — do NOT search for the company first.",
       parameters: {
         type: "object",
         properties: {
@@ -451,7 +501,7 @@ export const OPENAI_TOOL_DEFS = [
     function: {
       name: "create_deal",
       description:
-        "Create a new deal. Use company_name to link to a company by name.",
+        "Create a new deal. Use company_name to link to a company by name. If the company does not exist it will be created automatically — do NOT search for the company first.",
       parameters: {
         type: "object",
         properties: {
@@ -685,7 +735,7 @@ export const OPENAI_TOOL_DEFS = [
     type: "function",
     function: {
       name: "create_note",
-      description: "Add a note to a contact. Use contact_name or contact_id.",
+      description: "Add a note to a contact (contact-only). For deals, use add_note instead. Use contact_name or contact_id.",
       parameters: {
         type: "object",
         properties: {
@@ -697,6 +747,7 @@ export const OPENAI_TOOL_DEFS = [
             type: "string",
             description: "Contact name or email to look up",
           },
+          title: { type: "string", description: "Short title or subject for the note" },
           text: { type: "string" },
           type: { type: "string" },
         },
@@ -709,7 +760,7 @@ export const OPENAI_TOOL_DEFS = [
     function: {
       name: "add_note",
       description:
-        "Add a note to a contact or deal. Use contact_name/deal_name (e.g. 'Acme deal') or contact_id/deal_id.",
+        "Add a note to a contact OR a deal. Use this when the note is for a deal. Use contact_name/deal_name or contact_id/deal_id. Always provide a title.",
       parameters: {
         type: "object",
         properties: {
@@ -726,9 +777,44 @@ export const OPENAI_TOOL_DEFS = [
             description: "Deal ID from a prior search",
           },
           deal_name: { type: "string", description: "Deal name to look up" },
+          title: { type: "string", description: "Short title or subject for the note" },
           text: { type: "string", description: "The note content" },
         },
         required: ["text"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "link_meeting_to_contact",
+      description:
+        "Link a completed meeting to the contact (and optionally company) who attended. Always call this during a post-meeting follow-up when the user identifies who the meeting was with. Use the meeting_id from the system context. You can pass contact_name directly — no need to search first.",
+      parameters: {
+        type: "object",
+        properties: {
+          meeting_id: {
+            type: "number",
+            description: "The meeting ID provided in the system context",
+          },
+          contact_id: {
+            type: "number",
+            description: "Contact ID from a prior search (preferred if already known)",
+          },
+          contact_name: {
+            type: "string",
+            description: "Full name of the contact who attended the meeting",
+          },
+          company_id: {
+            type: "number",
+            description: "Company ID (optional, from a prior search)",
+          },
+          company_name: {
+            type: "string",
+            description: "Company name to also link the meeting to (optional)",
+          },
+        },
+        required: ["meeting_id"],
       },
     },
   },

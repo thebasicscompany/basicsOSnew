@@ -18,6 +18,7 @@ import { LocationFieldType } from "./types/location";
 import { UserFieldType } from "./types/user";
 import { RelationshipFieldType } from "./types/relationship";
 import { CompanyFieldType } from "./types/company";
+import { ContactFieldType } from "./types/contact";
 
 const FIELD_TYPE_REGISTRY: Map<string, FieldTypeDefinition> = new Map([
   ["text", TextFieldType],
@@ -38,6 +39,7 @@ const FIELD_TYPE_REGISTRY: Map<string, FieldTypeDefinition> = new Map([
   ["user", UserFieldType],
   ["relationship", RelationshipFieldType],
   ["company", CompanyFieldType],
+  ["contact", ContactFieldType],
 ]);
 
 /**

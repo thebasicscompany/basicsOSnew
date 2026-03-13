@@ -34,4 +34,5 @@ export const mePatchSchema = z.object({
   lastName: z.string().trim().min(1).max(255).optional(),
   markOnboardingSeen: z.boolean().optional(),
   completeOnboarding: z.boolean().optional(),
+  restartOnboarding: z.boolean().optional(),
 });

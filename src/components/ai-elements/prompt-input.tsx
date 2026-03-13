@@ -630,10 +630,13 @@ export const PromptInput = ({
             return (formData.get("message") as string) || "";
           })();
 
-      // Reset form immediately after capturing text to avoid race condition
-      // where user input during async blob conversion would be lost
+      // Clear input immediately after capturing text so the UI feels
+      // responsive — the user's message appears in the conversation list
+      // while the response is loading, not stuck in the input box.
       if (!usingProvider) {
         form.reset();
+      } else {
+        controller.textInput.clear();
       }
 
       try {
@@ -658,18 +661,12 @@ export const PromptInput = ({
           try {
             await result;
             clear();
-            if (usingProvider) {
-              controller.textInput.clear();
-            }
           } catch {
-            // Don't clear on error - user may want to retry
+            // Don't clear attachments on error - user may want to retry
           }
         } else {
-          // Sync function completed without throwing, clear inputs
+          // Sync function completed without throwing, clear attachments
           clear();
-          if (usingProvider) {
-            controller.textInput.clear();
-          }
         }
       } catch {
         // Don't clear on error - user may want to retry

@@ -74,6 +74,17 @@ export async function updateRecordService(
     return { success: false, error: "No writable fields to update" };
   }
 
+  // Fetch old deal record before update to detect stage changes
+  let oldDealStatus: string | null = null;
+  if (resource === "deals" && "status" in filteredBody) {
+    const [oldDeal] = await db
+      .select({ status: schema.deals.status })
+      .from(schema.deals)
+      .where(eq(schema.deals.id, id))
+      .limit(1);
+    oldDealStatus = oldDeal?.status ?? null;
+  }
+
   const updated = await updateRecord(db, {
     resource,
     id,
@@ -97,13 +108,32 @@ export async function updateRecordService(
     ).catch(() => {});
   }
 
-  const eventResource = ["deals", "contacts", "tasks"].includes(resource)
+  const eventResource = ["deals", "contacts", "tasks", "companies"].includes(resource)
     ? resource
     : null;
   if (eventResource) {
     fireEvent(
       `${eventResource.replace(/s$/, "")}.updated`,
       updated,
+      crmUserId,
+    ).catch(() => {});
+  }
+
+  // Fire deal.stage_changed when deal status changes
+  if (
+    resource === "deals" &&
+    oldDealStatus !== null &&
+    typeof updated.status === "string" &&
+    oldDealStatus !== updated.status
+  ) {
+    fireEvent(
+      "deal.stage_changed",
+      {
+        dealId: id,
+        dealName: updated.name ?? null,
+        oldStatus: oldDealStatus,
+        newStatus: updated.status,
+      },
       crmUserId,
     ).catch(() => {});
   }

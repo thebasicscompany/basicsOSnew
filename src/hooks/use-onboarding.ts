@@ -5,6 +5,7 @@ import { useMe } from "@/hooks/use-me";
 type UpdateMePayload = {
   markOnboardingSeen?: boolean;
   completeOnboarding?: boolean;
+  restartOnboarding?: boolean;
 };
 
 function useMeUpdater() {
@@ -27,6 +28,7 @@ export function useOnboarding() {
   const me = meQuery.data;
   const markSeenMutation = useMeUpdater();
   const completeMutation = useMeUpdater();
+  const restartMutation = useMeUpdater();
 
   return {
     isLoadingOnboarding: meQuery.isPending,
@@ -38,7 +40,10 @@ export function useOnboarding() {
       markSeenMutation.mutateAsync({ markOnboardingSeen: true }),
     completeOnboarding: () =>
       completeMutation.mutateAsync({ completeOnboarding: true }),
+    restartOnboarding: () =>
+      restartMutation.mutateAsync({ restartOnboarding: true }),
     isMarkingSeen: markSeenMutation.isPending,
     isCompletingOnboarding: completeMutation.isPending,
+    isRestartingOnboarding: restartMutation.isPending,
   };
 }

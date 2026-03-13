@@ -179,3 +179,36 @@ export function useAdminUsageSummary(enabled: boolean, days = 30) {
     enabled,
   });
 }
+
+export interface SlackBotStatusResponse {
+  configured: boolean;
+  hasToken: boolean;
+  hasSigningSecret: boolean;
+  teamId: string | null;
+}
+
+export function useAdminSlackBotStatus(enabled: boolean) {
+  return useQuery({
+    queryKey: ["admin", "slack-bot"],
+    queryFn: () => fetchApi<SlackBotStatusResponse>("/api/admin/slack-bot"),
+    enabled,
+  });
+}
+
+export function useSaveAdminSlackBot() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: {
+      botToken?: string | null;
+      signingSecret?: string | null;
+      teamId?: string | null;
+    }) =>
+      fetchApi("/api/admin/slack-bot", {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "slack-bot"] });
+    },
+  });
+}

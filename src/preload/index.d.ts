@@ -42,6 +42,8 @@ export type OverlayElectronAPI = {
   onMeetingToggle?: (cb: () => void) => void;
   onMeetingStarted?: (cb: (id: string) => void) => void;
   onMeetingStopped?: (cb: (id: string) => void) => void;
+  onNotification?: (cb: (payload: { title: string; body: string; actions?: Array<{ id: string; label: string; url?: string }>; context?: string }) => void) => void;
+  onNavigateInApp?: (cb: (path: string) => void) => void;
   startMeeting?: () => Promise<void>;
   stopMeeting?: () => Promise<void>;
   getMeetingState?: () => Promise<unknown>;

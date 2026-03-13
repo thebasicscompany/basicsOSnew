@@ -236,7 +236,11 @@ type WorkflowHints = {
   nextHintByTool: Record<string, string>;
 };
 
-function inferWorkflowHints(queryText: string): WorkflowHints {
+function inferWorkflowHints(
+  queryText: string,
+  /** Full conversation text used only for meeting_id detection so follow-up replies still get hints */
+  fullConversationText?: string,
+): WorkflowHints {
   const trimmed = queryText.trim();
   const lower = trimmed.toLowerCase();
   const nextHintByTool: Record<string, string> = {};
@@ -248,9 +252,25 @@ function inferWorkflowHints(queryText: string): WorkflowHints {
     "Only reply after all required tool calls are complete, or after a required next step is genuinely blocked.",
   ];
 
-  const isUpdate = /\b(update|rename|change|edit|set)\b/.test(lower);
+  // Detect post-meeting follow-up: check full conversation so follow-up replies (e.g. "john@acme.com")
+  // still get meeting hints when an earlier message contained meeting_id.
+  const textForMeetingMatch = (fullConversationText ?? trimmed).trim();
+  const meetingIdMatch = textForMeetingMatch.match(/meeting[_\s]id[:\s]+(\d+)/i);
+  const isMeetingFollowUp = meetingIdMatch != null;
+  if (isMeetingFollowUp) {
+    const mid = meetingIdMatch[1];
+    planLines.push(
+      `This is a post-meeting follow-up for meeting_id ${mid}. Required sequence:`,
+      `1. Call \`link_meeting_to_contact\` with meeting_id=${mid} and the contact name/id the user provides — pass contact_name directly, no search needed first.`,
+      `2. If the user mentions action items or tasks, call \`create_task\` for each one.`,
+      `3. Confirm everything was saved. Do not reply before completing all tool calls.`,
+    );
+    nextHintByTool.search_contacts = `Next required step: call \`link_meeting_to_contact\` now with meeting_id=${mid} and the contact id from the lookup. Then create any mentioned tasks. Do not reply yet.`;
+  }
+
+  const isUpdate = /\b(update|rename|change|edit|set|move|bump|mark)\b/.test(lower);
   const isTask = /\b(task|reminder|follow-up|follow up|todo)\b/.test(lower);
-  const isNote = /\bnote\b/.test(lower);
+  const isNote = /\bnotes?\b/.test(lower);
   const isCreateContact =
     /\b(create|add|make)\b/.test(lower) &&
     /\b(contact|person|lead)\b/.test(lower);
@@ -276,11 +296,12 @@ function inferWorkflowHints(queryText: string): WorkflowHints {
       `Next required step for this request: call \`${updateTool}\` now using the matching ${entity.label} id or exact ${entity.label} name from the lookup result. Apply the requested change from the user's original request exactly: "${trimmed}". Do not reply yet.`;
   }
 
-  if (isTask && /\bcontact|contacts|person|people|lead|leads\b/.test(lower)) {
+  if (isTask) {
     planLines.push(
-      "For task requests about a person/contact, the usual sequence is: identify the contact first if needed, then call `create_task`, then confirm the task was created.",
+      "For task requests, the usual sequence is: identify the contact or company first if needed, then call `create_task`, then confirm the task was created.",
     );
     nextHintByTool.search_contacts = `Next required step for this request: call \`create_task\` now using the matching contact id or exact contact name from the lookup result. Apply the user's original request exactly: "${trimmed}". Do not reply yet.`;
+    nextHintByTool.search_companies = `Next required step for this request: call \`create_task\` now using the matching company id or exact company name from the lookup result. Apply the user's original request exactly: "${trimmed}". Do not reply yet.`;
   }
 
   if (isNote && /\bdeal|deals|opportunity|opportunities\b/.test(lower)) {
@@ -288,28 +309,36 @@ function inferWorkflowHints(queryText: string): WorkflowHints {
       "For note requests about a deal, the usual sequence is: identify the deal first if needed, then call `add_note`, then confirm the note was added.",
     );
     nextHintByTool.search_deals = `Next required step for this request: call \`add_note\` now using the matching deal id or exact deal name from the lookup result. Apply the user's original request exactly: "${trimmed}". Do not reply yet.`;
-  } else if (
-    isNote &&
-    /\bcontact|contacts|person|people|lead|leads\b/.test(lower)
-  ) {
+  } else if (isNote) {
     planLines.push(
-      "For note requests about a contact, the usual sequence is: identify the contact first if needed, then call `add_note`, then confirm the note was added.",
+      "For note requests about a contact, the usual sequence is: identify the contact first if needed, then call `create_note` or `add_note`, then confirm the note was added. Always include a short title.",
     );
-    nextHintByTool.search_contacts = `Next required step for this request: call \`add_note\` now using the matching contact id or exact contact name from the lookup result. Apply the user's original request exactly: "${trimmed}". Do not reply yet.`;
+    nextHintByTool.search_contacts = `Next required step for this request: call \`create_note\` now using the matching contact id from the lookup result. Apply the user's original request exactly: "${trimmed}". Do not reply yet.`;
   }
 
   if (isCreateContact && /\bcompany|companies|organization\b/.test(lower)) {
     planLines.push(
-      "When creating a contact linked to a company, identify the company first if needed, then call `create_contact` with the company id/name, then confirm the contact was created.",
+      "When creating a contact with a company name, pass company_name directly to create_contact. Do NOT search for the company first — the tool auto-creates the company if it does not exist.",
     );
-    nextHintByTool.search_companies = `Next required step for this request: call \`create_contact\` now using the matching company id or exact company name from the lookup result. Apply the user's original request exactly: "${trimmed}". Do not reply yet.`;
+    // No nextHintByTool for search_companies — we skip the search step entirely
   }
 
   if (isCreateDeal && /\bcompany|companies|organization\b/.test(lower)) {
     planLines.push(
-      "When creating a deal linked to a company, identify the company first if needed, then call `create_deal` with the company id/name, then confirm the deal was created.",
+      "When creating a deal with a company name, pass company_name directly to create_deal. Do NOT search for the company first — the tool auto-creates the company if it does not exist.",
     );
-    nextHintByTool.search_companies = `Next required step for this request: call \`create_deal\` now using the matching company id or exact company name from the lookup result. Apply the user's original request exactly: "${trimmed}". Do not reply yet.`;
+    // No nextHintByTool for search_companies — we skip the search step entirely
+  }
+
+  const isBulkCreate =
+    (/\b(and also|and then|also|too)\b|,/.test(lower) &&
+    /\b(create|add|make|added)\b/.test(lower)) ||
+    (/\b(create|add|make)\b/.test(lower) && /\b(contact|company|deal)\b/.test(lower) && /\b(and|,)\b/.test(lower));
+  if (isBulkCreate) {
+    planLines.push(
+      "For bulk create requests (multiple contacts, companies, or deals in one message), call one create tool per record in sequence, then confirm all were created.",
+      "Do not stop after the first record. Complete every create action before replying.",
+    );
   }
 
   return { planText: planLines.join("\n"), nextHintByTool };
@@ -433,7 +462,7 @@ export type ProcessChatTurnParams = {
   gatewayUrl: string;
   messages: unknown[];
   threadId?: string;
-  channel?: "chat" | "voice" | "automation";
+  channel?: "chat" | "voice" | "automation" | "slack";
 };
 
 export type ProcessChatTurnResult = {
@@ -511,6 +540,10 @@ export async function processChatTurn(
     ...priorConversationMessages,
     { role: "user", content: queryText },
   ]);
+  const fullConversationText = [
+    ...priorConversationMessages.map((m) => m.content),
+    queryText,
+  ].join("\n\n");
   const routingDecision = (await routeChatRequest({
     gatewayUrl,
     gatewayHeaders,
@@ -543,6 +576,21 @@ export async function processChatTurn(
   }
 
   let systemPrompt = BASE_SYSTEM_PROMPT;
+  if (channel === "voice") {
+    systemPrompt += `\n\n## Voice assistant behavior
+- Keep responses concise and conversational — the user is listening, not reading.
+- If a voice request is ambiguous (e.g., "update that contact"), ask a short clarifying question rather than guessing wrong.
+- Prefer confirming actions with a brief summary: "Done — updated John's email to john@new.com" rather than listing all fields.
+- When creating or updating records via voice, confirm the key details back to the user.`;
+  }
+  if (channel === "slack") {
+    systemPrompt += `\n\n## Slack behavior
+- Keep responses concise and scannable — this is a Slack message, not a chat window.
+- Use Slack mrkdwn format: *bold*, _italic_, \`code\`, and bullet lists with dashes.
+- When @mentioned about a deal, contact, or company, always look it up in the CRM first.
+- If asked to log something as a note, use add_note with the entity name from the message.
+- Do not include links or markdown that won't render in Slack.`;
+  }
   // Use dual retrieval (CRM + meeting chunks) for both crm_context and tool_call
   // so meeting-related queries (e.g. "what did we decide about Acme?") get context.
   // Limits are set by classifyQueryIntent to keep token budget tight.
@@ -576,7 +624,7 @@ export async function processChatTurn(
   ) {
     systemPrompt += `\n\n${buildResolvedRecordContext(resolvedRecentRecord.record)}`;
   }
-  const workflowHints = inferWorkflowHints(queryText);
+  const workflowHints = inferWorkflowHints(queryText, fullConversationText);
   if (routingDecision.mode === "tool_call") {
     systemPrompt += `\n\n${workflowHints.planText}`;
   } else if (routingDecision.mode === "crm_context") {

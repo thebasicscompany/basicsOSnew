@@ -181,6 +181,25 @@ export const transcribeAudioBlob = async (
   }
 };
 
+/** Save meeting notes for a completed meeting. */
+export const saveMeetingNotes = async (
+  meetingId: string,
+  notes: string,
+): Promise<void> => {
+  try {
+    await fetchWithSession(
+      `/api/meetings/${meetingId}/notes`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notes }),
+      },
+    );
+  } catch {
+    // Best-effort; don't surface errors to user
+  }
+};
+
 /** Upload transcript text to backend. */
 export const uploadMeetingTranscript = async (
   meetingId: string,
@@ -195,24 +214,6 @@ export const uploadMeetingTranscript = async (
     },
     { retries: 1 },
   );
-};
-
-/** Save meeting notes (inline notepad). */
-export const saveMeetingNotes = async (
-  meetingId: string,
-  notes: string,
-): Promise<void> => {
-  console.warn(`[MEETING:NOTES] saving meetingId=${meetingId} notesLen=${notes.length} t=${Date.now()}`);
-  await fetchWithSession(
-    `/api/meetings/${meetingId}/notes`,
-    {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ notes }),
-    },
-    { retries: 1 },
-  );
-  console.warn(`[MEETING:NOTES] saved successfully meetingId=${meetingId} t=${Date.now()}`);
 };
 
 /** Trigger LLM summarization for a completed meeting. */
@@ -234,6 +235,7 @@ export async function* streamAssistant(
     timeoutMs?: number;
     threadId?: string;
     onThreadId?: (threadId: string) => void;
+    onToolsUsed?: (tools: string[]) => void;
   },
 ): AsyncGenerator<string> {
   const res = await fetchWithSession(
@@ -247,9 +249,15 @@ export async function* streamAssistant(
     },
     { timeoutMs: options?.timeoutMs ?? DEFAULT_TIMEOUT_MS },
   );
-  const nextThreadId = res.headers["x-thread-id"] ?? res.headers["X-Thread-Id"];
+  const nextThreadId =
+    res.headers["x-thread-id"] ?? res.headers["X-Thread-Id"];
   if (nextThreadId) {
     options?.onThreadId?.(nextThreadId);
+  }
+  const toolsUsedHeader =
+    res.headers["x-tools-used"] ?? res.headers["X-Tools-Used"];
+  if (toolsUsedHeader) {
+    options?.onToolsUsed?.(toolsUsedHeader.split(",").filter(Boolean));
   }
   if (!res.body) throw new VoiceApiError("Empty stream response", 502);
   const lines = res.body.split("\n");

@@ -20,6 +20,8 @@ import { createVoiceProxyRoutes } from "@/routes/voice-proxy.js";
 import { createStreamAssistantRoutes } from "@/routes/stream-assistant.js";
 import { createThreadsRoutes } from "@/routes/threads.js";
 import { createMeetingsRoutes } from "@/routes/meetings.js";
+import { createNotificationsRoutes } from "@/routes/notifications.js";
+import { createSlackEventsRoutes } from "@/routes/slack-events.js";
 import { createEmailSyncRoutes } from "@/routes/email-sync.js";
 import { createRbacRoutes } from "@/routes/rbac.js";
 import { createAdminRoutes } from "@/routes/admin.js";
@@ -175,6 +177,12 @@ export function createApp(db: Db, env: Env) {
 
   // Meeting recordings
   app.route("/api/meetings", createMeetingsRoutes(db, auth, env));
+
+  // Pill notifications SSE stream
+  app.route("/api/notifications", createNotificationsRoutes(db, auth, env));
+
+  // Slack Events API (webhook — no auth middleware)
+  app.route("/api/slack", createSlackEventsRoutes(db, auth, env));
 
   // Email sync + contact discovery
   app.route("/api/email-sync", createEmailSyncRoutes(db, auth, env));

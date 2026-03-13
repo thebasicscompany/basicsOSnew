@@ -305,6 +305,139 @@ export const ResponseBody = ({
   );
 };
 
+/** Passive notification pill — never auto-listens. Shows title, body, and response options. */
+export const NotificationPill = ({
+  title,
+  body,
+  actions,
+  assistantShortcutLabel,
+  onRespondWithVoice,
+  onRespondInChat,
+  onDismiss,
+}: {
+  title: string;
+  body: string;
+  actions?: Array<{ id: string; label: string; url?: string }>;
+  assistantShortcutLabel?: string;
+  onRespondWithVoice?: () => void;
+  onRespondInChat: (context?: string) => void;
+  onDismiss: () => void;
+}) => {
+  const respondAction = actions?.find(
+    (a) => a.id === "respond_in_chat" || a.label.toLowerCase().includes("chat"),
+  );
+  const viewDealAction = actions?.find(
+    (a) => a.id === "view_deal" || a.label.toLowerCase().includes("deal"),
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div
+        style={{
+          color: "#fff",
+          fontSize: 13.5,
+          fontWeight: 600,
+          letterSpacing: "-0.01em",
+        }}
+      >
+        {title}
+      </div>
+      <div
+        style={{
+          color: "rgba(255,255,255,0.75)",
+          fontSize: 12.5,
+          lineHeight: 1.5,
+        }}
+      >
+        <InlineContent text={body} />
+      </div>
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          gap: 8,
+          alignItems: "center",
+          marginTop: 6,
+          paddingBottom: 4,
+        }}
+      >
+        {onRespondWithVoice && assistantShortcutLabel && (
+          <button
+            type="button"
+            onClick={onRespondWithVoice}
+            style={{
+              background: "rgba(255,255,255,0.2)",
+              color: "#fff",
+              border: "1px solid rgba(255,255,255,0.3)",
+              borderRadius: 6,
+              padding: "8px 14px",
+              fontSize: 12.5,
+              fontWeight: 600,
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            <MicrophoneIcon size={14} weight="fill" />
+            Respond with voice ({assistantShortcutLabel})
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => onRespondInChat(respondAction?.url)}
+          style={{
+            background: "transparent",
+            color: "rgba(255,255,255,0.55)",
+            border: "none",
+            padding: "4px 8px",
+            fontSize: 11.5,
+            fontWeight: 500,
+            cursor: "pointer",
+            textDecoration: "underline",
+            textUnderlineOffset: 2,
+          }}
+        >
+          {respondAction?.label ?? "Respond in chat"}
+        </button>
+        {viewDealAction?.url && (
+          <button
+            type="button"
+            onClick={() => navigateMain(viewDealAction!.url!)}
+            style={{
+              background: "rgba(255,255,255,0.15)",
+              color: "#fff",
+              border: "none",
+              borderRadius: 6,
+              padding: "6px 12px",
+              fontSize: 12,
+              fontWeight: 500,
+              cursor: "pointer",
+            }}
+          >
+            {viewDealAction.label}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onDismiss}
+          style={{
+            background: "transparent",
+            color: "rgba(255,255,255,0.4)",
+            border: "none",
+            padding: "4px 8px",
+            fontSize: 12,
+            cursor: "pointer",
+            marginLeft: "auto",
+          }}
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+  );
+};
+
 export const MeetingTimer = ({
   startedAt,
 }: {

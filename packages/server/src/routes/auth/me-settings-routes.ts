@@ -97,8 +97,8 @@ export function registerMeSettingsRoutes(
     const updates: Partial<{
       firstName: string;
       lastName: string;
-      onboardingSeenAt: Date;
-      onboardingCompletedAt: Date;
+      onboardingSeenAt: Date | null;
+      onboardingCompletedAt: Date | null;
     }> = {};
     if (parsed.data.firstName) updates.firstName = parsed.data.firstName;
     if (parsed.data.lastName) updates.lastName = parsed.data.lastName;
@@ -112,9 +112,13 @@ export function registerMeSettingsRoutes(
         updates.onboardingSeenAt = now;
       }
     }
+    if (parsed.data.restartOnboarding) {
+      updates.onboardingCompletedAt = null;
+      updates.onboardingSeenAt = null;
+    }
 
     if (Object.keys(updates).length === 0) {
-      if (parsed.data.markOnboardingSeen || parsed.data.completeOnboarding) {
+      if (parsed.data.markOnboardingSeen || parsed.data.completeOnboarding || parsed.data.restartOnboarding) {
         return c.json({ ok: true });
       }
       return c.json({ error: "No valid fields to update" }, 400);

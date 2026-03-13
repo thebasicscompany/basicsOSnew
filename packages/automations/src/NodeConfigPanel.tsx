@@ -210,6 +210,11 @@ export function NodeConfigPanel({
         data: { channel: "", message: "" },
       },
       {
+        value: "action_notify_user",
+        label: "Notify User",
+        data: { title: "", body: "", context: "" },
+      },
+      {
         value: "action_gmail_read",
         label: "Read Gmail",
         data: { query: "is:unread", maxResults: 5 },
@@ -268,11 +273,19 @@ export function NodeConfigPanel({
               <SelectItem value="deal.created">Deal created</SelectItem>
               <SelectItem value="deal.updated">Deal updated</SelectItem>
               <SelectItem value="deal.deleted">Deal deleted</SelectItem>
+              <SelectItem value="deal.stage_changed">Deal stage changed</SelectItem>
               <SelectItem value="contact.created">Contact created</SelectItem>
               <SelectItem value="contact.updated">Contact updated</SelectItem>
+              <SelectItem value="company.created">Company created</SelectItem>
+              <SelectItem value="company.updated">Company updated</SelectItem>
+              <SelectItem value="company.deleted">Company deleted</SelectItem>
               <SelectItem value="task.created">Task created</SelectItem>
               <SelectItem value="task.updated">Task updated</SelectItem>
               <SelectItem value="task.deleted">Task deleted</SelectItem>
+              <SelectItem value="note.created">Note created</SelectItem>
+              <SelectItem value="meeting.created">Meeting created</SelectItem>
+              <SelectItem value="meeting.completed">Meeting completed</SelectItem>
+              <SelectItem value="meeting_link.created">Meeting link created</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -716,6 +729,46 @@ export function NodeConfigPanel({
             code="{{slack_result}}"
             description="Delivery status for the Slack message."
           />
+        }
+      />
+    );
+  }
+
+  if (type === "action_notify_user") {
+    const title = (data.title as string) || "";
+    const body = (data.body as string) || "";
+    const context = (data.context as string) || "";
+    return (
+      <ConfigAccordion
+        required={
+          <div className="space-y-2">
+            <Label>Title</Label>
+            <VariableInput
+              value={title}
+              onChange={(v) => onUpdate({ title: v })}
+              variables={variables}
+              placeholder="Meeting just ended"
+            />
+            <Label>Body</Label>
+            <VariableTextarea
+              value={body}
+              onChange={(v) => onUpdate({ body: v })}
+              variables={variables}
+              placeholder="Was this meeting with anyone in your contacts?"
+              rows={3}
+            />
+          </div>
+        }
+        advanced={
+          <div className="space-y-2">
+            <Label>Context (for Respond in chat)</Label>
+            <VariableInput
+              value={context}
+              onChange={(v) => onUpdate({ context: v })}
+              variables={variables}
+              placeholder="Optional pre-fill for chat"
+            />
+          </div>
         }
       />
     );

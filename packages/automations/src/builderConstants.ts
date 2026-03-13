@@ -13,6 +13,7 @@ import {
   AIAgentNode,
   GmailReadNode,
   GmailSendNode,
+  NotifyUserActionNode,
 } from "./nodes";
 
 export type WorkflowNode = Node<Record<string, unknown>, string>;
@@ -30,6 +31,7 @@ export const NODE_TYPES = {
   action_ai_agent: AIAgentNode,
   action_gmail_read: GmailReadNode,
   action_gmail_send: GmailSendNode,
+  action_notify_user: NotifyUserActionNode,
 };
 
 export function newId() {

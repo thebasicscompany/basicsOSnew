@@ -6,11 +6,19 @@ const EVENT_OPTIONS = [
   "deal.created",
   "deal.updated",
   "deal.deleted",
+  "deal.stage_changed",
   "contact.created",
   "contact.updated",
+  "company.created",
+  "company.updated",
+  "company.deleted",
   "task.created",
   "task.updated",
   "task.deleted",
+  "note.created",
+  "meeting.created",
+  "meeting.completed",
+  "meeting_link.created",
 ] as const;
 
 export interface TriggerEventData {

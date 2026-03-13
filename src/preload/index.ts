@@ -6,6 +6,7 @@ import type {
   BrandingInfo,
   DictationInsertResult,
   ShortcutBinding,
+  PushNotificationPayload,
 } from "@/shared-overlay/types";
 
 const overlayAPI = {
@@ -83,6 +84,14 @@ const overlayAPI = {
   onMeetingStopped: (cb: (id: string) => void) => {
     ipcRenderer.on("meeting-stopped", (_e, id: string) => cb(id));
   },
+  onNotification: (cb: (payload: PushNotificationPayload) => void) => {
+    ipcRenderer.on("push-notification", (_e, payload: PushNotificationPayload) => cb(payload));
+  },
+  onNavigateInApp: (cb: (path: string) => void) => {
+    ipcRenderer.on("navigate-in-app", (_e, path: string) => cb(path));
+  },
+  notifyDataChanged: (queryKeys: string[]) =>
+    ipcRenderer.send("data-changed", queryKeys),
   startMeeting: () => ipcRenderer.invoke("start-meeting"),
   stopMeeting: () => ipcRenderer.invoke("stop-meeting"),
   getMeetingState: () =>
@@ -161,6 +170,9 @@ const overlayAPI = {
       "meeting-toggle",
       "meeting-started",
       "meeting-stopped",
+      "push-notification",
+      "navigate-in-app",
+      "data-changed",
       "overlay-visibility-changed",
       "system-audio-silent",
       "system-audio-transcript",

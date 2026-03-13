@@ -66,6 +66,14 @@ export type DictationInsertResult = {
   method: "app" | "clipboard" | "none";
 };
 
+/** Push notification payload from main process to overlay pill */
+export type PushNotificationPayload = {
+  title: string;
+  body: string;
+  actions?: Array<{ id: string; label: string; url?: string }>;
+  context?: string;
+};
+
 // ElectronAPI extensions for system audio capture
 export type SystemAudioAPI = {
   startSystemAudio?: (meetingId: string) => Promise<boolean>;

@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { useLocation, useNavigate, useParams } from "react-router";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import type { Message } from "@ai-sdk/react";
+import { motion, AnimatePresence } from "motion/react";
 import { usePageTitle } from "@/contexts/page-header";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import {
@@ -38,7 +39,7 @@ import {
   PromptInputTools,
   PromptInputProvider,
 } from "@/components/ai-elements/prompt-input";
-import { usePromptInputAttachments } from "@/components/ai-elements/prompt-input-context";
+import { usePromptInputAttachments, useOptionalPromptInputController } from "@/components/ai-elements/prompt-input-context";
 import { Suggestion } from "@/components/ai-elements/suggestion";
 import { useGatewayChat } from "@/hooks/useGatewayChat";
 import { useGateway } from "@/hooks/useGateway";
@@ -219,6 +220,7 @@ function ChatPageInner({ threadId }: { threadId?: string }) {
   const recentHint = useRecentHint();
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { data: savedMessages } = useThreadMessages(threadId);
 
   const initialMessages = useMemo<Message[] | undefined>(() => {
@@ -235,15 +237,23 @@ function ChatPageInner({ threadId }: { threadId?: string }) {
     initialMessages,
   });
 
-  const appendedFromHomeRef = useRef(false);
+  // Tracks the last context string that was auto-sent to prevent double-sends
+  // on re-renders, while still allowing NEW context strings (e.g. a second
+  // meeting follow-up) to trigger a fresh send even if we're already on /chat.
+  const lastAppendedContextRef = useRef<string | null>(null);
   useEffect(() => {
     const state = location.state as { initialText?: string } | null;
-    const text = state?.initialText?.trim();
-    if (!text || !threadId || appendedFromHomeRef.current) return;
-    appendedFromHomeRef.current = true;
-    navigate(location.pathname, { replace: true, state: {} });
+    const contextFromUrl = searchParams.get("context")?.trim();
+    const text = (state?.initialText ?? contextFromUrl)?.trim();
+    if (!text || text === lastAppendedContextRef.current) return;
+    lastAppendedContextRef.current = text;
+    if (contextFromUrl) {
+      setSearchParams({}, { replace: true });
+    } else {
+      navigate(location.pathname, { replace: true, state: {} });
+    }
     append({ role: "user", content: text });
-  }, [threadId, location.state, location.pathname, navigate, append]);
+  }, [threadId, location.state, location.pathname, navigate, append, searchParams, setSearchParams]);
 
   const allVisible = messages.filter(
     (m) => m.role === "user" || m.role === "assistant",
@@ -254,8 +264,25 @@ function ChatPageInner({ threadId }: { threadId?: string }) {
   // Hide page title on empty starter screen
   usePageTitle(isEmpty && isIdle ? "" : "AI Chat");
 
+  // Animation variants
+  const userMsgVariants = {
+    hidden: { opacity: 0, y: 10, scale: 0.98 },
+    visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.2, ease: "easeOut" } },
+  };
+  const assistantMsgVariants = {
+    hidden: { opacity: 0, y: 6 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.18, ease: "easeOut" } },
+  };
+  const thinkingVariants = {
+    hidden: { opacity: 0, y: 4 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.15, ease: "easeOut" } },
+    exit: { opacity: 0, transition: { duration: 0.1 } },
+  };
+
+  const controller = useOptionalPromptInputController();
+
   const handleSubmit = useCallback(
-    async (
+    (
       message: PromptInputMessage,
       _event: React.FormEvent<HTMLFormElement>,
     ) => {
@@ -273,9 +300,13 @@ function ChatPageInner({ threadId }: { threadId?: string }) {
           description: `${message.files!.length} file(s) attached. Note: The assistant currently supports text only.`,
         });
       }
-      await append({ role: "user", content: text });
+      // Clear the input immediately so the textarea empties before the response arrives.
+      controller?.textInput.clear();
+      // Fire-and-forget: returning void (not a Promise) causes PromptInput
+      // to clear the textarea immediately instead of waiting for the response.
+      void append({ role: "user", content: text });
     },
-    [append, hasKey],
+    [append, hasKey, controller],
   );
 
   const handleSuggestionClick = useCallback(
@@ -296,86 +327,101 @@ function ChatPageInner({ threadId }: { threadId?: string }) {
   if (isEmpty && isIdle) {
     return (
       <div className="flex h-full flex-col items-center justify-center overflow-hidden">
-        <PromptInputProvider>
-          <div className="-mt-24 flex w-full max-w-2xl flex-col items-center gap-5 px-6">
-            <div className="text-center">
-              <h1 className="text-3xl font-semibold text-foreground">
-                What can I help with?
-              </h1>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {!hasKey
-                  ? "Add your Basics API key in Settings to get started."
-                  : (recentHint ?? "Ask anything about your operating system.")}
-              </p>
-            </div>
-            <div className="w-full">
-              <PromptInput globalDrop multiple onSubmit={handleSubmit}>
-                <PromptInputHeader>
-                  <PromptInputAttachmentsDisplay />
-                </PromptInputHeader>
-                <PromptInputBody>
-                  <PromptInputTextarea placeholder="Ask anything about your operating system..." />
-                </PromptInputBody>
-                <PromptInputFooter>
-                  <PromptInputTools>
-                    <PromptInputActionMenu>
-                      <PromptInputActionMenuTrigger />
-                      <PromptInputActionMenuContent>
-                        <PromptInputActionAddAttachments />
-                      </PromptInputActionMenuContent>
-                    </PromptInputActionMenu>
-                  </PromptInputTools>
-                  <PromptInputSubmit status={status} onStop={stop} />
-                </PromptInputFooter>
-              </PromptInput>
-            </div>
-            {hasKey && (
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                {SUGGESTIONS.map((suggestion) => (
-                  <Suggestion
-                    key={suggestion}
-                    suggestion={suggestion}
-                    onClick={handleSuggestionClick}
-                  />
-                ))}
-              </div>
-            )}
+        <div className="-mt-24 flex w-full max-w-2xl flex-col items-center gap-5 px-6">
+          <div className="text-center">
+            <h1 className="text-3xl font-semibold text-foreground">
+              What can I help with?
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {!hasKey
+                ? "Add your Basics API key in Settings to get started."
+                : (recentHint ?? "Ask anything about your operating system.")}
+            </p>
           </div>
-        </PromptInputProvider>
+          <div className="w-full">
+            <PromptInput globalDrop multiple onSubmit={handleSubmit}>
+              <PromptInputHeader>
+                <PromptInputAttachmentsDisplay />
+              </PromptInputHeader>
+              <PromptInputBody>
+                <PromptInputTextarea placeholder="Ask anything about your operating system..." />
+              </PromptInputBody>
+              <PromptInputFooter>
+                <PromptInputTools>
+                  <PromptInputActionMenu>
+                    <PromptInputActionMenuTrigger />
+                    <PromptInputActionMenuContent>
+                      <PromptInputActionAddAttachments />
+                    </PromptInputActionMenuContent>
+                  </PromptInputActionMenu>
+                </PromptInputTools>
+                <PromptInputSubmit status={status} onStop={stop} />
+              </PromptInputFooter>
+            </PromptInput>
+          </div>
+          {hasKey && (
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {SUGGESTIONS.map((suggestion) => (
+                <Suggestion
+                  key={suggestion}
+                  suggestion={suggestion}
+                  onClick={handleSuggestionClick}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     );
   }
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      <PromptInputProvider>
-        <Conversation className="min-h-0 flex-1">
+      <Conversation className="min-h-0 flex-1">
           <ConversationContent className="pb-2">
             {displayMessages.map((m) => (
-              <MessageEl key={m.id} from={m.role as "user" | "assistant"}>
-                <MessageContent>
-                  <EntityAwareMessageResponse
-                    animated={
-                      m.role === "assistant"
-                        ? { animation: "blurIn" }
-                        : undefined
-                    }
-                    isAnimating={
-                      m.role === "assistant" && status === "streaming"
-                    }
-                  >
-                    {getTextContent(m)}
-                  </EntityAwareMessageResponse>
-                </MessageContent>
-              </MessageEl>
+              <motion.div
+                key={m.id}
+                variants={m.role === "user" ? userMsgVariants : assistantMsgVariants}
+                initial="hidden"
+                animate="visible"
+                layout="position"
+              >
+                <MessageEl from={m.role as "user" | "assistant"}>
+                  <MessageContent>
+                    <EntityAwareMessageResponse
+                      animated={
+                        m.role === "assistant"
+                          ? { animation: "blurIn" }
+                          : undefined
+                      }
+                      isAnimating={
+                        m.role === "assistant" && status === "streaming"
+                      }
+                    >
+                      {getTextContent(m)}
+                    </EntityAwareMessageResponse>
+                  </MessageContent>
+                </MessageEl>
+              </motion.div>
             ))}
-            {isThinking && (
-              <MessageEl from="assistant">
-                <MessageContent>
-                  <Shimmer className="text-[13px]">Thinking...</Shimmer>
-                </MessageContent>
-              </MessageEl>
-            )}
+            <AnimatePresence mode="wait">
+              {isThinking && (
+                <motion.div
+                  key="thinking"
+                  variants={thinkingVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                >
+                  <MessageEl from="assistant">
+                    <MessageContent>
+                      <Shimmer className="text-[13px]">Thinking...</Shimmer>
+                    </MessageContent>
+                  </MessageEl>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </ConversationContent>
           <ConversationScrollButton />
         </Conversation>
@@ -405,13 +451,17 @@ function ChatPageInner({ threadId }: { threadId?: string }) {
             </PromptInputFooter>
           </PromptInput>
         </div>
-      </PromptInputProvider>
     </div>
   );
 }
 
 export function ChatPage() {
   const { threadId } = useParams<{ threadId?: string }>();
-  // Key forces remount when switching threads
-  return <ChatPageInner key={threadId ?? "new"} threadId={threadId} />;
+  // PromptInputProvider is lifted here so ChatPageInner can call
+  // useOptionalPromptInputController() to clear the input immediately on submit.
+  return (
+    <PromptInputProvider>
+      <ChatPageInner key={threadId ?? "new"} threadId={threadId} />
+    </PromptInputProvider>
+  );
 }

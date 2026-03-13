@@ -1,4 +1,5 @@
 import { ROUTES } from "@basics-os/hub";
+import type { ConfiguredShortcuts } from "@/hooks/use-configured-shortcuts";
 
 export type HelpAction = {
   label: string;
@@ -48,13 +49,24 @@ export function getOnboardingChecklistItems({
   return [
     {
       id: "voice-setup",
-      title: "Open Voice and review pill setup",
+      title: "Open Voice and try the pill",
       description: hasApiKey
-        ? "Open the Voice page, try the pill, and review the shortcut. On macOS, this is also where you should approve Accessibility if the app prompts for it."
-        : "Open the Voice page to see how the pill works and where the shortcut is configured. If AI features are unavailable, shared API access may still need setup.",
+        ? "Open the Voice page, launch the pill, and confirm the shortcuts work. On macOS, this is also where you approve Accessibility if prompted."
+        : "Open the Voice page to see how the pill works. If AI features are unavailable, shared API access may still need setup.",
       action: {
         label: "Open Voice",
         description: "Review pill setup and shortcuts.",
+        path: ROUTES.VOICE,
+      },
+    },
+    {
+      id: "configure-shortcuts",
+      title: "Configure your keyboard shortcuts",
+      description:
+        "Set the global shortcuts for the AI assistant, dictation, and meeting mode. Click any shortcut to record a new one.",
+      action: {
+        label: "Open Voice Settings",
+        description: "Configure global shortcuts.",
         path: ROUTES.VOICE,
       },
     },
@@ -376,21 +388,23 @@ export function getHelpTabs({ isAdmin, hasApiKey }: HelpOptions): HelpTab[] {
   ];
 }
 
-export const HELP_SHORTCUTS: HelpShortcut[] = [
-  {
-    label: "Command palette",
-    keys: ["Ctrl", "K"],
-    description: "Search pages, records, and actions from anywhere.",
-  },
-  {
-    label: "Voice assistant",
-    keys: ["Cmd", "Space"],
-    description:
-      "In Electron, trigger the assistant overlay with the main voice shortcut.",
-  },
-  {
-    label: "Dictation mode",
-    keys: ["Cmd", "Shift", "Space"],
-    description: "In Electron, toggle dictation when you want text injected.",
-  },
-];
+export function getHelpShortcuts(configured: ConfiguredShortcuts): HelpShortcut[] {
+  return [
+    {
+      label: "Command palette",
+      keys: configured.commandPalette.split("+"),
+      description: "Search pages, records, and actions from anywhere.",
+    },
+    {
+      label: "Voice assistant",
+      keys: configured.assistant.split("+"),
+      description:
+        "In Electron, trigger the assistant overlay with the main voice shortcut.",
+    },
+    {
+      label: "Dictation mode",
+      keys: configured.dictation.split("+"),
+      description: "In Electron, toggle dictation when you want text injected.",
+    },
+  ];
+}

@@ -1,6 +1,7 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
 import type { Db } from "@/db/client.js";
 import * as schema from "@/db/schema/index.js";
+import { fireEvent } from "@/lib/automation-engine.js";
 import {
   type HybridSearchContext,
   resolveCompanyByName,
@@ -23,6 +24,7 @@ import {
   getContactSchema,
   getDealSchema,
   limitFrom,
+  linkMeetingToContactSchema,
   listNotesSchema,
   listTasksSchema,
   searchCompaniesSchema,
@@ -214,6 +216,32 @@ export async function executeValidatedTool(
     if (!parsed.success)
       return { error: "Invalid arguments", details: parsed.error.flatten() };
     const args = parsed.data;
+
+    const fullName = [args.first_name, args.last_name].filter(Boolean).join(" ");
+    if (fullName) {
+      const existingId = await resolveContactByName(
+        db,
+        organizationId,
+        fullName,
+        searchContext,
+      );
+      if (existingId != null) {
+        const [existing] = await db
+          .select()
+          .from(schema.contacts)
+          .where(
+            and(
+              eq(schema.contacts.id, existingId),
+              eq(schema.contacts.organizationId, organizationId),
+            ),
+          )
+          .limit(1);
+        if (existing) {
+          return `Contact already exists: ${formatContact(existing)}. Use update_contact to modify.`;
+        }
+      }
+    }
+
     let companyId = args.company_id ?? null;
     if (companyId == null && args.company_name) {
       companyId = await resolveCompanyByName(
@@ -222,6 +250,13 @@ export async function executeValidatedTool(
         args.company_name,
         searchContext,
       );
+      if (companyId == null) {
+        const [newCompany] = await db
+          .insert(schema.companies)
+          .values({ crmUserId, organizationId, name: args.company_name.trim() })
+          .returning();
+        companyId = newCompany?.id ?? null;
+      }
     }
     const [row] = await db
       .insert(schema.contacts)
@@ -234,9 +269,19 @@ export async function executeValidatedTool(
         companyId,
       })
       .returning();
-    return row
-      ? formatCreated(row, "contacts")
-      : "Error: failed to create contact";
+    if (!row) return "Error: failed to create contact";
+    let confirmation = formatCreated(row, "contacts");
+    if (companyId) {
+      const [company] = await db
+        .select({ name: schema.companies.name })
+        .from(schema.companies)
+        .where(eq(schema.companies.id, companyId))
+        .limit(1);
+      if (company?.name) {
+        confirmation += ` — linked to [[companies/${companyId}|${company.name}]]`;
+      }
+    }
+    return confirmation;
   }
 
   if (toolName === "update_contact") {
@@ -334,6 +379,14 @@ export async function executeValidatedTool(
         args.company_name,
         searchContext,
       );
+      // Company doesn't exist yet — create it on the fly so the deal is properly linked
+      if (companyId == null) {
+        const [newCompany] = await db
+          .insert(schema.companies)
+          .values({ crmUserId, organizationId, name: args.company_name.trim() })
+          .returning();
+        companyId = newCompany?.id ?? null;
+      }
     }
     const [row] = await db
       .insert(schema.deals)
@@ -346,7 +399,19 @@ export async function executeValidatedTool(
         amount: args.amount ?? null,
       })
       .returning();
-    return row ? formatCreated(row, "deals") : "Error: failed to create deal";
+    if (!row) return "Error: failed to create deal";
+    let confirmation = formatCreated(row, "deals");
+    if (companyId) {
+      const [company] = await db
+        .select({ name: schema.companies.name })
+        .from(schema.companies)
+        .where(eq(schema.companies.id, companyId))
+        .limit(1);
+      if (company?.name) {
+        confirmation += ` — linked to [[companies/${companyId}|${company.name}]]`;
+      }
+    }
+    return confirmation;
   }
 
   if (toolName === "update_deal") {
@@ -709,10 +774,14 @@ export async function executeValidatedTool(
         crmUserId,
         organizationId,
         contactId,
+        title: args.title?.trim() ?? null,
         text: args.text.trim(),
         status: args.type ?? null,
       })
       .returning();
+    if (row) {
+      fireEvent("note.created", { entityType: "contact", entityId: contactId, noteId: row.id, text: args.text.trim() }, crmUserId).catch(() => {});
+    }
     return row ?? { error: "failed to create note" };
   }
 
@@ -753,10 +822,14 @@ export async function executeValidatedTool(
           crmUserId,
           organizationId,
           contactId,
+          title: args.title?.trim() ?? null,
           text: args.text.trim(),
           status: null,
         })
         .returning();
+      if (row) {
+        fireEvent("note.created", { entityType: "contact", entityId: contactId, noteId: row.id, text: args.text.trim() }, crmUserId).catch(() => {});
+      }
       return row
         ? `Note added to contact (id: ${row.id})`
         : { error: "failed to add note" };
@@ -782,9 +855,13 @@ export async function executeValidatedTool(
           crmUserId,
           organizationId,
           dealId,
+          title: args.title?.trim() ?? null,
           text: args.text.trim(),
         })
         .returning();
+      if (row) {
+        fireEvent("note.created", { entityType: "deal", entityId: dealId, noteId: row.id, text: args.text.trim() }, crmUserId).catch(() => {});
+      }
       return row
         ? `Note added to deal (id: ${row.id})`
         : { error: "failed to add note" };
@@ -793,6 +870,118 @@ export async function executeValidatedTool(
     return {
       error: "Must specify contact_id/contact_name or deal_id/deal_name",
     };
+  }
+
+  if (toolName === "link_meeting_to_contact") {
+    const parsed = linkMeetingToContactSchema.safeParse(rawArgs);
+    if (!parsed.success)
+      return { error: "Invalid arguments", details: parsed.error.flatten() };
+    const args = parsed.data;
+
+    const [meeting] = await db
+      .select({ id: schema.meetings.id })
+      .from(schema.meetings)
+      .where(
+        and(
+          eq(schema.meetings.id, args.meeting_id),
+          eq(schema.meetings.organizationId, organizationId),
+        ),
+      )
+      .limit(1);
+    if (!meeting)
+      return `Meeting #${args.meeting_id} not found or was deleted. Cannot link — ask the user to link from the meeting detail page or use a different meeting.`;
+
+    let contactId = args.contact_id ?? null;
+    if (contactId == null && args.contact_name) {
+      contactId =
+        (await resolveContactByName(
+          db,
+          organizationId,
+          args.contact_name,
+          searchContext,
+        )) ?? null;
+      if (contactId == null)
+        return `No contact found matching "${args.contact_name}". Please create the contact first or check the spelling.`;
+    }
+
+    let companyId = args.company_id ?? null;
+    if (companyId == null && args.company_name) {
+      companyId =
+        (await resolveCompanyByName(
+          db,
+          organizationId,
+          args.company_name,
+          searchContext,
+        )) ?? null;
+    }
+
+    const linked: string[] = [];
+
+    if (contactId != null) {
+      await db
+        .insert(schema.meetingLinks)
+        .values({ meetingId: args.meeting_id, organizationId, contactId })
+        .onConflictDoNothing();
+      const [contact] = await db
+        .select({
+          firstName: schema.contacts.firstName,
+          lastName: schema.contacts.lastName,
+        })
+        .from(schema.contacts)
+        .where(
+          and(
+            eq(schema.contacts.id, contactId),
+            eq(schema.contacts.organizationId, organizationId),
+          ),
+        )
+        .limit(1);
+      const contactName = contact
+        ? [contact.firstName, contact.lastName].filter(Boolean).join(" ") ||
+          `Contact #${contactId}`
+        : `Contact #${contactId}`;
+      linked.push(`contact ${mdLink({ id: contactId, firstName: contact?.firstName, lastName: contact?.lastName }, "contacts")}`);
+      // If no explicit company was given, try to resolve via the contact's company
+      if (companyId == null) {
+        const [contactWithCompany] = await db
+          .select({ companyId: schema.contacts.companyId })
+          .from(schema.contacts)
+          .where(
+            and(
+              eq(schema.contacts.id, contactId),
+              eq(schema.contacts.organizationId, organizationId),
+            ),
+          )
+          .limit(1);
+        companyId = contactWithCompany?.companyId ?? null;
+      }
+      void contactName; // used in mdLink above
+    }
+
+    if (companyId != null) {
+      await db
+        .insert(schema.meetingLinks)
+        .values({ meetingId: args.meeting_id, organizationId, companyId })
+        .onConflictDoNothing();
+      const [company] = await db
+        .select({ name: schema.companies.name })
+        .from(schema.companies)
+        .where(
+          and(
+            eq(schema.companies.id, companyId),
+            eq(schema.companies.organizationId, organizationId),
+          ),
+        )
+        .limit(1);
+      if (company?.name) {
+        linked.push(
+          `company ${mdLink({ id: companyId, name: company.name }, "companies")}`,
+        );
+      }
+    }
+
+    if (linked.length === 0)
+      return "Could not link meeting — no valid contact or company found.";
+    return `Linked meeting #${args.meeting_id} to ${linked.join(" and ")}.`;
   }
 
   return { error: `Unknown tool: ${toolName}` };

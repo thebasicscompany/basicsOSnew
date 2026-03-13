@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router";
 import { ChatCircleIcon } from "@phosphor-icons/react";
 import { toast } from "sonner";
@@ -22,7 +22,11 @@ import {
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input";
 import { HomeOnboardingChecklist } from "@/components/help/HomeOnboardingChecklist";
+import { FullScreenOnboarding } from "@/components/onboarding/FullScreenOnboarding";
+import { InteractiveWalkthrough } from "@/components/onboarding/InteractiveWalkthrough";
+import { useOnboarding } from "@/hooks/use-onboarding";
 import { getRuntimeApiUrl } from "@/lib/runtime-config";
+
 const API_URL = getRuntimeApiUrl();
 
 /* ------------------------------------------------------------------ */
@@ -79,6 +83,12 @@ export function HomePage() {
   const { hasKey } = useGateway();
   const { data: threads } = useThreads(1);
   const navigate = useNavigate();
+  const { hasCompletedOnboarding, completeOnboarding, isLoadingOnboarding } = useOnboarding();
+
+  const [isWalkthroughActive, setIsWalkthroughActive] = useState(false);
+  const handleStartSetup = useCallback(() => {
+    setIsWalkthroughActive(true);
+  }, []);
 
   const firstName = me?.firstName || me?.fullName?.split(" ")[0] || "there";
   const greeting = useMemo(() => getGreeting(firstName), [firstName]);
@@ -111,6 +121,30 @@ export function HomePage() {
     },
     [hasKey, navigate],
   );
+
+  // Show full-screen onboarding for new users (once me data loaded and not completed)
+  if (!isLoadingOnboarding && me && !hasCompletedOnboarding) {
+    return (
+      <FullScreenOnboarding
+        onComplete={completeOnboarding}
+        onStartTour={handleStartSetup}
+        isAdmin={Boolean(me.administrator)}
+        hasApiKey={hasKey || Boolean(me.hasApiKey)}
+        userId={me.id}
+      />
+    );
+  }
+
+  // Interactive walkthrough after carousel
+  if (isWalkthroughActive) {
+    return (
+      <InteractiveWalkthrough
+        onComplete={() => setIsWalkthroughActive(false)}
+        userId={me?.id}
+        hasApiKey={hasKey || Boolean(me?.hasApiKey)}
+      />
+    );
+  }
 
   return (
     <div className="flex h-full flex-col overflow-auto">

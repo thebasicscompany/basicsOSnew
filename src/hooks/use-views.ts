@@ -479,7 +479,7 @@ export function useViewState(viewId: string): UseViewStateReturn {
         columnId: col.id,
         show: col.show,
         order: col.order,
-        width: col.width,
+        width: col.width ?? undefined,
       });
     });
 
