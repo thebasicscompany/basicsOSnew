@@ -1272,9 +1272,30 @@ app.whenReady().then(async () => {
     ipcMain.handle("install-app-update", () => {
       autoUpdater.quitAndInstall(false, true);
     });
-    autoUpdater.checkForUpdatesAndNotify().catch(() => {
-      // Ignore update errors (e.g. no network, no publish configured)
+    const updaterLogPath = path.join(app.getPath("userData"), "logs", "updater.log");
+    const writeUpdaterLog = (msg: string) => {
+      try {
+        const dir = path.dirname(updaterLogPath);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.appendFileSync(
+          updaterLogPath,
+          `${new Date().toISOString()} [updater] ${msg}\n`,
+        );
+      } catch {
+        // ignore
+      }
+    };
+    autoUpdater.on("error", (err) => {
+      const msg = String(err?.message ?? err);
+      writeUpdaterLog(`error: ${msg}`);
+      console.warn("[updater] error:", msg);
     });
+    autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+      const msg = String(err?.message ?? err);
+      writeUpdaterLog(`check failed: ${msg}`);
+      console.warn("[updater] checkForUpdatesAndNotify failed:", msg);
+    });
+    writeUpdaterLog(`Log file: ${updaterLogPath}`);
   }
 
   app.on("browser-window-created", (_, window) => {

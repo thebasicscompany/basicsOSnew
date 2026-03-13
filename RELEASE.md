@@ -67,3 +67,18 @@ git push origin v0.1.5
 | Trigger release | `git push origin v0.1.x` |
 
 The **Release** workflow is triggered only by **pushing a tag** (`v*`), not by pushing a normal commit.
+
+## Where to find logs (installed app)
+
+The desktop app writes **updater** logs to a file so you can debug update checks:
+
+| OS      | Updater log file |
+|---------|-------------------|
+| Windows | `%USERPROFILE%\AppData\Roaming\Basics Hub\logs\updater.log` |
+| macOS   | `~/Library/Application Support/Basics Hub/logs/updater.log` |
+| Linux   | `~/.config/Basics Hub/logs/updater.log` |
+
+**Windows:** Open File Explorer and paste in the address bar:
+`%USERPROFILE%\AppData\Roaming\Basics Hub\logs`
+
+Then open `updater.log`. The first line prints the exact path; later lines show update check errors (e.g. network, GitHub release not found).
