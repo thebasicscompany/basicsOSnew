@@ -731,7 +731,7 @@ export function VoiceApp() {
             <h3 className="text-[15px] font-semibold">Requirements</h3>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Add your <strong>Basics API key</strong> in Settings for Voice Pill to work.
-              (transcription, STT, and AI features). Optionally, you can
+              This will give you transcription, STT, and AI features. Optionally instead, you can
               configure a custom <strong>Deepgram key</strong> (Settings → AI
               Configuration → Transcription BYOK) to use your own API key for
               speech-to-text. The overlay authenticates using your active CRM
