@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import {
   ArrowRightIcon,
@@ -6,6 +6,11 @@ import {
   KeyboardIcon,
   LinkSimpleIcon,
   SparkleIcon,
+  ShieldCheckIcon,
+  MonitorIcon,
+  HandIcon,
+  CheckCircleIcon,
+  ArrowClockwiseIcon,
 } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { ConnectionsContent } from "@/components/connections/ConnectionsContent";
@@ -54,6 +59,262 @@ function DotNav({
   );
 }
 
+/* ── Helpers ─────────────────────────────────────────────────────────────── */
+
+const isElectron = typeof window !== "undefined" && "electronAPI" in window;
+
+function getElectronAPI() {
+  if (!isElectron) return null;
+  return (window as any).electronAPI as Record<string, (...args: any[]) => any> | undefined;
+}
+
+/* ── Walkthrough resume key (survives restart) ───────────────────────────── */
+
+const WALKTHROUGH_RESUME_KEY = (userId: number | string) =>
+  `crm:walkthrough-resume:${userId}`;
+
+export function hasWalkthroughResumePending(userId: number | string): boolean {
+  try {
+    return localStorage.getItem(WALKTHROUGH_RESUME_KEY(userId)) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function clearWalkthroughResume(userId: number | string) {
+  try {
+    localStorage.removeItem(WALKTHROUGH_RESUME_KEY(userId));
+  } catch {
+    // ignore
+  }
+}
+
+function setWalkthroughResume(userId: number | string) {
+  try {
+    localStorage.setItem(WALKTHROUGH_RESUME_KEY(userId), "true");
+  } catch {
+    // ignore
+  }
+}
+
+/* ── Step: Enable permissions ────────────────────────────────────────────── */
+
+function PermissionsStep({
+  onAdvance,
+  userId,
+}: {
+  onAdvance: () => void;
+  userId?: number | string | null;
+}) {
+  const [screenGranted, setScreenGranted] = useState(false);
+  const [a11yGranted, setA11yGranted] = useState(false);
+  const [prompted, setPrompted] = useState({ screen: false, a11y: false });
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const initialCheckDone = useRef(false);
+
+  const api = getElectronAPI();
+
+  // One-time check on mount to detect already-granted permissions.
+  useEffect(() => {
+    if (!api || initialCheckDone.current) return;
+    initialCheckDone.current = true;
+    (async () => {
+      try {
+        const sr = await api.checkSystemAudioPermission?.();
+        if (sr) setScreenGranted(true);
+        const a11y = await api.checkAccessibilityPermission?.();
+        if (a11y) {
+          setA11yGranted(true);
+          api.restartKeyMonitor?.();
+        } else {
+          const running = await api.checkKeyMonitorStatus?.();
+          if (running) setA11yGranted(true);
+        }
+      } catch {
+        // ignore
+      }
+    })();
+  }, [api]);
+
+  // Continuous polling only starts AFTER the user clicks Enable for each
+  // permission. For accessibility, we use two detection methods:
+  // 1. isTrustedAccessibilityClient(false) — can be unreliable on some macOS versions
+  // 2. Attempt to restart key-monitor — if it starts, accessibility is confirmed
+  useEffect(() => {
+    if (!api) return;
+    if (!prompted.screen && !prompted.a11y) return;
+    const poll = async () => {
+      try {
+        if (prompted.screen && !screenGranted) {
+          const sr = await api.checkSystemAudioPermission?.();
+          if (sr) setScreenGranted(true);
+        }
+        if (prompted.a11y && !a11yGranted) {
+          const a11y = await api.checkAccessibilityPermission?.();
+          if (a11y) {
+            setA11yGranted(true);
+            api.restartKeyMonitor?.();
+          } else {
+            await api.restartKeyMonitor?.();
+            const running = await api.checkKeyMonitorStatus?.();
+            if (running) {
+              setA11yGranted(true);
+            }
+          }
+        }
+      } catch {
+        // ignore
+      }
+    };
+    pollRef.current = setInterval(poll, 2000);
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [api, prompted.screen, prompted.a11y, screenGranted, a11yGranted]);
+
+  const handleScreenRecording = useCallback(async () => {
+    const result = await api?.promptScreenRecording?.();
+    setPrompted((p) => ({ ...p, screen: true }));
+    if (result) setScreenGranted(true);
+  }, [api]);
+
+  const handleAccessibility = useCallback(async () => {
+    const result = await api?.promptAccessibility?.();
+    setPrompted((p) => ({ ...p, a11y: true }));
+    if (result) setA11yGranted(true);
+  }, [api]);
+
+  const bothGranted = screenGranted && a11yGranted;
+
+  const handleRestart = useCallback(() => {
+    if (userId != null) {
+      const existing = readWizardCompletedSteps(userId);
+      const all = Array.from(new Set([...existing, "enable-permissions"]));
+      saveWizardCompletedSteps(userId, all);
+      setWalkthroughResume(userId);
+    }
+    api?.restartApp?.();
+  }, [api, userId]);
+
+  return (
+    <div className="flex flex-col items-center gap-5 text-center w-full">
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-muted text-amber-500">
+        <ShieldCheckIcon weight="duotone" className="h-7 w-7" />
+      </div>
+      <div>
+        <h2 className="text-xl font-semibold tracking-tight">
+          Enable permissions
+        </h2>
+        <p className="mt-2 text-sm text-muted-foreground max-w-[320px]">
+          Basics needs two macOS permissions to work properly.
+        </p>
+      </div>
+
+      <div className="w-full max-w-sm space-y-3">
+        {/* Screen Recording card */}
+        <div
+          className={`flex items-center gap-3 rounded-xl border p-4 transition-colors ${
+            screenGranted
+              ? "border-green-500/40 bg-green-500/5"
+              : "bg-muted/30"
+          }`}
+        >
+          <div
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+              screenGranted
+                ? "bg-green-500/10 text-green-500"
+                : "bg-muted text-muted-foreground"
+            }`}
+          >
+            {screenGranted ? (
+              <CheckCircleIcon weight="fill" className="h-5 w-5" />
+            ) : (
+              <MonitorIcon weight="duotone" className="h-5 w-5" />
+            )}
+          </div>
+          <div className="flex-1 text-left">
+            <p className="text-sm font-medium">Screen Recording</p>
+            <p className="text-xs text-muted-foreground">
+              Required for meeting recording and system audio
+            </p>
+          </div>
+          {!screenGranted && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleScreenRecording}
+              className="shrink-0"
+            >
+              {prompted.screen ? "Open Settings" : "Enable"}
+            </Button>
+          )}
+        </div>
+
+        {/* Accessibility card */}
+        <div
+          className={`flex items-center gap-3 rounded-xl border p-4 transition-colors ${
+            a11yGranted
+              ? "border-green-500/40 bg-green-500/5"
+              : "bg-muted/30"
+          }`}
+        >
+          <div
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+              a11yGranted
+                ? "bg-green-500/10 text-green-500"
+                : "bg-muted text-muted-foreground"
+            }`}
+          >
+            {a11yGranted ? (
+              <CheckCircleIcon weight="fill" className="h-5 w-5" />
+            ) : (
+              <HandIcon weight="duotone" className="h-5 w-5" />
+            )}
+          </div>
+          <div className="flex-1 text-left">
+            <p className="text-sm font-medium">Accessibility</p>
+            <p className="text-xs text-muted-foreground">
+              Required for global keyboard shortcuts to work anywhere
+            </p>
+          </div>
+          {!a11yGranted && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleAccessibility}
+              className="shrink-0"
+            >
+              {prompted.a11y ? "Open Settings" : "Enable"}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {bothGranted ? (
+        prompted.screen ? (
+          <Button onClick={handleRestart} className="gap-1.5">
+            <ArrowClockwiseIcon className="size-3.5" />
+            Restart to apply
+          </Button>
+        ) : (
+          <Button onClick={onAdvance} className="gap-1.5">
+            Continue
+          </Button>
+        )
+      ) : (
+        <div className="flex flex-col items-center gap-2">
+          <p className="text-xs text-muted-foreground/60">
+            Enable both permissions above to continue
+          </p>
+          <Button variant="ghost" size="sm" onClick={onAdvance} className="text-xs text-muted-foreground">
+            Skip for now
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Step: Configure shortcuts ───────────────────────────────────────────── */
 
 function ShortcutsStep({ onAdvance }: { onAdvance: () => void }) {
@@ -64,8 +325,6 @@ function ShortcutsStep({ onAdvance }: { onAdvance: () => void }) {
     handleRecordShortcut,
     cancelRecording,
   } = useShortcutRecording();
-
-  const isElectron = typeof window !== "undefined" && "electronAPI" in window;
 
   if (!isElectron) {
     return (
@@ -204,6 +463,7 @@ function DoneStep({ onFinish }: { onFinish: () => void }) {
 /* ── Step definitions ────────────────────────────────────────────────────── */
 
 const STEP_IDS = [
+  "enable-permissions",
   "configure-shortcuts",
   "connect-services",
   "done",
@@ -223,9 +483,16 @@ export function InteractiveWalkthrough({
   onComplete,
   userId,
 }: InteractiveWalkthroughProps) {
-  const [stepIdx, setStepIdx] = useState(0);
+  const alreadyCompleted = userId != null ? readWizardCompletedSteps(userId) : [];
+  const permissionsAlreadyDone = alreadyCompleted.includes("enable-permissions");
+  const skipPermissions = !isElectron || permissionsAlreadyDone;
+
+  const initialStep = skipPermissions ? STEP_IDS.indexOf("configure-shortcuts") : 0;
+  const [stepIdx, setStepIdx] = useState(initialStep);
   const [direction, setDirection] = useState(1);
-  const [completedIds, setCompletedIds] = useState<StepId[]>([]);
+  const [completedIds, setCompletedIds] = useState<StepId[]>(
+    permissionsAlreadyDone ? ["enable-permissions"] : [],
+  );
 
   const currentStepId = STEP_IDS[stepIdx]!;
 
@@ -244,12 +511,14 @@ export function InteractiveWalkthrough({
     [stepIdx],
   );
 
+  const minStep = skipPermissions ? STEP_IDS.indexOf("configure-shortcuts") : 0;
+
   const back = useCallback(() => {
-    if (stepIdx > 0) {
+    if (stepIdx > minStep) {
       setDirection(-1);
       setStepIdx((i) => i - 1);
     }
-  }, [stepIdx]);
+  }, [stepIdx, minStep]);
 
   const handleFinish = useCallback(() => {
     if (userId != null) {
@@ -267,7 +536,7 @@ export function InteractiveWalkthrough({
   }, [userId, completedIds, onComplete]);
 
   const isDone = currentStepId === "done";
-  const isFirst = stepIdx === 0;
+  const isFirst = stepIdx <= minStep;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background">
@@ -297,6 +566,12 @@ export function InteractiveWalkthrough({
             transition={{ duration: 0.22, ease: "easeOut" }}
             className="flex flex-col items-center"
           >
+            {currentStepId === "enable-permissions" && (
+              <PermissionsStep
+                onAdvance={() => advance("enable-permissions")}
+                userId={userId}
+              />
+            )}
             {currentStepId === "configure-shortcuts" && (
               <ShortcutsStep
                 onAdvance={() => advance("configure-shortcuts")}

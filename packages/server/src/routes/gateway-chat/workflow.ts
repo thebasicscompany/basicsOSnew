@@ -20,6 +20,8 @@ const TOOL_NAMES = [
   "list_notes",
   "create_note",
   "add_note",
+  "search_gmail",
+  "search_slack",
 ] as const;
 
 const LOOKUP_TOOLS = new Set([
@@ -30,6 +32,8 @@ const LOOKUP_TOOLS = new Set([
   "search_deals",
   "get_deal",
   "search_tasks",
+  "search_gmail",
+  "search_slack",
 ]);
 
 const toolNameSchema = z.enum(TOOL_NAMES);
@@ -42,7 +46,7 @@ const workflowStepSchema = z.object({
 
 const workflowPlanSchema = z.object({
   mode: z.enum(["none", "single_tool", "multi_tool"]),
-  steps: z.array(workflowStepSchema).max(8).default([]),
+  steps: z.array(workflowStepSchema).max(10).default([]),
 });
 
 const resolvedStepSchema = z.discriminatedUnion("mode", [
@@ -123,6 +127,10 @@ export function shouldPlanToolWorkflow(queryText: string): boolean {
     /\b(create|add|make)\b/.test(lower) &&
     /\b(contact|person|lead|contacts|people)\b/.test(lower) &&
     /\bat\b/.test(lower);
+  const isEmailSlackToCrm =
+    /\b(email|gmail|inbox|slack|messages?|conversations?)\b/.test(lower) &&
+    /\b(create|add|make|find|search|check|any|potential)\b/.test(lower) &&
+    /\b(deal|contact|company|task|note|record|lead|opportunity)\b/.test(lower);
 
   return (
     isUpdate ||
@@ -132,7 +140,8 @@ export function shouldPlanToolWorkflow(queryText: string): boolean {
     isTask ||
     isNote ||
     isCreateContact ||
-    isCreateDeal
+    isCreateDeal ||
+    isEmailSlackToCrm
   );
 }
 
@@ -142,7 +151,10 @@ export function isLookupTool(toolName: string): boolean {
 
 export function isLookupFailure(result: unknown): boolean {
   if (typeof result !== "string") return false;
-  return /^(No .* found\.?|Not found\.?|Error:)/i.test(result.trim());
+  const t = result.trim();
+  return /^(No .* found\.?|Not found\.?|Error:)/i.test(t) ||
+    /is not (connected|available)/i.test(t) ||
+    /search (failed|error)/i.test(t);
 }
 
 function cleanLookupQuery(text: string): string {
@@ -300,6 +312,10 @@ export async function planToolWorkflow(args: {
     "- IMPORTANT: For 'add a note to [person name]', plan search_contacts then create_note (deferred=true). Always generate a title.",
     "- IMPORTANT: For 'add a note to [deal name] deal', plan search_deals then add_note (deferred=true).",
     "- IMPORTANT: For bulk notes ('add notes: for X — ... for Y — ...'), emit search+note pairs for each person/deal.",
+    "- GMAIL/SLACK → CRM: When the user asks to search their email or Slack AND create CRM records from the results, plan search_gmail or search_slack as step 1 (non-deferred), then deferred create steps.",
+    "- GMAIL/SLACK → CRM: The company_name rule does NOT apply here — the company name will be extracted from email/Slack results by the resolver. Use deferred=true with empty or partial args.",
+    "- GMAIL/SLACK → CRM: For email-to-deal flows, plan: search_gmail → create_contact(deferred) → create_deal(deferred). The resolver extracts names, emails, and company info from the email results.",
+    "- GMAIL/SLACK → CRM: For Slack-to-note flows, plan: search_slack → add_note(deferred) with deal_name or contact_name in planned args. Do NOT add a second search step — use the name directly so the resolver keeps the Slack content as context.",
     "- Valid tools: " + TOOL_NAMES.join(", "),
     "Examples:",
     "User: update the name of company about toching to touching company",
@@ -330,6 +346,14 @@ export async function planToolWorkflow(args: {
     'JSON: {"mode":"multi_tool","steps":[{"tool":"search_contacts","args":{"query":"Lena Park"}},{"tool":"create_note","args":{"title":"Discussed enterprise pricing","text":"discussed enterprise pricing"},"deferred":true}]}',
     "User: add notes: for Jennifer Wu - follow-up Thursday. For Lena Park - budget approved",
     'JSON: {"mode":"multi_tool","steps":[{"tool":"search_contacts","args":{"query":"Jennifer Wu"}},{"tool":"create_note","args":{"title":"Follow-up Thursday","text":"follow-up Thursday"},"deferred":true},{"tool":"search_contacts","args":{"query":"Lena Park"}},{"tool":"create_note","args":{"title":"Budget approved","text":"budget approved"},"deferred":true}]}',
+    "User: check my email for potential deals and create records for them",
+    'JSON: {"mode":"multi_tool","steps":[{"tool":"search_gmail","args":{"query":"deal proposal opportunity partnership","max_results":5}},{"tool":"create_contact","args":{},"deferred":true},{"tool":"create_deal","args":{},"deferred":true}]}',
+    "User: are there any leads in my inbox? create contacts and deals for any you find",
+    'JSON: {"mode":"multi_tool","steps":[{"tool":"search_gmail","args":{"query":"interested proposal partnership opportunity demo","max_results":5}},{"tool":"create_contact","args":{},"deferred":true},{"tool":"create_deal","args":{},"deferred":true}]}',
+    "User: search slack for updates on the Acme deal and add a note",
+    'JSON: {"mode":"multi_tool","steps":[{"tool":"search_slack","args":{"query":"Acme deal"}},{"tool":"add_note","args":{"deal_name":"Acme","title":"Slack updates on Acme"},"deferred":true}]}',
+    "User: find emails from john@acme.com and create a contact for him",
+    'JSON: {"mode":"multi_tool","steps":[{"tool":"search_gmail","args":{"query":"from:john@acme.com","max_results":3}},{"tool":"create_contact","args":{},"deferred":true}]}',
     "",
     `User request: ${args.queryText}`,
   ].join("\n");
@@ -380,6 +404,31 @@ export async function resolveDeferredToolStep(args: {
   lookupTool: string;
   lookupResult: string;
 }): Promise<ResolvedWorkflowStep | null> {
+  const isExternalLookup =
+    args.lookupTool === "search_gmail" || args.lookupTool === "search_slack";
+
+  const baseRules = [
+    `- The next tool MUST be ${args.expectedTool}.`,
+    "- Apply all requested updates from the original user request.",
+    "- Preserve any planned args that are already correct.",
+    "- Do not do another search.",
+  ];
+
+  const crmRules = [
+    "- Reuse ids or exact names from the lookup result.",
+    "- For update/get tools, include the record identifier in args. Prefer id from the lookup result.",
+  ];
+
+  const externalRules = [
+    "- The lookup result contains email or Slack message data, NOT CRM records. There are no record IDs to reuse.",
+    "- Extract entity information from the message content: sender names → first_name/last_name, sender email → email, company/organization → company_name, subject/context → deal name or note text.",
+    "- For create_contact: extract first_name, last_name, email, and company_name from the most relevant email/message sender.",
+    "- For create_deal: generate a descriptive deal name from the email subject/context, set company_name from the sender's org, and include any amounts mentioned.",
+    "- For create_note/add_note: summarize the key points from the messages as the note text, and generate a short title.",
+    "- If the results contain multiple potential records, pick the MOST promising/relevant one. The user can ask for more afterward.",
+    "- If the results are empty or contain no actionable entity data, return blocked with a clear message.",
+  ];
+
   const prompt = [
     "You are a CRM tool-call resolver.",
     "A lookup step has already been executed.",
@@ -387,19 +436,19 @@ export async function resolveDeferredToolStep(args: {
     'If you can produce the next tool call, return: {"mode":"tool","tool":"tool_name","args":{}}',
     'If the request is blocked, return: {"mode":"blocked","message":"short explanation"}',
     "Rules:",
-    `- The next tool MUST be ${args.expectedTool}.`,
-    "- Reuse ids or exact names from the lookup result.",
-    "- For update/get tools, include the record identifier in args. Prefer id from the lookup result.",
-    "- Apply all requested updates from the original user request.",
-    "- Preserve any planned args that are already correct.",
-    "- Do not do another search.",
+    ...baseRules,
+    ...(isExternalLookup ? externalRules : crmRules),
     "",
     `Original user request: ${args.queryText}`,
     `Required tool: ${args.expectedTool}`,
     `Planned args: ${JSON.stringify(args.plannedArgs ?? {})}`,
     `Lookup tool: ${args.lookupTool}`,
     `Lookup result: ${args.lookupResult}`,
-    `Candidates: ${JSON.stringify(extractLookupCandidates(args.lookupResult))}`,
+    ...(isExternalLookup
+      ? []
+      : [
+          `Candidates: ${JSON.stringify(extractLookupCandidates(args.lookupResult))}`,
+        ]),
   ].join("\n");
 
   const res = await fetch(`${args.gatewayUrl}/v1/chat/completions`, {
@@ -409,7 +458,7 @@ export async function resolveDeferredToolStep(args: {
       model: args.model,
       messages: [{ role: "user", content: prompt }],
       stream: false,
-      max_tokens: 300,
+      max_tokens: isExternalLookup ? 500 : 300,
     }),
   });
 

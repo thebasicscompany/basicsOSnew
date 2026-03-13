@@ -136,6 +136,16 @@ const overlayAPI = {
     ipcRenderer.invoke("check-system-audio-permission") as Promise<boolean>,
   promptScreenRecording: () =>
     ipcRenderer.invoke("prompt-screen-recording") as Promise<boolean>,
+  checkAccessibilityPermission: () =>
+    ipcRenderer.invoke("check-accessibility-permission") as Promise<boolean>,
+  promptAccessibility: () =>
+    ipcRenderer.invoke("prompt-accessibility") as Promise<boolean>,
+  restartApp: () =>
+    ipcRenderer.invoke("restart-app") as Promise<void>,
+  restartKeyMonitor: () =>
+    ipcRenderer.invoke("restart-key-monitor") as Promise<boolean>,
+  checkKeyMonitorStatus: () =>
+    ipcRenderer.invoke("check-key-monitor-status") as Promise<boolean>,
   getSessionToken: () =>
     ipcRenderer.invoke("get-session-token") as Promise<string>,
   onDictationInsertRequest: (

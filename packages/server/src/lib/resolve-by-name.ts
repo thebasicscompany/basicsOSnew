@@ -25,6 +25,7 @@ export interface HybridSearchContext {
   gatewayUrl?: string;
   gatewayHeaders?: Record<string, string>;
   crmUserId?: number;
+  betterAuthUserId?: string;
 }
 
 type MatchRow = { id: number; matchScore: number };

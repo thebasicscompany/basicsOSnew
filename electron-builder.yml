@@ -17,6 +17,11 @@ files:
   - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.json,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.app.json,tsconfig.electron.json}'
+extraResources:
+  - from: resources/key-monitor
+    to: key-monitor
+  - from: resources/key-monitor.swift
+    to: key-monitor.swift
 asarUnpack:
   - resources/**
 nsis:

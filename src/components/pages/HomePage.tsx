@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router";
 import { ChatCircleIcon } from "@phosphor-icons/react";
 import { toast } from "sonner";
@@ -21,9 +21,12 @@ import {
   PromptInputSubmit,
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input";
-import { HomeOnboardingChecklist } from "@/components/help/HomeOnboardingChecklist";
 import { FullScreenOnboarding } from "@/components/onboarding/FullScreenOnboarding";
-import { InteractiveWalkthrough } from "@/components/onboarding/InteractiveWalkthrough";
+import {
+  InteractiveWalkthrough,
+  hasWalkthroughResumePending,
+  clearWalkthroughResume,
+} from "@/components/onboarding/InteractiveWalkthrough";
 import { useOnboarding } from "@/hooks/use-onboarding";
 import { getRuntimeApiUrl } from "@/lib/runtime-config";
 
@@ -85,7 +88,19 @@ export function HomePage() {
   const navigate = useNavigate();
   const { hasCompletedOnboarding, completeOnboarding, isLoadingOnboarding } = useOnboarding();
 
+  const [dismissed, setDismissed] = useState(false);
+  const handleCompleteOnboarding = useCallback(() => {
+    setDismissed(true);
+    completeOnboarding().catch(() => {});
+  }, [completeOnboarding]);
+
   const [isWalkthroughActive, setIsWalkthroughActive] = useState(false);
+  useEffect(() => {
+    if (me?.id && hasWalkthroughResumePending(me.id)) {
+      clearWalkthroughResume(me.id);
+      setIsWalkthroughActive(true);
+    }
+  }, [me?.id]);
   const handleStartSetup = useCallback(() => {
     setIsWalkthroughActive(true);
   }, []);
@@ -123,10 +138,10 @@ export function HomePage() {
   );
 
   // Show full-screen onboarding for new users (once me data loaded and not completed)
-  if (!isLoadingOnboarding && me && !hasCompletedOnboarding) {
+  if (!dismissed && !isLoadingOnboarding && me && !hasCompletedOnboarding) {
     return (
       <FullScreenOnboarding
-        onComplete={completeOnboarding}
+        onComplete={handleCompleteOnboarding}
         onStartTour={handleStartSetup}
         isAdmin={Boolean(me.administrator)}
         hasApiKey={hasKey || Boolean(me.hasApiKey)}
@@ -194,14 +209,6 @@ export function HomePage() {
               <PromptInputSubmit />
             </PromptInputFooter>
           </PromptInput>
-        </div>
-
-        <div className="mt-6">
-          <HomeOnboardingChecklist
-            userId={me?.id}
-            isAdmin={Boolean(me?.administrator)}
-            hasApiKey={hasKey || Boolean(me?.hasApiKey)}
-          />
         </div>
 
         {/* Dynamic sections */}

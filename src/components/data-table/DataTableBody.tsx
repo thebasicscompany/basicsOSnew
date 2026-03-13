@@ -112,7 +112,10 @@ export function DataTableBody<T extends Record<string, unknown>>({
                     ? {
                         width: "max-content" as const,
                         minWidth: "max-content" as const,
+                        maxWidth: 320,
                         whiteSpace: "nowrap" as const,
+                        overflow: "hidden" as const,
+                        textOverflow: "ellipsis" as const,
                       }
                     : {
                         width: cell.column.getSize(),

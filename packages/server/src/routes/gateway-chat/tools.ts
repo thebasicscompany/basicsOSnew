@@ -30,6 +30,8 @@ import {
   searchCompaniesSchema,
   searchContactsSchema,
   searchDealsSchema,
+  searchGmailSchema,
+  searchSlackSchema,
   searchTasksSchema,
   updateCompanySchema,
   updateContactSchema,
@@ -982,6 +984,117 @@ export async function executeValidatedTool(
     if (linked.length === 0)
       return "Could not link meeting — no valid contact or company found.";
     return `Linked meeting #${args.meeting_id} to ${linked.join(" and ")}.`;
+  }
+
+  if (toolName === "search_gmail") {
+    const parsed = searchGmailSchema.safeParse(rawArgs);
+    if (!parsed.success)
+      return { error: "Invalid arguments", details: parsed.error.flatten() };
+    if (!searchContext?.gatewayUrl || !searchContext.gatewayHeaders)
+      return "Gmail search is not available — gateway configuration missing.";
+    if (!searchContext.betterAuthUserId)
+      return "Gmail search requires an authenticated user session.";
+
+    const authHeader = searchContext.gatewayHeaders["Authorization"] ??
+      searchContext.gatewayHeaders["authorization"] ?? "";
+    const apiKey = authHeader.replace(/^Bearer\s+/i, "");
+    if (!apiKey)
+      return "Gmail search is not available — no API key configured.";
+
+    try {
+      const res = await fetch(
+        `${searchContext.gatewayUrl}/v1/execute/gmail/read`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+            "X-User-Id": searchContext.betterAuthUserId,
+          },
+          body: JSON.stringify({
+            query: parsed.data.query,
+            maxResults: parsed.data.max_results ?? 5,
+            userId: searchContext.betterAuthUserId,
+          }),
+        },
+      );
+      if (!res.ok) {
+        const text = await res.text();
+        if (res.status === 401 || res.status === 403)
+          return "Gmail is not connected. The user needs to connect their Gmail account in Settings > Connections.";
+        return `Gmail search failed (${res.status}): ${text}`;
+      }
+      const data = (await res.json()) as { messages?: unknown[] };
+      const messages = data.messages ?? [];
+      if (messages.length === 0)
+        return `No emails found matching "${parsed.data.query}".`;
+      return messages.map((m: any, i: number) => {
+        const from = m.from ?? m.sender ?? "Unknown";
+        const subject = m.subject ?? "(no subject)";
+        const date = m.date ?? "";
+        const snippet = m.snippet ?? m.body?.slice(0, 200) ?? "";
+        return `${i + 1}. **${subject}** — from ${from}${date ? ` (${date})` : ""}\n   ${snippet}`;
+      }).join("\n");
+    } catch (err) {
+      return `Gmail search error: ${(err as Error).message}`;
+    }
+  }
+
+  if (toolName === "search_slack") {
+    const parsed = searchSlackSchema.safeParse(rawArgs);
+    if (!parsed.success)
+      return { error: "Invalid arguments", details: parsed.error.flatten() };
+    if (!searchContext?.gatewayUrl || !searchContext.gatewayHeaders)
+      return "Slack search is not available — gateway configuration missing.";
+    if (!searchContext.betterAuthUserId)
+      return "Slack search requires an authenticated user session.";
+
+    const authHeader = searchContext.gatewayHeaders["Authorization"] ??
+      searchContext.gatewayHeaders["authorization"] ?? "";
+    const apiKey = authHeader.replace(/^Bearer\s+/i, "");
+    if (!apiKey)
+      return "Slack search is not available — no API key configured.";
+
+    try {
+      const body: Record<string, unknown> = {
+        query: parsed.data.query,
+        maxResults: parsed.data.max_results ?? 10,
+        userId: searchContext.betterAuthUserId,
+      };
+      if (parsed.data.channel) body.channel = parsed.data.channel;
+
+      const res = await fetch(
+        `${searchContext.gatewayUrl}/v1/execute/slack/search`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${apiKey}`,
+            "X-User-Id": searchContext.betterAuthUserId,
+          },
+          body: JSON.stringify(body),
+        },
+      );
+      if (!res.ok) {
+        const text = await res.text();
+        if (res.status === 401 || res.status === 403)
+          return "Slack is not connected. The user needs to connect the Slack integration in Settings > Connections.";
+        return `Slack search failed (${res.status}): ${text}`;
+      }
+      const data = (await res.json()) as { messages?: unknown[] };
+      const messages = data.messages ?? [];
+      if (messages.length === 0)
+        return `No Slack messages found matching "${parsed.data.query}".`;
+      return messages.map((m: any, i: number) => {
+        const user = m.user ?? m.username ?? "Unknown";
+        const channel = m.channel ?? "";
+        const text = m.text ?? "";
+        const ts = m.ts ?? m.timestamp ?? "";
+        return `${i + 1}. **#${channel}** — ${user}${ts ? ` (${ts})` : ""}: ${text.slice(0, 300)}`;
+      }).join("\n");
+    } catch (err) {
+      return `Slack search error: ${(err as Error).message}`;
+    }
   }
 
   return { error: `Unknown tool: ${toolName}` };

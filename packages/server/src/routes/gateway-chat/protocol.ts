@@ -86,6 +86,13 @@ Delete workflow (CRITICAL):
 - Ask "Are you sure you want to delete [exact name]?" before calling any delete action.
 - For deals, deletion is a soft archive — the deal is hidden but not permanently removed.
 
+Gmail and Slack integration:
+- Use search_gmail to search the user's email when they ask about emails, correspondence, or want context from their inbox (e.g. "find emails from John", "what did Acme send last week", "any unread proposals").
+- Use search_slack to search Slack messages when they ask about team discussions, decisions, or want context from Slack (e.g. "what did the team say about the Acme deal", "find messages about the Q4 roadmap").
+- These tools require the user to have connected Gmail/Slack in Settings. If the tool returns a connection error, tell the user to connect the integration in Settings > Connections.
+- You can combine these with CRM tools — e.g. search Gmail for emails from a contact, then create a note with the key points.
+- Gmail search uses Gmail syntax: "from:name@example.com", "subject:proposal", "newer_than:7d", "is:unread", "has:attachment".
+
 Clarification behavior:
 - If a request is ambiguous or missing required context, ask ONE focused clarifying question that names the specific fields needed.
 - Do NOT ask "Can you provide more details?" — instead ask "What's [Name]'s email address?" or "What's the deal value and which stage?"
@@ -383,6 +390,17 @@ export const addNoteSchema = z
       });
     }
   });
+
+export const searchGmailSchema = z.object({
+  query: z.string().min(1),
+  max_results: z.number().int().min(1).max(20).optional(),
+});
+
+export const searchSlackSchema = z.object({
+  query: z.string().min(1),
+  channel: z.string().optional(),
+  max_results: z.number().int().min(1).max(20).optional(),
+});
 
 export const OPENAI_TOOL_DEFS = [
   {
@@ -815,6 +833,55 @@ export const OPENAI_TOOL_DEFS = [
           },
         },
         required: ["meeting_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_gmail",
+      description:
+        "Search the user's Gmail inbox. Uses Gmail search syntax (e.g. 'from:john subject:proposal', 'is:unread', 'newer_than:7d'). Requires the user to have connected their Gmail account in Settings. Use this to find emails, check recent correspondence, or get context about a contact or deal from email history.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description:
+              "Gmail search query (e.g. 'from:john@acme.com', 'subject:proposal newer_than:30d', 'is:unread')",
+          },
+          max_results: {
+            type: "number",
+            description: "Max emails to return (1-20, default 5)",
+          },
+        },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_slack",
+      description:
+        "Search Slack messages across all channels the bot has access to. Requires the Slack integration to be connected in Settings. Use this to find discussions, decisions, or context from Slack conversations about contacts, deals, or topics.",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "Search query for Slack messages",
+          },
+          channel: {
+            type: "string",
+            description: "Optional channel name to limit search to (e.g. 'sales', 'general')",
+          },
+          max_results: {
+            type: "number",
+            description: "Max messages to return (1-20, default 10)",
+          },
+        },
+        required: ["query"],
       },
     },
   },

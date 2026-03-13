@@ -80,5 +80,10 @@ export type SystemAudioAPI = {
   stopSystemAudio?: () => Promise<Array<{ speaker: string; text: string; timestamp: number }>>;
   checkSystemAudioPermission?: () => Promise<boolean>;
   promptScreenRecording?: () => Promise<boolean>;
+  checkAccessibilityPermission?: () => Promise<boolean>;
+  promptAccessibility?: () => Promise<boolean>;
+  restartApp?: () => Promise<void>;
+  restartKeyMonitor?: () => Promise<boolean>;
+  checkKeyMonitorStatus?: () => Promise<boolean>;
   getSessionToken?: () => Promise<string>;
 };

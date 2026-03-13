@@ -305,6 +305,7 @@ export type KeyboardHook = {
   /** Start recording the next keypress. Resolves with the binding. */
   startRecording: () => Promise<ShortcutBinding>;
   cancelRecording: () => void;
+  isRunning: () => boolean;
 };
 
 export function createKeyboardHook(): KeyboardHook {
@@ -484,9 +485,12 @@ export function createKeyboardHook(): KeyboardHook {
           }
         });
 
+        let exitedDueToAccessibility = false;
+
         process_.stderr?.on("data", (data: Buffer) => {
           const msg = data.toString().trim();
           if (msg.includes("accessibility")) {
+            exitedDueToAccessibility = true;
             log.error(
               "Key monitor requires Accessibility permission. Grant in System Settings → Privacy & Security → Accessibility.",
             );
@@ -498,7 +502,13 @@ export function createKeyboardHook(): KeyboardHook {
         process_.on("exit", (code) => {
           log.warn(`Key monitor exited with code ${code}`);
           process_ = null;
-          // Auto-restart after 2 seconds if it crashed
+          if (exitedDueToAccessibility) {
+            log.info(
+              "Key monitor stopped — waiting for accessibility permission. It will start when the app is relaunched with permission granted.",
+            );
+            return;
+          }
+          // Auto-restart after 2 seconds if it crashed for other reasons
           if (code !== 0 && code !== null) {
             setTimeout(() => {
               log.info("Restarting key monitor...");
@@ -543,6 +553,10 @@ export function createKeyboardHook(): KeyboardHook {
 
     cancelRecording() {
       recordingResolve = null;
+    },
+
+    isRunning() {
+      return process_ !== null;
     },
   };
 }

@@ -66,8 +66,6 @@ func callback(
 // ── Check Accessibility permission ──────────────────────────────────────
 
 if !AXIsProcessTrusted() {
-    let opts = [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary
-    AXIsProcessTrustedWithOptions(opts)
     fputs("ERROR:accessibility\n", stderr)
     exit(1)
 }

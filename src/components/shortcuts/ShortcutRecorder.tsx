@@ -28,6 +28,9 @@ type ElectronShortcutApi = {
   updateOverlaySettings?: (partial: Partial<OverlaySettings>) => Promise<OverlaySettings>;
   startShortcutRecording?: () => Promise<ShortcutBinding | null>;
   cancelShortcutRecording?: () => Promise<void>;
+  checkKeyMonitorStatus?: () => Promise<boolean>;
+  promptAccessibility?: () => Promise<boolean>;
+  restartKeyMonitor?: () => Promise<boolean>;
 };
 
 export const NON_MAC_SHORTCUT_FIELDS: Record<
@@ -345,6 +348,21 @@ export function useShortcutRecording(): UseShortcutRecordingReturn {
       if (!api.startShortcutRecording) {
         setRecordingSlot(null);
         recordingRef.current = false;
+        return;
+      }
+
+      const monitorRunning = await api.checkKeyMonitorStatus?.();
+      if (!monitorRunning) {
+        setRecordingSlot(null);
+        recordingRef.current = false;
+        toast.error(
+          "Accessibility permission required. Enable it in System Settings → Privacy & Security → Accessibility, then try again.",
+        );
+        await api.promptAccessibility?.();
+        const nowRunning = await api.restartKeyMonitor?.();
+        if (nowRunning) {
+          toast.success("Accessibility enabled — you can now configure shortcuts.");
+        }
         return;
       }
 

@@ -11,6 +11,7 @@ import {
   session,
   globalShortcut,
   shell,
+  systemPreferences,
 } from "electron";
 
 if (process.env["REMOTE_DEBUGGING_PORT"]) {
@@ -1166,10 +1167,16 @@ ipcMain.handle("check-system-audio-permission", () => {
   return checkSystemAudioPermission();
 });
 
-ipcMain.handle("prompt-screen-recording", () => {
+ipcMain.handle("prompt-screen-recording", async () => {
   if (process.platform !== "darwin") return true;
   const hasPermission = checkSystemAudioPermission();
   if (!hasPermission) {
+    try {
+      await desktopCapturer.getSources({ types: ["screen"] });
+    } catch {
+      // Rejection is expected when permission is denied; the attempt
+      // itself registers the app in the macOS Screen Recording list.
+    }
     shell
       .openExternal(
         "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
@@ -1177,6 +1184,48 @@ ipcMain.handle("prompt-screen-recording", () => {
       .catch(() => {});
   }
   return hasPermission;
+});
+
+ipcMain.handle("check-accessibility-permission", () => {
+  if (process.platform !== "darwin") return true;
+  if (keyboardHook?.isRunning()) return true;
+  return systemPreferences.isTrustedAccessibilityClient(false);
+});
+
+ipcMain.handle("prompt-accessibility", () => {
+  if (process.platform !== "darwin") return true;
+  const trusted = systemPreferences.isTrustedAccessibilityClient(true);
+  if (!trusted) {
+    shell
+      .openExternal(
+        "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+      )
+      .catch(() => {});
+  }
+  return trusted;
+});
+
+ipcMain.handle("restart-key-monitor", async () => {
+  if (!keyboardHook) return false;
+  if (keyboardHook.isRunning()) return true;
+  keyboardHook.start();
+  await new Promise((r) => setTimeout(r, 500));
+  return keyboardHook.isRunning();
+});
+
+ipcMain.handle("check-key-monitor-status", () => {
+  return keyboardHook?.isRunning() ?? false;
+});
+
+ipcMain.handle("restart-app", () => {
+  if (app.isPackaged) {
+    app.relaunch();
+    app.quit();
+  } else {
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.reloadIgnoringCache();
+    }
+  }
 });
 
 ipcMain.handle("get-session-token", async () => {

@@ -684,6 +684,7 @@ export async function processChatTurn(
         gatewayUrl,
         gatewayHeaders,
         crmUserId: crmUser.id,
+        betterAuthUserId: crmUser.userId,
       },
     );
     usedTools.add(toolName);
@@ -769,6 +770,7 @@ export async function processChatTurn(
             gatewayUrl,
             gatewayHeaders,
             crmUserId: crmUser.id,
+            betterAuthUserId: crmUser.userId,
           },
         );
         usedTools.add(toolName);
@@ -938,6 +940,7 @@ export async function processChatTurn(
           gatewayUrl,
           gatewayHeaders,
           crmUserId: crmUser.id,
+          betterAuthUserId: crmUser.userId,
         },
       );
       usedTools.add(tc.function.name);
