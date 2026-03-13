@@ -1,9 +1,9 @@
 
 
-<h3 align="center">Open-Source CRM Desktop App for Modern Teams</h3>
+<h3 align="center">Open-Source OS for Modern Teams</h3>
 
 <p align="center">
-  Contacts, companies, deals, tasks, notes, AI chat, and automations in one desktop app.<br/>
+  Contacts, companies, deals, tasks, notes, AI chat, and automations in one app.<br/>
   <strong>Open-source core. Commercial services available.</strong>
 </p>
 
@@ -23,11 +23,15 @@
 
 ## What is BasicsOS?
 
-BasicsOS is an Electron-first CRM desktop app built with React, Vite, and a Node/Hono REST API. It supports configurable CRM objects, custom fields, generic list/detail views, workflow automations, and AI-assisted operations.
+BasicsOS is an open soruce company os made to be deployed to mobile and desktop!
 
 This repository is the open-source codebase. Commercial offerings may include hosted infrastructure, support SLAs, and managed services.
 
-**Stack:** Data is stored in **PostgreSQL** (Drizzle ORM); auth is **Better Auth**. Use your own Postgres by setting `DATABASE_URL` to your connection string (e.g. Supabase, Neon, or any Postgres host)—no lock-in. Custom auth backends are not supported out of the box; fork and adapt if needed.
+
+
+
+
+
 
 ---
 
