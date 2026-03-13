@@ -82,5 +82,8 @@ declare global {
     electron: ElectronAPI;
     api: unknown;
     electronAPI?: OverlayElectronAPI;
+    /** Runtime API URL injected by the preload before React mounts.
+     *  Set from userData/org-config.json so it survives auto-updates. */
+    __runtimeApiUrl__?: string;
   }
 }

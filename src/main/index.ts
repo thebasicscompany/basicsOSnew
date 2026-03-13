@@ -99,10 +99,39 @@ const pendingDictationInsertRequests = new Map<
 >();
 
 const WEB_URL = process.env["BASICSOS_URL"] ?? "http://localhost:5173";
-const API_URL =
-  process.env["BASICSOS_API_URL"] ??
-  process.env["VITE_API_URL"] ??
-  "http://localhost:3001";
+
+/**
+ * Resolve the API URL with per-org persistence across auto-updates.
+ *
+ * On first launch the baked-in URL (set at build time via VITE_API_URL) is
+ * written to userData/org-config.json.  Auto-updates from GitHub replace the
+ * app bundle but never touch userData, so the org-specific URL survives.
+ */
+const resolveApiUrl = (): string => {
+  const bakedUrl =
+    process.env["BASICSOS_API_URL"] ??
+    process.env["VITE_API_URL"] ??
+    "http://localhost:3001";
+
+  try {
+    const configPath = path.join(app.getPath("userData"), "org-config.json");
+    if (fs.existsSync(configPath)) {
+      const saved = JSON.parse(fs.readFileSync(configPath, "utf8")) as {
+        apiUrl?: string;
+      };
+      if (saved.apiUrl) return saved.apiUrl;
+    }
+    // First install: persist the baked-in URL so it survives future updates.
+    fs.mkdirSync(path.dirname(configPath), { recursive: true });
+    fs.writeFileSync(configPath, JSON.stringify({ apiUrl: bakedUrl }));
+  } catch {
+    // If userData isn't accessible yet (very early init) fall through to baked URL.
+  }
+
+  return bakedUrl;
+};
+
+const API_URL = resolveApiUrl();
 const ALLOWED_PROXY_PATHS = new Set([
   "/v1/audio/transcriptions",
   "/v1/audio/speech",
@@ -607,6 +636,10 @@ function createOverlayWindow(): void {
 }
 
 ipcMain.handle("get-api-url", () => API_URL);
+// Synchronous variant used by the preload to inject the URL before React mounts.
+ipcMain.on("get-api-url-sync", (event) => {
+  event.returnValue = API_URL;
+});
 
 ipcMain.handle("get-overlay-settings", () => getOverlaySettings());
 

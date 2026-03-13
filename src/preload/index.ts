@@ -186,6 +186,11 @@ const overlayAPI = {
   },
 };
 
+// Fetch the resolved API URL synchronously (main process reads userData/org-config.json).
+// This runs before any renderer script so module-level constants in the renderer
+// can read it from window.__runtimeApiUrl__ instead of the compile-time baked value.
+const runtimeApiUrl = ipcRenderer.sendSync("get-api-url-sync") as string;
+
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld("electron", toolkitAPI);
@@ -197,8 +202,15 @@ if (process.contextIsolated) {
   } catch (e) {
     console.error("[preload] Failed to expose electronAPI:", e);
   }
+  try {
+    contextBridge.exposeInMainWorld("__runtimeApiUrl__", runtimeApiUrl);
+  } catch (e) {
+    console.error("[preload] Failed to expose runtimeApiUrl:", e);
+  }
 } else {
   (window as unknown as { electron: typeof toolkitAPI }).electron = toolkitAPI;
   (window as unknown as { electronAPI: typeof overlayAPI }).electronAPI =
     overlayAPI;
+  (window as unknown as { __runtimeApiUrl__: string }).__runtimeApiUrl__ =
+    runtimeApiUrl;
 }

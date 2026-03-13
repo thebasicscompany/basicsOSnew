@@ -22,8 +22,8 @@ import {
   type PromptInputMessage,
 } from "@/components/ai-elements/prompt-input";
 import { HomeOnboardingChecklist } from "@/components/help/HomeOnboardingChecklist";
-
-const API_URL = import.meta.env.VITE_API_URL ?? "";
+import { getRuntimeApiUrl } from "@/lib/runtime-config";
+const API_URL = getRuntimeApiUrl();
 
 /* ------------------------------------------------------------------ */
 /*  Greeting                                                          */
