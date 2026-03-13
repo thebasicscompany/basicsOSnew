@@ -59,12 +59,31 @@ Update workflow (CRITICAL — follow exactly):
    - search_companies/search_contacts/search_deals/search_tasks -> update_company/update_contact/update_deal
    - search_contacts/search_companies/search_tasks -> create_task
    - search_contacts/search_deals -> add_note
-   - search_companies -> create_contact/create_deal`;
+   - search_companies -> create_contact/create_deal
+
+Record creation workflow (CRITICAL):
+- Before creating ANY record, verify you have all required fields. If the user hasn't provided them, ask ONCE for all missing fields in a single question.
+- Contact: need at least a name. Ask for email and company if not provided before creating.
+- Deal: need a name. Ask for amount, stage, and associated company if not provided.
+- Company: need a name. Ask for domain and category if not provided.
+- After creating a contact with a company, or a deal with a company, confirm the linkage explicitly in your response (e.g. "Created John Smith and linked to Acme Corp").
+- If a user mentions both a person and a company in the same request, create both entities.
+
+Delete workflow (CRITICAL):
+- NEVER delete or archive a record without explicit confirmation from the user.
+- Always search first and show the exact record (name, key details) before asking to confirm.
+- Ask "Are you sure you want to delete [exact name]?" before calling any delete action.
+- For deals, deletion is a soft archive — the deal is hidden but not permanently removed.
+
+Clarification behavior:
+- If a request is ambiguous or missing required context, ask ONE focused clarifying question rather than guessing.
+- Keep clarifying questions short and specific — don't list every possible missing field at once.
+- After getting the answer, complete the full action without asking again.`;
 
 export const requestSchema = z.object({
   messages: z.array(z.any()),
   threadId: z.string().optional(),
-  channel: z.enum(["chat", "voice", "automation"]).optional(),
+  channel: z.enum(["chat", "voice", "automation", "slack"]).optional(),
 });
 
 export const searchContactsSchema = z.object({

@@ -1,0 +1,121 @@
+import type { BrowserWindow } from "electron";
+
+type GetTokenFn = () => Promise<string | null>;
+
+let abortController: AbortController | null = null;
+let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+let overlayRef: BrowserWindow | null = null;
+
+const RECONNECT_DELAY_MS = 5000;
+const MAX_RECONNECT_DELAY_MS = 60_000;
+let currentReconnectDelay = RECONNECT_DELAY_MS;
+
+function resetReconnectDelay(): void {
+  currentReconnectDelay = RECONNECT_DELAY_MS;
+}
+
+function scheduleReconnect(getToken: GetTokenFn, apiUrl: string): void {
+  if (reconnectTimeout) return;
+  reconnectTimeout = setTimeout(() => {
+    reconnectTimeout = null;
+    currentReconnectDelay = Math.min(
+      currentReconnectDelay * 1.5,
+      MAX_RECONNECT_DELAY_MS,
+    );
+    connect(getToken, apiUrl);
+  }, currentReconnectDelay);
+}
+
+export function connectNotificationStream(
+  getToken: GetTokenFn,
+  apiUrl: string,
+  overlay: BrowserWindow | null,
+): void {
+  overlayRef = overlay;
+  connect(getToken, apiUrl);
+}
+
+export function disconnectNotificationStream(): void {
+  if (abortController) {
+    abortController.abort();
+    abortController = null;
+  }
+  if (reconnectTimeout) {
+    clearTimeout(reconnectTimeout);
+    reconnectTimeout = null;
+  }
+  overlayRef = null;
+}
+
+export function setNotificationStreamOverlay(overlay: BrowserWindow | null): void {
+  overlayRef = overlay;
+}
+
+async function connect(getToken: GetTokenFn, apiUrl: string): Promise<void> {
+  const token = await getToken();
+  if (!token) {
+    scheduleReconnect(getToken, apiUrl);
+    return;
+  }
+
+  abortController = new AbortController();
+  const url = `${apiUrl.replace(/\/$/, "")}/api/notifications/stream`;
+
+  try {
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      signal: abortController.signal,
+    });
+
+    if (!res.ok) {
+      scheduleReconnect(getToken, apiUrl);
+      return;
+    }
+
+    resetReconnectDelay();
+
+    const reader = res.body?.getReader();
+    if (!reader) {
+      scheduleReconnect(getToken, apiUrl);
+      return;
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          const json = line.slice(6).trim();
+          if (json && json !== "undefined") {
+            try {
+              const payload = JSON.parse(json) as {
+                title: string;
+                body: string;
+                actions?: Array<{ id: string; label: string; url?: string }>;
+                context?: string;
+              };
+              overlayRef?.webContents.send("push-notification", payload);
+            } catch {
+              // ignore parse errors
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    if ((err as Error).name === "AbortError") return;
+    scheduleReconnect(getToken, apiUrl);
+  } finally {
+    abortController = null;
+  }
+}

@@ -1,9 +1,13 @@
+import { SHORTCUT_DEFINITIONS } from "@/lib/shortcut-definitions";
+
 const isMacPlatform = () =>
   typeof navigator !== "undefined" &&
   /(Mac|iPhone|iPad|iPod)/i.test(navigator.platform);
 
 export function getCommandPaletteShortcutLabel(): string {
-  return isMacPlatform() ? "Cmd+K" : "Ctrl+K";
+  return isMacPlatform()
+    ? SHORTCUT_DEFINITIONS.commandPalette.mac
+    : SHORTCUT_DEFINITIONS.commandPalette.win;
 }
 
 export function getPrimaryModifierLabel(): "Cmd" | "Ctrl" {

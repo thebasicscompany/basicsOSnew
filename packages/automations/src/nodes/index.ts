@@ -10,3 +10,4 @@ export { SlackActionNode } from "./SlackActionNode";
 export { AIAgentNode } from "./AIAgentNode";
 export { GmailReadNode } from "./GmailReadNode";
 export { GmailSendNode } from "./GmailSendNode";
+export { NotifyUserActionNode } from "./NotifyUserActionNode";

@@ -13,8 +13,34 @@ import {
   embedMeetingTranscript,
   deleteMeetingEmbeddings,
 } from "@/lib/meeting-embeddings.js";
+import { fireEvent } from "@/lib/automation-engine.js";
+import { sendNotification } from "@/routes/notifications.js";
 
 type BetterAuthInstance = ReturnType<typeof createAuth>;
+
+async function onMeetingCompleted(
+  db: Db,
+  meetingId: number,
+  crmUser: { id: number; organizationId: string | null; userId: string },
+): Promise<void> {
+  await fireEvent(
+    "meeting.completed",
+    { meetingId, crmUserId: crmUser.id },
+    crmUser.id,
+  );
+  const orgId = crmUser.organizationId;
+  if (orgId && crmUser.userId) {
+    sendNotification(orgId, crmUser.userId, {
+      title: "Meeting just ended",
+      body: "Was this meeting with anyone in your contacts or related to a deal?",
+      context: "Meeting just ended. Was this meeting with anyone in your contacts or related to a deal?",
+      actions: [
+        { id: "respond_in_chat", label: "Respond in chat" },
+        { id: "dismiss", label: "Dismiss" },
+      ],
+    });
+  }
+}
 
 export function createMeetingsRoutes(
   db: Db,
@@ -53,6 +79,12 @@ export function createMeetingsRoutes(
         startedAt: new Date(),
       })
       .returning();
+
+    await fireEvent(
+      "meeting.created",
+      { meetingId: meeting.id, crmUserId: crmUser.id },
+      crmUser.id,
+    );
 
     return c.json(meeting, 201);
   });
@@ -371,6 +403,7 @@ export function createMeetingsRoutes(
         .update(schema.meetings)
         .set({ status: "completed", updatedAt: new Date() })
         .where(eq(schema.meetings.id, meetingId));
+      await onMeetingCompleted(db, meetingId, crmUser);
       return c.json({ ok: true, summary: null });
     }
 
@@ -385,6 +418,7 @@ export function createMeetingsRoutes(
         .update(schema.meetings)
         .set({ status: "completed", updatedAt: new Date() })
         .where(eq(schema.meetings.id, meetingId));
+      await onMeetingCompleted(db, meetingId, crmUser);
       return c.json({ ok: true, summary: null });
     }
 
@@ -489,6 +523,8 @@ Return ONLY valid JSON, no markdown fences.`,
           `[MEETING:WS:HN] process-status-updated meetingId=${meetingId} status=completed t=${Date.now()}`,
         );
 
+        await onMeetingCompleted(db, meetingId, crmUser);
+
         // Fire-and-forget: embed transcript chunks + summary for RAG
         embedMeetingTranscript(db, env, crmUser, meetingId).catch(() => {});
 
@@ -512,6 +548,8 @@ Return ONLY valid JSON, no markdown fences.`,
       .update(schema.meetings)
       .set({ status: "completed", updatedAt: new Date() })
       .where(eq(schema.meetings.id, meetingId));
+
+    await onMeetingCompleted(db, meetingId, crmUser);
 
     // Even without a summary, embed the raw transcript chunks
     embedMeetingTranscript(db, env, crmUser, meetingId).catch(() => {});
@@ -661,6 +699,12 @@ Return ONLY valid JSON, no markdown fences.`,
         contactId: body.contactId,
       })
       .onConflictDoNothing();
+
+    await fireEvent(
+      "meeting_link.created",
+      { meetingId, contactId: body.contactId, crmUserId: crmUser.id },
+      crmUser.id,
+    );
 
     return c.json({ ok: true });
   });

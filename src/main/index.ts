@@ -43,6 +43,10 @@ import {
   stopSystemAudioCapture,
   checkSystemAudioPermission,
 } from "./system-audio-capture";
+import {
+  connectNotificationStream,
+  setNotificationStreamOverlay,
+} from "./notification-stream";
 import type {
   ActivationMode,
   DictationInsertResult,
@@ -542,6 +546,8 @@ function createOverlayWindow(): void {
     backgroundColor: "#00000000",
   });
 
+  setNotificationStreamOverlay(overlayWindow);
+
   overlayWindow.setAlwaysOnTop(true, "screen-saver");
   overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
@@ -579,6 +585,7 @@ function createOverlayWindow(): void {
   overlayWindow.on("show", broadcastOverlayStatus);
   overlayWindow.on("hide", broadcastOverlayStatus);
   overlayWindow.on("closed", () => {
+    setNotificationStreamOverlay(null);
     overlayWindow = null;
     overlayActive = false;
     broadcastOverlayStatus();
@@ -1514,6 +1521,13 @@ app.whenReady().then(async () => {
 
   createMainWindow();
   createOverlayWindow();
+
+  // Connect to notifications SSE stream — forwards push notifications to overlay pill
+  connectNotificationStream(
+    async () => (await getSessionTokenForApi(API_URL)).token,
+    API_URL,
+    overlayWindow,
+  );
 
   // Fix 1: Force dock visibility — both windows start with show:false and the overlay
   // uses skipTaskbar:true, so macOS may never set the activation policy to "regular".

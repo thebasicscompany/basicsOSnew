@@ -95,7 +95,7 @@ export async function createRecord(
     ).catch(() => {});
   }
 
-  const eventResource = ["deals", "contacts", "tasks"].includes(resource)
+  const eventResource = ["deals", "contacts", "tasks", "companies"].includes(resource)
     ? resource
     : null;
   if (eventResource) {

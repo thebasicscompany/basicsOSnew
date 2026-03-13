@@ -219,11 +219,26 @@ function useTrackPageVisits() {
 function useMeetingSync() {
   const qc = useQueryClient();
   useEffect(() => {
-    const api = (window as Window & { api?: { onMeetingStopped?: (cb: (id: string) => void) => void } }).api;
-    if (!api?.onMeetingStopped) return;
-    api.onMeetingStopped(() => {
-      qc.invalidateQueries({ queryKey: ["meetings"] });
-    });
+    const ipc = (
+      window as Window & {
+        electron?: {
+          ipcRenderer?: {
+            on: (channel: string, cb: (...args: unknown[]) => void) => void;
+            removeListener: (channel: string, cb: (...args: unknown[]) => void) => void;
+          };
+        };
+      }
+    ).electron?.ipcRenderer;
+    if (!ipc) return;
+    const handler = (_e: unknown, queryKeys: string[]) => {
+      for (const key of queryKeys) {
+        void qc.invalidateQueries({ queryKey: [key] });
+      }
+    };
+    ipc.on("data-changed", handler);
+    return () => {
+      ipc.removeListener("data-changed", handler);
+    };
   }, [qc]);
 }
 

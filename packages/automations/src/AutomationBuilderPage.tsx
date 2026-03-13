@@ -6,6 +6,7 @@ import {
   PlusIcon,
   LightningIcon,
   LinkIcon,
+  FileTextIcon,
 } from "@phosphor-icons/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router";
@@ -75,9 +76,58 @@ const NODE_TYPE_LABELS: Record<string, string> = {
   action_web_search: "Web search",
   action_crm: "CRM action",
   action_slack: "Slack message",
+  action_notify_user: "Notify user",
   action_gmail_read: "Read Gmail",
   action_gmail_send: "Send Gmail",
   action_ai_agent: "AI agent",
+};
+
+/** Pre-built investment memo workflow template */
+const INVESTMENT_MEMO_TEMPLATE = {
+  name: "Investment Memo",
+  nodes: [
+    {
+      type: "trigger_event" as const,
+      data: {
+        type: "trigger_event",
+        event: "deal.stage_changed",
+        label: "Deal stage changed",
+      },
+    },
+    {
+      type: "action_ai_agent" as const,
+      data: {
+        type: "action_ai_agent",
+        objective:
+          "Read the deal details, all linked contacts, and all notes on this deal. Generate a structured investment memo covering: Company Overview, Market Opportunity, Team, Traction/Metrics, Investment Thesis, Key Risks, and Recommendation. Format as markdown. Use the trigger_data to identify the deal.",
+        model: "",
+        maxSteps: 8,
+        label: "Generate investment memo",
+      },
+    },
+    {
+      type: "action_crm" as const,
+      data: {
+        type: "action_crm",
+        action: "create_deal_note",
+        params: {
+          text: "{{ai_agent_result}}",
+          type: "note",
+        },
+        label: "Save memo as deal note",
+      },
+    },
+    {
+      type: "action_notify_user" as const,
+      data: {
+        type: "action_notify_user",
+        title: "Investment Memo Ready",
+        body: "The investment memo for {{trigger_data.dealName}} has been created as a note on the deal.",
+        context: "",
+        label: "Notify user",
+      },
+    },
+  ],
 };
 
 function BuilderInner() {
@@ -196,6 +246,28 @@ function BuilderInner() {
     },
     [setNodes, reactFlowInstance],
   );
+
+  const handleApplyTemplate = useCallback(() => {
+    const template = INVESTMENT_MEMO_TEMPLATE;
+    setName(template.name);
+    const templateNodes: WorkflowNode[] = template.nodes.map((n, i) => ({
+      id: newId(),
+      type: n.type,
+      position: { x: 120 + i * 320, y: 200 },
+      data: { ...n.data },
+    }));
+    const templateEdges = templateNodes.slice(0, -1).map((n, i) => ({
+      id: newId(),
+      source: n.id,
+      target: templateNodes[i + 1]!.id,
+      type: "animated" as const,
+    }));
+    setNodes(templateNodes);
+    setEdges(templateEdges);
+    setExpandedNodeIds(templateNodes.map((n) => n.id));
+    setPropertiesSheetOpen(true);
+    toast.success("Investment Memo template loaded");
+  }, [setNodes, setEdges]);
 
   const handleDeleteNode = useCallback(() => {
     const nodeIdToDelete = deleteConfirmNodeId ?? selectedNodeId;
@@ -498,6 +570,12 @@ function BuilderInner() {
                       >
                         <LightningIcon className="size-4" />
                         Add Action
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={handleApplyTemplate}
+                      >
+                        <FileTextIcon className="size-4" />
+                        Investment Memo template
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

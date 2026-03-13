@@ -5,7 +5,8 @@ export type PillState =
   | "listening"
   | "thinking"
   | "response"
-  | "transcribing";
+  | "transcribing"
+  | "notification";
 
 export type InteractionMode = ActivationMode;
 
@@ -15,7 +16,7 @@ export type PillAction =
   | { type: "LISTENING_COMPLETE"; transcript: string }
   | { type: "COMMAND_RESULT"; title: string; lines: string[] }
   | { type: "AI_STREAMING"; text: string }
-  | { type: "AI_COMPLETE"; title: string; lines: string[] }
+  | { type: "AI_COMPLETE"; title: string; lines: string[]; toolsUsed?: string[] }
   | { type: "AI_ERROR"; message: string }
   | { type: "DISMISS" }
   | {
@@ -26,7 +27,16 @@ export type PillAction =
     }
   | { type: "TRANSCRIBING_START" }
   | { type: "TRANSCRIBING_COMPLETE"; transcript: string }
-  | { type: "TRANSCRIBING_ERROR"; message: string };
+  | { type: "TRANSCRIBING_ERROR"; message: string }
+  | { type: "SET_FOLLOW_UP"; needsFollowUp: boolean }
+  | {
+      type: "NOTIFICATION";
+      title: string;
+      body: string;
+      actions?: Array<{ id: string; label: string; url?: string }>;
+      context?: string;
+    }
+  | { type: "NOTIFICATION_DISMISS" };
 
 export type ConversationEntry = { role: "user" | "assistant"; content: string };
 
@@ -43,6 +53,12 @@ export type PillContext = {
   lastResponseTitle: string;
   lastResponseLines: string[];
   conversationHistory: ConversationEntry[];
+  needsFollowUp: boolean;
+  toolsUsed: string[];
+  notificationTitle: string;
+  notificationBody: string;
+  notificationActions: Array<{ id: string; label: string; url?: string }>;
+  notificationContext: string;
 };
 
 const MAX_HISTORY_ENTRIES = 20;
@@ -60,6 +76,12 @@ export const initialPillContext: PillContext = {
   lastResponseTitle: "",
   lastResponseLines: [],
   conversationHistory: [],
+  needsFollowUp: false,
+  toolsUsed: [],
+  notificationTitle: "",
+  notificationBody: "",
+  notificationActions: [],
+  notificationContext: "",
 };
 
 export const pillReducer = (
@@ -87,6 +109,8 @@ export const pillReducer = (
         streamingText: "",
         lastResponseTitle: "",
         lastResponseLines: [],
+        needsFollowUp: false,
+        toolsUsed: [],
       };
 
     case "DEACTIVATE":
@@ -147,6 +171,8 @@ export const pillReducer = (
         responseTitle: action.title,
         responseLines: action.lines,
         streamingText: "",
+        needsFollowUp: false,
+        toolsUsed: action.toolsUsed ?? [],
         conversationHistory: [
           ...ctx.conversationHistory,
           { role: "assistant" as const, content: assistantText },
@@ -184,6 +210,29 @@ export const pillReducer = (
         responseTitle: "Error",
         responseLines: [action.message],
         streamingText: "",
+      };
+
+    case "SET_FOLLOW_UP":
+      return { ...ctx, needsFollowUp: action.needsFollowUp };
+
+    case "NOTIFICATION":
+      return {
+        ...ctx,
+        state: "notification",
+        notificationTitle: action.title,
+        notificationBody: action.body,
+        notificationActions: action.actions ?? [],
+        notificationContext: action.context ?? "",
+      };
+
+    case "NOTIFICATION_DISMISS":
+      return {
+        ...ctx,
+        state: "idle",
+        notificationTitle: "",
+        notificationBody: "",
+        notificationActions: [],
+        notificationContext: "",
       };
 
     default:

@@ -21,6 +21,7 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { getOnboardingChecklistItems } from "@/components/help/help-content";
+import { readWizardCompletedSteps } from "@/lib/wizard-storage";
 import { useHelpCenter } from "@/hooks/use-help-center";
 import { useOnboarding } from "@/hooks/use-onboarding";
 import { cn } from "@/lib/utils";
@@ -76,8 +77,9 @@ export function HomeOnboardingChecklist({
     () => getOnboardingChecklistItems({ isAdmin, hasApiKey }),
     [hasApiKey, isAdmin],
   );
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const [visitedIds, setVisitedIds] = useState<string[]>([]);
+  const [wizardCompletedIds, setWizardCompletedIds] = useState<string[]>([]);
   const { data: connections = [] } = useQuery<Connection[]>({
     queryKey: ["connections"],
     queryFn: () =>
@@ -89,6 +91,7 @@ export function HomeOnboardingChecklist({
 
   useEffect(() => {
     setVisitedIds(readVisitedItems(userId));
+    if (userId) setWizardCompletedIds(readWizardCompletedSteps(userId));
   }, [userId]);
 
   useEffect(() => {
@@ -101,12 +104,14 @@ export function HomeOnboardingChecklist({
 
   const completedIds = useMemo(() => {
     const connectedProviders = new Set(connections.map((connection) => connection.provider));
-    const ids = new Set<string>(visitedIds);
+    const ids = new Set<string>([...visitedIds, ...wizardCompletedIds]);
 
     if (connectedProviders.has("google")) ids.add("connect-gmail");
+    // If voice-setup was visited or shortcuts were configured, mark configure-shortcuts done
+    if (ids.has("shortcuts") || ids.has("voice-setup")) ids.add("configure-shortcuts");
 
     return ids;
-  }, [connections, visitedIds]);
+  }, [connections, visitedIds, wizardCompletedIds]);
 
   useEffect(() => {
     if (hasCompletedOnboarding || hasSeenOnboarding) {

@@ -433,7 +433,7 @@ export type ProcessChatTurnParams = {
   gatewayUrl: string;
   messages: unknown[];
   threadId?: string;
-  channel?: "chat" | "voice" | "automation";
+  channel?: "chat" | "voice" | "automation" | "slack";
 };
 
 export type ProcessChatTurnResult = {
@@ -543,6 +543,21 @@ export async function processChatTurn(
   }
 
   let systemPrompt = BASE_SYSTEM_PROMPT;
+  if (channel === "voice") {
+    systemPrompt += `\n\n## Voice assistant behavior
+- Keep responses concise and conversational — the user is listening, not reading.
+- If a voice request is ambiguous (e.g., "update that contact"), ask a short clarifying question rather than guessing wrong.
+- Prefer confirming actions with a brief summary: "Done — updated John's email to john@new.com" rather than listing all fields.
+- When creating or updating records via voice, confirm the key details back to the user.`;
+  }
+  if (channel === "slack") {
+    systemPrompt += `\n\n## Slack behavior
+- Keep responses concise and scannable — this is a Slack message, not a chat window.
+- Use Slack mrkdwn format: *bold*, _italic_, \`code\`, and bullet lists with dashes.
+- When @mentioned about a deal, contact, or company, always look it up in the CRM first.
+- If asked to log something as a note, use add_note with the entity name from the message.
+- Do not include links or markdown that won't render in Slack.`;
+  }
   // Use dual retrieval (CRM + meeting chunks) for both crm_context and tool_call
   // so meeting-related queries (e.g. "what did we decide about Acme?") get context.
   // Limits are set by classifyQueryIntent to keep token budget tight.

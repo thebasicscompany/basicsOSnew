@@ -48,7 +48,7 @@ export async function deleteRecord(
     deleteEntityEmbedding(db, crmUserId, entityType, id).catch(() => {});
   }
 
-  const eventResource = ["deals", "contacts", "tasks"].includes(resource)
+  const eventResource = ["deals", "contacts", "tasks", "companies"].includes(resource)
     ? resource
     : null;
   if (eventResource) {

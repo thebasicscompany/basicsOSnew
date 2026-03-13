@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import { useLocation, useNavigate, useParams } from "react-router";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import type { Message } from "@ai-sdk/react";
 import { usePageTitle } from "@/contexts/page-header";
@@ -219,6 +219,7 @@ function ChatPageInner({ threadId }: { threadId?: string }) {
   const recentHint = useRecentHint();
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { data: savedMessages } = useThreadMessages(threadId);
 
   const initialMessages = useMemo<Message[] | undefined>(() => {
@@ -238,12 +239,17 @@ function ChatPageInner({ threadId }: { threadId?: string }) {
   const appendedFromHomeRef = useRef(false);
   useEffect(() => {
     const state = location.state as { initialText?: string } | null;
-    const text = state?.initialText?.trim();
-    if (!text || !threadId || appendedFromHomeRef.current) return;
+    const contextFromUrl = searchParams.get("context")?.trim();
+    const text = (state?.initialText ?? contextFromUrl)?.trim();
+    if (!text || appendedFromHomeRef.current) return;
     appendedFromHomeRef.current = true;
-    navigate(location.pathname, { replace: true, state: {} });
+    if (contextFromUrl) {
+      setSearchParams({}, { replace: true });
+    } else {
+      navigate(location.pathname, { replace: true, state: {} });
+    }
     append({ role: "user", content: text });
-  }, [threadId, location.state, location.pathname, navigate, append]);
+  }, [threadId, location.state, location.pathname, navigate, append, searchParams, setSearchParams]);
 
   const allVisible = messages.filter(
     (m) => m.role === "user" || m.role === "assistant",

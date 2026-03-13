@@ -2,7 +2,7 @@ import { useEffect, useCallback, useRef, useState, useReducer } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import type { OverlaySettings, NotchInfo } from "@/shared-overlay/types";
 import { FLASH_SHORT_MS, FLASH_LONG_MS } from "@/shared-overlay/constants";
-import { setIgnoreMouse } from "./lib/ipc";
+import { setIgnoreMouse, navigateMain } from "./lib/ipc";
 import { cancel as cancelTTS } from "./lib/tts";
 import {
   useSpeechRecognition,
@@ -35,14 +35,16 @@ import {
   ThinkingDots,
   ResponseBody,
   MeetingTimer,
+  NotificationPill,
 } from "./lib/pill-components";
+import { SHORTCUT_DEFINITIONS } from "@/lib/shortcut-definitions";
 
 const DEFAULT_SETTINGS: OverlaySettings = {
   shortcuts: {
-    assistantToggle: "CommandOrControl+Space",
-    dictationToggle: "CommandOrControl+Shift+Space",
-    dictationHoldKey: "CommandOrControl+Shift+Space",
-    meetingToggle: "CommandOrControl+Alt+Space",
+    assistantToggle: SHORTCUT_DEFINITIONS.assistantToggle.electron,
+    dictationToggle: SHORTCUT_DEFINITIONS.dictationToggle.electron,
+    dictationHoldKey: SHORTCUT_DEFINITIONS.dictationToggle.electron,
+    meetingToggle: SHORTCUT_DEFINITIONS.meetingToggle.electron,
   },
   voice: {
     language: "en-US",
@@ -112,6 +114,21 @@ export const OverlayApp = () => {
     }
   }, []);
 
+  const handleNotificationDismiss = useCallback(() => {
+    dispatch({ type: "NOTIFICATION_DISMISS" });
+  }, []);
+
+  const handleRespondInChat = useCallback(
+    (context?: string) => {
+      const path = context
+        ? `/chat?context=${encodeURIComponent(context)}`
+        : "/chat";
+      navigateMain(path);
+      dispatch({ type: "NOTIFICATION_DISMISS" });
+    },
+    [],
+  );
+
   const dismissRef = useRef(() => {});
   dismissRef.current = () => {
     cancelTTS();
@@ -124,7 +141,11 @@ export const OverlayApp = () => {
     if (s?.isListening) {
       void s.stopListening();
     }
-    dispatch({ type: "DISMISS" });
+    if (pillRef.current.state === "notification") {
+      dispatch({ type: "NOTIFICATION_DISMISS" });
+    } else {
+      dispatch({ type: "DISMISS" });
+    }
     window.electronAPI?.notifyDismissed?.();
   };
 
@@ -191,16 +212,30 @@ export const OverlayApp = () => {
   useEffect(() => {
     clearDismissTimer();
     if (pill.state === "response") {
-      dismissTimerRef.current = setTimeout(
-        dismiss,
-        settings.behavior.autoDismissMs,
-      );
+      if (pill.needsFollowUp) {
+        // Show response briefly, then auto-listen for follow-up
+        dismissTimerRef.current = setTimeout(() => {
+          const s = speechRef.current;
+          if (s) {
+            dispatch({ type: "ACTIVATE", mode: "assistant" });
+            s.startListening();
+          }
+        }, 2500);
+      } else {
+        dismissTimerRef.current = setTimeout(
+          dismiss,
+          settings.behavior.autoDismissMs,
+        );
+      }
+    }
+    if (pill.state === "notification") {
+      dismissTimerRef.current = setTimeout(dismiss, 30_000);
     }
     if (pill.state !== "idle") {
       setShowLastResponse(false);
     }
     return clearDismissTimer;
-  }, [pill.state, settings.behavior.autoDismissMs, dismiss, clearDismissTimer]);
+  }, [pill.state, pill.needsFollowUp, settings.behavior.autoDismissMs, dismiss, clearDismissTimer]);
 
   // TTS disabled
 
@@ -228,6 +263,15 @@ export const OverlayApp = () => {
     api.onMeetingStarted?.(meeting.handleMeetingStarted);
     api.onMeetingStopped?.(meeting.handleMeetingStopped);
     api.onSystemAudioTranscript?.(meeting.handleSystemAudioTranscript);
+    api.onNotification?.((payload) => {
+      dispatch({
+        type: "NOTIFICATION",
+        title: payload.title,
+        body: payload.body,
+        actions: payload.actions,
+        context: payload.context,
+      });
+    });
 
     meeting.restoreMeetingState();
     meeting.restorePersistedMeeting();
@@ -395,6 +439,8 @@ export const OverlayApp = () => {
     pillHeight = menuBarHeight + NOTEPAD_GAP + NOTEPAD_AREA_H + 10;
   } else if (pill.state === "idle") {
     pillHeight = menuBarHeight;
+  } else if (pill.state === "notification") {
+    pillHeight = topPad + 120;
   } else if (pill.state === "response") {
     pillHeight = topPad + RESPONSE_EXTRA_H + responseContentH;
   } else {
@@ -825,6 +871,29 @@ export const OverlayApp = () => {
               </motion.div>
             )}
 
+            {pill.state === "notification" && (
+              <motion.div
+                key="notification"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={CONTENT_ENTER}
+              >
+                <NotificationPill
+                  title={pill.notificationTitle}
+                  body={pill.notificationBody}
+                  actions={pill.notificationActions}
+                  assistantShortcutLabel={
+                    settings.shortcuts?.assistant?.label ?? "⌘Space"
+                  }
+                  onRespondInChat={() =>
+                    handleRespondInChat(pill.notificationContext || undefined)
+                  }
+                  onDismiss={handleNotificationDismiss}
+                />
+              </motion.div>
+            )}
+
             {pill.state === "response" && (
               <motion.div
                 key={`response-${pill.responseTitle}`}
@@ -905,6 +974,38 @@ export const OverlayApp = () => {
                 >
                   <ResponseBody response={currentResponse} />
                 </motion.div>
+                {pill.needsFollowUp && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 0.5 }}
+                    transition={{
+                      ...CONTENT_ENTER,
+                      delay: (STAGGER_MS * 2) / 1000,
+                    }}
+                    style={{
+                      textAlign: "right",
+                      marginTop: 4,
+                      paddingRight: 4,
+                      fontSize: 11,
+                      color: "rgba(255,255,255,0.4)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "flex-end",
+                      gap: 4,
+                    }}
+                  >
+                    <motion.span
+                      animate={{ opacity: [0.4, 1, 0.4] }}
+                      transition={{
+                        duration: 1.2,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                      }}
+                    >
+                      Listening soon...
+                    </motion.span>
+                  </motion.div>
+                )}
               </motion.div>
             )}
 

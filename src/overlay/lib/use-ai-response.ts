@@ -7,6 +7,54 @@ import type { PillAction, PillState, ConversationEntry } from "./notch-pill-stat
 
 const log = createOverlayLogger("ai-response");
 
+function isFollowUpQuestion(text: string): boolean {
+  if (text.length > 300) return false;
+  const trimmed = text.trim();
+  if (trimmed.endsWith("?")) return true;
+  const lower = trimmed.toLowerCase();
+  const patterns = [
+    "which ", "could you ", "can you clarify", "what is the",
+    "do you want", "would you like", "please provide", "i need",
+    "can you specify", "what should", "who should", "where should",
+  ];
+  return patterns.some(p => lower.includes(p));
+}
+
+const TOOL_TITLE_MAP: Record<string, string> = {
+  search_contacts: "Found contacts",
+  get_contact: "Contact details",
+  create_contact: "Created contact",
+  update_contact: "Updated contact",
+  search_deals: "Found deals",
+  get_deal: "Deal details",
+  create_deal: "Created deal",
+  update_deal: "Updated deal",
+  search_companies: "Found companies",
+  get_company: "Company details",
+  create_company: "Created company",
+  update_company: "Updated company",
+  search_tasks: "Found tasks",
+  list_tasks: "Tasks",
+  create_task: "Created task",
+  complete_task: "Completed task",
+  list_notes: "Notes",
+  create_note: "Added note",
+  add_note: "Added note",
+};
+
+function deriveResponseTitle(text: string, toolsUsed: string[]): string {
+  if (toolsUsed.length > 0) {
+    // Use the last write tool, or the last tool overall
+    const writeTool = [...toolsUsed].reverse().find(
+      t => t.startsWith("create_") || t.startsWith("update_") || t.startsWith("delete_") || t === "complete_task" || t === "add_note" || t === "run_automation",
+    );
+    const key = writeTool ?? toolsUsed[toolsUsed.length - 1]!;
+    return TOOL_TITLE_MAP[key] ?? "Assistant";
+  }
+  if (isFollowUpQuestion(text)) return "Question";
+  return "Assistant";
+}
+
 const SIMULATED_RESPONSES = [
   {
     title: "Assistant",
@@ -58,18 +106,21 @@ const streamAssistantAPI = async (
   threadId: string | undefined,
   onThreadId: (threadId: string) => void,
   onToken: (token: string) => void,
-  onComplete: (title: string, lines: string[]) => void
+  onComplete: (title: string, lines: string[], toolsUsed: string[]) => void
 ): Promise<void> => {
   let fullText = "";
+  let toolsUsed: string[] = [];
   for await (const token of streamAssistant(message, history, {
     timeoutMs: API_STREAM_TIMEOUT_MS,
     threadId,
     onThreadId,
+    onToolsUsed: (tools) => { toolsUsed = tools; },
   })) {
     fullText += token;
     onToken(token);
   }
-  onComplete("Assistant", fullText.split("\n").filter(Boolean));
+  const title = deriveResponseTitle(fullText, toolsUsed);
+  onComplete(title, fullText.split("\n").filter(Boolean), toolsUsed);
 };
 
 export const useAIResponse = (
@@ -132,9 +183,13 @@ export const useAIResponse = (
         if (cancelled || streamAbortRef.current) return;
         dispatch({ type: "AI_STREAMING", text: token });
       },
-      (title, lines) => {
+      (title, lines, toolsUsed) => {
         if (cancelled || streamAbortRef.current) return;
-        dispatch({ type: "AI_COMPLETE", title, lines });
+        dispatch({ type: "AI_COMPLETE", title, lines, toolsUsed });
+        const fullText = lines.join("\n");
+        if (toolsUsed.length === 0 && isFollowUpQuestion(fullText)) {
+          dispatch({ type: "SET_FOLLOW_UP", needsFollowUp: true });
+        }
       }
     ).catch((err) => {
       if (cancelled || streamAbortRef.current) return;
@@ -146,6 +201,7 @@ export const useAIResponse = (
           type: "AI_COMPLETE",
           title: resp.title,
           lines: resp.lines,
+          toolsUsed: [],
         });
         return;
       }

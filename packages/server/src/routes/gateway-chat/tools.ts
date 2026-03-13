@@ -1,6 +1,7 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
 import type { Db } from "@/db/client.js";
 import * as schema from "@/db/schema/index.js";
+import { fireEvent } from "@/lib/automation-engine.js";
 import {
   type HybridSearchContext,
   resolveCompanyByName,
@@ -234,9 +235,19 @@ export async function executeValidatedTool(
         companyId,
       })
       .returning();
-    return row
-      ? formatCreated(row, "contacts")
-      : "Error: failed to create contact";
+    if (!row) return "Error: failed to create contact";
+    let confirmation = formatCreated(row, "contacts");
+    if (companyId) {
+      const [company] = await db
+        .select({ name: schema.companies.name })
+        .from(schema.companies)
+        .where(eq(schema.companies.id, companyId))
+        .limit(1);
+      if (company?.name) {
+        confirmation += ` — linked to [[companies/${companyId}|${company.name}]]`;
+      }
+    }
+    return confirmation;
   }
 
   if (toolName === "update_contact") {
@@ -346,7 +357,19 @@ export async function executeValidatedTool(
         amount: args.amount ?? null,
       })
       .returning();
-    return row ? formatCreated(row, "deals") : "Error: failed to create deal";
+    if (!row) return "Error: failed to create deal";
+    let confirmation = formatCreated(row, "deals");
+    if (companyId) {
+      const [company] = await db
+        .select({ name: schema.companies.name })
+        .from(schema.companies)
+        .where(eq(schema.companies.id, companyId))
+        .limit(1);
+      if (company?.name) {
+        confirmation += ` — linked to [[companies/${companyId}|${company.name}]]`;
+      }
+    }
+    return confirmation;
   }
 
   if (toolName === "update_deal") {
@@ -713,6 +736,9 @@ export async function executeValidatedTool(
         status: args.type ?? null,
       })
       .returning();
+    if (row) {
+      fireEvent("note.created", { entityType: "contact", entityId: contactId, noteId: row.id, text: args.text.trim() }, crmUserId).catch(() => {});
+    }
     return row ?? { error: "failed to create note" };
   }
 
@@ -757,6 +783,9 @@ export async function executeValidatedTool(
           status: null,
         })
         .returning();
+      if (row) {
+        fireEvent("note.created", { entityType: "contact", entityId: contactId, noteId: row.id, text: args.text.trim() }, crmUserId).catch(() => {});
+      }
       return row
         ? `Note added to contact (id: ${row.id})`
         : { error: "failed to add note" };
@@ -785,6 +814,9 @@ export async function executeValidatedTool(
           text: args.text.trim(),
         })
         .returning();
+      if (row) {
+        fireEvent("note.created", { entityType: "deal", entityId: dealId, noteId: row.id, text: args.text.trim() }, crmUserId).catch(() => {});
+      }
       return row
         ? `Note added to deal (id: ${row.id})`
         : { error: "failed to add note" };

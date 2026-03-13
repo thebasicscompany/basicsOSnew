@@ -579,5 +579,107 @@ export function createAdminRoutes(
     });
   });
 
+  // Slack bot config: save bot token + signing secret + team ID
+  app.patch("/slack-bot", authMiddleware(auth, db), async (c) => {
+    const authz = await requirePermission(c, db, PERMISSIONS.rbacManage);
+    if (!authz.ok) return authz.response;
+    const { crmUser } = authz;
+
+    if (!crmUser.organizationId) {
+      return c.json({ error: "Organization not found" }, 404);
+    }
+
+    let rawBody: unknown;
+    try {
+      rawBody = await c.req.json();
+    } catch {
+      return c.json({ error: "Invalid JSON body" }, 400);
+    }
+
+    const slackBotSchema = z.object({
+      botToken: z.string().min(1).optional().nullable(),
+      signingSecret: z.string().min(1).optional().nullable(),
+      teamId: z.string().optional().nullable(),
+    });
+
+    const parsed = slackBotSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.issues[0]?.message ?? "Validation failed" }, 400);
+    }
+
+    if (!hasApiKeyEncryptionConfigured()) {
+      return c.json({ error: "Server encryption not configured" }, 500);
+    }
+
+    const updates: Partial<{
+      slackBotTokenEnc: string | null;
+      slackSigningSecret: string | null;
+      slackTeamId: string | null;
+    }> = {};
+
+    if (parsed.data.botToken !== undefined) {
+      updates.slackBotTokenEnc = parsed.data.botToken
+        ? encryptApiKey(parsed.data.botToken)
+        : null;
+    }
+    if (parsed.data.signingSecret !== undefined) {
+      updates.slackSigningSecret = parsed.data.signingSecret ?? null;
+    }
+    if (parsed.data.teamId !== undefined) {
+      updates.slackTeamId = parsed.data.teamId ?? null;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return c.json({ ok: true });
+    }
+
+    // Upsert org AI config
+    const [existing] = await db
+      .select({ id: schema.orgAiConfig.id })
+      .from(schema.orgAiConfig)
+      .where(eq(schema.orgAiConfig.organizationId, crmUser.organizationId))
+      .limit(1);
+
+    if (existing) {
+      await db
+        .update(schema.orgAiConfig)
+        .set(updates)
+        .where(eq(schema.orgAiConfig.organizationId, crmUser.organizationId));
+    } else {
+      await db.insert(schema.orgAiConfig).values({
+        organizationId: crmUser.organizationId,
+        ...updates,
+      });
+    }
+
+    return c.json({ ok: true });
+  });
+
+  // Slack bot config: get current status (no secrets returned)
+  app.get("/slack-bot", authMiddleware(auth, db), async (c) => {
+    const authz = await requirePermission(c, db, PERMISSIONS.rbacManage);
+    if (!authz.ok) return authz.response;
+    const { crmUser } = authz;
+
+    if (!crmUser.organizationId) return c.json({ configured: false });
+
+    const [config] = await db
+      .select({
+        hasBotToken: schema.orgAiConfig.slackBotTokenEnc,
+        signingSecret: schema.orgAiConfig.slackSigningSecret,
+        teamId: schema.orgAiConfig.slackTeamId,
+      })
+      .from(schema.orgAiConfig)
+      .where(eq(schema.orgAiConfig.organizationId, crmUser.organizationId))
+      .limit(1);
+
+    return c.json({
+      configured: Boolean(config?.hasBotToken && config?.signingSecret),
+      hasToken: Boolean(config?.hasBotToken),
+      hasSigningSecret: Boolean(config?.signingSecret),
+      teamId: config?.teamId ?? null,
+    });
+  });
+
   return app;
 }

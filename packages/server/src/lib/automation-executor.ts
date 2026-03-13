@@ -11,6 +11,7 @@ import { executeSlack } from "@/lib/automation-actions/slack.js";
 import { executeGmailRead } from "@/lib/automation-actions/gmail-read.js";
 import { executeGmailSend } from "@/lib/automation-actions/gmail-send.js";
 import { executeAIAgent } from "@/lib/automation-actions/ai-agent.js";
+import { sendNotification } from "@/routes/notifications.js";
 import { decryptApiKey } from "@/lib/api-key-crypto.js";
 import { writeUsageLogSafe } from "@/lib/usage-log.js";
 import * as schema from "@/db/schema/index.js";
@@ -140,6 +141,26 @@ export async function executeWorkflow(
       case "action_gmail_send":
         await executeGmailSend(data, context, apiKey, env, betterAuthUserId);
         break;
+
+      case "action_notify_user": {
+        const title = resolveString((data.title as string) ?? "", context);
+        const body = resolveString((data.body as string) ?? "", context);
+        const ctxStr = resolveString((data.context as string) ?? "", context);
+        const orgId = crmUser.organizationId ?? "";
+        if (orgId && betterAuthUserId) {
+          sendNotification(orgId, betterAuthUserId, {
+            title: title || "Notification",
+            body: body || "",
+            context: ctxStr || undefined,
+            actions: [
+              { id: "respond_in_chat", label: "Respond in chat", url: ctxStr || undefined },
+              { id: "dismiss", label: "Dismiss" },
+            ],
+          });
+        }
+        context.notify_result = { sent: true };
+        break;
+      }
 
       case "action_ai_agent": {
         const agentResult = await executeAIAgent(data, context, db, crmUser.id, apiKey, env);

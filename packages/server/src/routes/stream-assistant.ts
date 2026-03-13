@@ -116,7 +116,8 @@ export function createStreamAssistantRoutes(
         "Cache-Control": "no-cache",
         Connection: "keep-alive",
         "X-Thread-Id": result.threadId,
-        "Access-Control-Expose-Headers": "X-Thread-Id",
+        "X-Tools-Used": result.usedTools.join(","),
+        "Access-Control-Expose-Headers": "X-Thread-Id, X-Tools-Used",
       },
     });
   });

@@ -14,6 +14,7 @@ import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMe } from "@/hooks/use-me";
+import { useOnboarding } from "@/hooks/use-onboarding";
 import { useOrganization } from "@/hooks/use-organization";
 import {
   useAssignRbacRole,
@@ -28,6 +29,8 @@ import {
   useAdminSmtpConfig,
   useSaveAdminSmtpConfig,
   useClearAdminSmtpConfig,
+  useAdminSlackBotStatus,
+  useSaveAdminSlackBot,
 } from "@/hooks/use-admin";
 import { ConnectionsContent } from "@/components/connections";
 import {
@@ -77,6 +80,7 @@ export function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { theme, setTheme } = useTheme();
   const { data: me } = useMe();
+  const { restartOnboarding, isRestartingOnboarding } = useOnboarding();
   const { data: organization } = useOrganization();
   const { data: rbacRoles } = useRbacRoles(Boolean(me?.administrator));
   const { data: rbacUsers } = useRbacUsers(Boolean(me?.administrator));
@@ -100,6 +104,15 @@ export function SettingsPage() {
   const { data: smtpConfigData } = useAdminSmtpConfig(isAdmin);
   const saveSmtpConfig = useSaveAdminSmtpConfig();
   const clearSmtpConfig = useClearAdminSmtpConfig();
+
+  // Slack bot config
+  const { data: slackBotStatus } = useAdminSlackBotStatus(isAdmin);
+  const saveSlackBot = useSaveAdminSlackBot();
+  const [slackBotToken, setSlackBotToken] = useState("");
+  const [slackSigningSecret, setSlackSigningSecret] = useState("");
+  const [slackTeamId, setSlackTeamId] = useState("");
+  const [showSlackToken, setShowSlackToken] = useState(false);
+  const [showSlackSecret, setShowSlackSecret] = useState(false);
   const [smtpHost, setSmtpHost] = useState("");
   const [smtpPort, setSmtpPort] = useState("587");
   const [smtpUser, setSmtpUser] = useState("");
@@ -1289,6 +1302,154 @@ export function SettingsPage() {
             </div>
             <ConnectionsContent embeddedInSettings />
             <EmailSyncSection isAdmin={isAdmin} />
+          </section>
+
+          <Separator />
+
+          <section id="slack-bot" className={sectionClass}>
+            <div className="mb-4">
+              <h2 className="text-[15px] font-semibold">Slack Bot</h2>
+              <p className="text-[12px] text-muted-foreground">
+                Configure a Slack bot to receive @mentions and respond from your CRM.
+              </p>
+            </div>
+            {isAdmin ? (
+              <div className="space-y-4 max-w-lg">
+                {slackBotStatus?.configured && (
+                  <div className="flex items-center gap-2 rounded-md border border-green-500/30 bg-green-500/10 px-3 py-2">
+                    <span className="size-1.5 shrink-0 rounded-full bg-green-500" />
+                    <span className="text-[12px] text-green-700 dark:text-green-400">
+                      Slack bot is configured and active
+                    </span>
+                  </div>
+                )}
+                <div className="space-y-1">
+                  <Label className="text-[12px]">Bot Token</Label>
+                  <div className="relative">
+                    <Input
+                      type={showSlackToken ? "text" : "password"}
+                      placeholder={slackBotStatus?.hasToken ? "••••••••••••••••" : "xoxb-..."}
+                      value={slackBotToken}
+                      onChange={(e) => setSlackBotToken(e.target.value)}
+                      className="h-8 pr-9 text-[12px]"
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      onClick={() => setShowSlackToken((v) => !v)}
+                    >
+                      {showSlackToken ? <EyeSlashIcon className="size-3.5" /> : <EyeIcon className="size-3.5" />}
+                    </button>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[12px]">Signing Secret</Label>
+                  <div className="relative">
+                    <Input
+                      type={showSlackSecret ? "text" : "password"}
+                      placeholder={slackBotStatus?.hasSigningSecret ? "••••••••••••••••" : "Signing secret from Slack app settings"}
+                      value={slackSigningSecret}
+                      onChange={(e) => setSlackSigningSecret(e.target.value)}
+                      className="h-8 pr-9 text-[12px]"
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      onClick={() => setShowSlackSecret((v) => !v)}
+                    >
+                      {showSlackSecret ? <EyeSlashIcon className="size-3.5" /> : <EyeIcon className="size-3.5" />}
+                    </button>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[12px]">Team ID (optional)</Label>
+                  <Input
+                    type="text"
+                    placeholder={slackBotStatus?.teamId ?? "T01234ABCDE"}
+                    value={slackTeamId}
+                    onChange={(e) => setSlackTeamId(e.target.value)}
+                    className="h-8 text-[12px]"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[12px]">Events webhook URL</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      readOnly
+                      value={`${API_URL}/api/slack/events`}
+                      className="h-8 text-[12px] font-mono bg-muted"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 shrink-0 text-[12px]"
+                      onClick={() => {
+                        navigator.clipboard.writeText(`${API_URL}/api/slack/events`);
+                        toast.success("Copied");
+                      }}
+                    >
+                      Copy
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Paste this URL in your Slack app's Event Subscriptions settings.
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  className="h-8 text-[12px]"
+                  disabled={saveSlackBot.isPending || (!slackBotToken && !slackSigningSecret && !slackTeamId)}
+                  onClick={() => {
+                    saveSlackBot.mutate(
+                      {
+                        botToken: slackBotToken || undefined,
+                        signingSecret: slackSigningSecret || undefined,
+                        teamId: slackTeamId || undefined,
+                      },
+                      {
+                        onSuccess: () => {
+                          toast.success("Slack bot config saved");
+                          setSlackBotToken("");
+                          setSlackSigningSecret("");
+                          setSlackTeamId("");
+                        },
+                        onError: () => toast.error("Failed to save Slack bot config"),
+                      },
+                    );
+                  }}
+                >
+                  {saveSlackBot.isPending ? "Saving..." : "Save Slack bot config"}
+                </Button>
+              </div>
+            ) : (
+              <p className="text-[12px] text-muted-foreground">
+                Only administrators can configure the Slack bot.
+              </p>
+            )}
+          </section>
+
+          <Separator />
+
+          <section id="onboarding" className={sectionClass}>
+            <div className="mb-4">
+              <h2 className="text-[15px] font-semibold">Onboarding</h2>
+              <p className="text-[12px] text-muted-foreground">
+                Restart the onboarding flow to see the welcome guide again.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-[12px]"
+              onClick={() =>
+                restartOnboarding().then(() =>
+                  toast.success("Onboarding reset — it will show next time you visit Home"),
+                )
+              }
+              disabled={isRestartingOnboarding}
+            >
+              {isRestartingOnboarding ? "Resetting..." : "Restart onboarding"}
+            </Button>
           </section>
 
           {hasPendingChanges && (

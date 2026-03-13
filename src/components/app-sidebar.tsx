@@ -303,8 +303,12 @@ export function AppSidebar(props: ComponentProps<typeof Sidebar>) {
           </SidebarGroupContent>
         </SidebarGroup>
         <ChatThreadsNav />
-        <ObjectRegistryNavSection />
-        <AutomationsNav />
+        <div>
+          <ObjectRegistryNavSection />
+        </div>
+        <div>
+          <AutomationsNav />
+        </div>
       </SidebarContent>
       <SidebarFooter>
         <NavUser />
