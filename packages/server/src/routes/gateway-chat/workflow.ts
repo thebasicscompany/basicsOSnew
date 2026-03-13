@@ -102,25 +102,35 @@ function parseJsonWithSchema<T>(text: string, schema: z.ZodType<T>): T | null {
 
 export function shouldPlanToolWorkflow(queryText: string): boolean {
   const lower = queryText.toLowerCase();
-  const isUpdate = /\b(update|rename|change|edit|set)\b/.test(lower);
+  const isUpdate = /\b(update|rename|change|edit|set|move|bump|mark)\b/.test(lower);
   const isTask = /\b(task|reminder|follow-up|follow up|todo)\b/.test(lower);
-  const isNote = /\bnote\b/.test(lower);
+  const isNote = /\bnotes?\b/.test(lower);
   const isCreateContact =
     /\b(create|add|make)\b/.test(lower) &&
     /\b(contact|person|lead)\b/.test(lower) &&
     /\bcompany|companies|organization\b/.test(lower);
   const isCreateDeal =
     /\b(create|add|make)\b/.test(lower) &&
-    /\b(deal|opportunity|deals|opportunities)\b/.test(lower) &&
-    /\bcompany|companies|organization\b/.test(lower);
+    /\b(deal|opportunity|deals|opportunities)\b/.test(lower);
+  const isBulk =
+    /\b(and also|and then|also|too)\b|,/.test(lower) &&
+    /\b(create|add|make|update|complete|added)\b/.test(lower);
+  const isMultiAction =
+    /\b(create|add|make)\b.*\b(create|add|make)\b/.test(lower) ||
+    /\b(update|change|move)\b.*\b(create|add)\b/.test(lower) ||
+    /\b(create|add)\b.*\b(update|change|move)\b/.test(lower);
+  const isBulkContactCreate =
+    /\b(create|add|make)\b/.test(lower) &&
+    /\b(contact|person|lead|contacts|people)\b/.test(lower) &&
+    /\bat\b/.test(lower);
 
   return (
     isUpdate ||
-    (isTask && /\bcontact|contacts|person|people|lead|leads\b/.test(lower)) ||
-    (isNote &&
-      /\bcontact|contacts|person|people|lead|leads|deal|deals|opportunity|opportunities\b/.test(
-        lower,
-      )) ||
+    isBulk ||
+    isMultiAction ||
+    isBulkContactCreate ||
+    isTask ||
+    isNote ||
     isCreateContact ||
     isCreateDeal
   );
@@ -239,6 +249,21 @@ function normalizeResolvedArgs(
       args.id = first.id;
     }
   }
+  if (expectedTool === "add_note") {
+    if (args.deal_id === undefined && args.deal_name === undefined && args.contact_id === undefined && args.contact_name === undefined) {
+      args.deal_id = first.id;
+    }
+  }
+  if (expectedTool === "create_note") {
+    if (args.contact_id === undefined && args.contact_name === undefined) {
+      args.contact_id = first.id;
+    }
+  }
+  if (expectedTool === "create_task") {
+    if (args.contact_id === undefined && args.contact_name === undefined && args.company_id === undefined && args.company_name === undefined) {
+      args.contact_id = first.id;
+    }
+  }
 
   return args;
 }
@@ -254,7 +279,7 @@ export async function planToolWorkflow(args: {
     "Return ONLY JSON. No prose, no markdown.",
     'Schema: {"mode":"none|single_tool|multi_tool","steps":[{"tool":"tool_name","args":{},"deferred":false}]}',
     "Rules:",
-    "- Use multi_tool when the request needs more than one tool call.",
+    "- Use multi_tool when the request needs more than one tool call, or when the user requests multiple separate actions.",
     "- Steps must be in execution order.",
     "- If a step depends on a prior lookup result for id or exact record name, set deferred=true on that step.",
     "- Do not invent ids.",
@@ -264,14 +289,47 @@ export async function planToolWorkflow(args: {
     "- Include any write fields you already know in step args, even when deferred=true.",
     "- Include every requested action from the user. Do not stop after the first successful action.",
     "- Non-deferred steps should include complete args and should be executable immediately.",
+    "- IMPORTANT: Use add_note (not create_note) when adding a note to a DEAL. create_note is for contacts only.",
+    "- IMPORTANT: When adding a note to a deal by name, first search_deals to get the deal_id, then add_note with deal_id (deferred=true).",
+    "- IMPORTANT: Always include a 'title' arg in add_note and create_note — a short 2-5 word summary of the note.",
+    "- IMPORTANT: For bulk requests ('create X and Y', 'add contact A and B'), emit one step per record.",
+    "- IMPORTANT: For create_contact or create_deal with a company_name, do NOT search for the company first — pass company_name directly. The tool auto-creates the company if it does not exist.",
+    "- IMPORTANT: Only plan create_contact or create_deal if the user has provided the company name in the request. If no company is mentioned for a contact or deal, return mode=none so the main assistant can ask for missing details.",
+    "- IMPORTANT: For 'move/mark/bump [deal] to [stage]', plan search_deals then update_deal with status (deferred=true).",
+    "- IMPORTANT: For 'add a task for [person name]', plan search_contacts then create_task (deferred=true). The task text comes from what follows the colon.",
+    "- IMPORTANT: For 'add a note to [person name]', plan search_contacts then create_note (deferred=true). Always generate a title.",
+    "- IMPORTANT: For 'add a note to [deal name] deal', plan search_deals then add_note (deferred=true).",
+    "- IMPORTANT: For bulk notes ('add notes: for X — ... for Y — ...'), emit search+note pairs for each person/deal.",
     "- Valid tools: " + TOOL_NAMES.join(", "),
-    "Example:",
+    "Examples:",
     "User: update the name of company about toching to touching company",
     'JSON: {"mode":"multi_tool","steps":[{"tool":"search_companies","args":{"query":"about toching"}},{"tool":"update_company","args":{"name":"touching company"},"deferred":true}]}',
     "User: update the name of company about toching to touching company and also change the description to not touching people",
     'JSON: {"mode":"multi_tool","steps":[{"tool":"search_companies","args":{"query":"about toching"}},{"tool":"update_company","args":{"name":"touching company","description":"not touching people"},"deferred":true}]}',
     "User: update the name of company about toching to touching company and also change the description to not touching people also create a new company called speakl",
     'JSON: {"mode":"multi_tool","steps":[{"tool":"search_companies","args":{"query":"about toching"}},{"tool":"update_company","args":{"name":"touching company","description":"not touching people"},"deferred":true},{"tool":"create_company","args":{"name":"speekl"}}]}',
+    "User: add a note to the Acme deal: sent term sheet",
+    'JSON: {"mode":"multi_tool","steps":[{"tool":"search_deals","args":{"query":"Acme"}},{"tool":"add_note","args":{"title":"Sent term sheet","text":"sent term sheet"},"deferred":true}]}',
+    "User: create contacts John Smith and Jane Doe",
+    'JSON: {"mode":"none","steps":[]}',
+    "User: add a contact named Sarah Johnson",
+    'JSON: {"mode":"none","steps":[]}',
+    "User: create a contact Amara Brown at Blue Inc",
+    'JSON: {"mode":"single_tool","steps":[{"tool":"create_contact","args":{"first_name":"Amara","last_name":"Brown","company_name":"Blue Inc"}}]}',
+    "User: create 3 contacts: John Smith at Acme Corp, Sarah Lee at TechFlow, and Marcus Jones at Vertex Labs",
+    'JSON: {"mode":"multi_tool","steps":[{"tool":"create_contact","args":{"first_name":"John","last_name":"Smith","company_name":"Acme Corp"}},{"tool":"create_contact","args":{"first_name":"Sarah","last_name":"Lee","company_name":"TechFlow"}},{"tool":"create_contact","args":{"first_name":"Marcus","last_name":"Jones","company_name":"Vertex Labs"}}]}',
+    "User: create contact Sarah Lee at Acme Corp and a deal for them worth 10000",
+    'JSON: {"mode":"multi_tool","steps":[{"tool":"create_contact","args":{"first_name":"Sarah","last_name":"Lee","company_name":"Acme Corp"}},{"tool":"create_deal","args":{"name":"Sarah Lee Deal","company_name":"Acme Corp","amount":10000}}]}',
+    "User: create a deal called Omega Project for 300k",
+    'JSON: {"mode":"none","steps":[]}',
+    "User: add a task for Lena Park: send onboarding docs by Friday",
+    'JSON: {"mode":"multi_tool","steps":[{"tool":"search_contacts","args":{"query":"Lena Park"}},{"tool":"create_task","args":{"text":"send onboarding docs","due_date":"Friday"},"deferred":true}]}',
+    "User: move QA Deal Gamma to closed won",
+    'JSON: {"mode":"multi_tool","steps":[{"tool":"search_deals","args":{"query":"QA Deal Gamma"}},{"tool":"update_deal","args":{"status":"closed-won"},"deferred":true}]}',
+    "User: add a note to Lena Park: discussed enterprise pricing",
+    'JSON: {"mode":"multi_tool","steps":[{"tool":"search_contacts","args":{"query":"Lena Park"}},{"tool":"create_note","args":{"title":"Discussed enterprise pricing","text":"discussed enterprise pricing"},"deferred":true}]}',
+    "User: add notes: for Jennifer Wu - follow-up Thursday. For Lena Park - budget approved",
+    'JSON: {"mode":"multi_tool","steps":[{"tool":"search_contacts","args":{"query":"Jennifer Wu"}},{"tool":"create_note","args":{"title":"Follow-up Thursday","text":"follow-up Thursday"},"deferred":true},{"tool":"search_contacts","args":{"query":"Lena Park"}},{"tool":"create_note","args":{"title":"Budget approved","text":"budget approved"},"deferred":true}]}',
     "",
     `User request: ${args.queryText}`,
   ].join("\n");
@@ -283,7 +341,7 @@ export async function planToolWorkflow(args: {
       model: args.model,
       messages: [{ role: "user", content: prompt }],
       stream: false,
-      max_tokens: 300,
+      max_tokens: 600,
     }),
   });
 

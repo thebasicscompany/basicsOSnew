@@ -104,8 +104,8 @@ const pendingDictationInsertRequests = new Map<
 
 const WEB_URL = process.env["BASICSOS_URL"] ?? "http://localhost:5173";
 const API_URL =
-  process.env["BASICSOS_API_URL"] ??
-  process.env["VITE_API_URL"] ??
+  process.env["BASICSOS_API_URL"] ||
+  process.env["VITE_API_URL"] ||
   "http://localhost:3001";
 const ALLOWED_PROXY_PATHS = new Set([
   "/v1/audio/transcriptions",

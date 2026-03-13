@@ -139,12 +139,52 @@ export const formatAccelerator = (accelerator?: string | null): string => {
     .join(" + ");
 };
 
+// Mirrors keyboard-hook.ts MAC_KEYCODE_LABELS so the renderer can display
+// a clean label even if the stored ShortcutBinding.label is stale/raw.
+const MAC_KEYCODE_LABELS: Record<number, string> = {
+  55: "⌘", 54: "Right ⌘", 56: "⇧", 60: "Right ⇧",
+  58: "⌥", 61: "Right ⌥", 59: "⌃", 62: "Right ⌃",
+  63: "Fn", 57: "⇪", 49: "Space", 36: "↩", 48: "⇥",
+  51: "⌫", 53: "⎋", 76: "⌤",
+  123: "←", 124: "→", 125: "↓", 126: "↑",
+  122: "F1", 120: "F2", 99: "F3", 118: "F4", 96: "F5", 97: "F6",
+  98: "F7", 100: "F8", 101: "F9", 109: "F10", 103: "F11", 111: "F12",
+};
+const MOD_FN = 0x800000;
+const MOD_CONTROL = 0x040000;
+const MOD_OPTION = 0x080000;
+const MOD_SHIFT = 0x020000;
+const MOD_COMMAND = 0x100000;
+const MODIFIER_KEYCODES = new Set([55, 54, 56, 60, 58, 61, 59, 62, 63, 57]);
+
+function deriveMacLabel(binding: ShortcutBinding): string {
+  const parts: string[] = [];
+  if (binding.modifiers & MOD_FN) parts.push("Fn");
+  if (binding.modifiers & MOD_CONTROL) parts.push("⌃");
+  if (binding.modifiers & MOD_OPTION) parts.push("⌥");
+  if (binding.modifiers & MOD_SHIFT) parts.push("⇧");
+  if (binding.modifiers & MOD_COMMAND) parts.push("⌘");
+  const keyLabel = MAC_KEYCODE_LABELS[binding.keyCode];
+  if (keyLabel && !MODIFIER_KEYCODES.has(binding.keyCode)) {
+    parts.push(keyLabel);
+  } else if (keyLabel) {
+    if (parts.length === 0) parts.push(keyLabel);
+  }
+  return parts.join("") || binding.label;
+}
+
 export const getShortcutDisplayValue = (
   slot: ShortcutSlot,
   settings: OverlaySettings | null,
 ): string => {
   if (!settings) return "Not set";
-  if (isMac()) return settings.shortcuts[slot]?.label ?? "Not set";
+  if (isMac()) {
+    const binding = settings.shortcuts[slot];
+    if (!binding) return "Not set";
+    // Re-derive from keyCode+modifiers to avoid stale/raw label like "Key63"
+    const derived = deriveMacLabel(binding);
+    return derived || binding.label || "Not set";
+  }
   const field = NON_MAC_SHORTCUT_FIELDS[slot];
   return formatAccelerator(settings.shortcuts[field]);
 };

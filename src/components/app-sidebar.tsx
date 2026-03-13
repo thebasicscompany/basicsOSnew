@@ -1,10 +1,9 @@
 import { useState, type ComponentProps } from "react";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import {
   MagnifyingGlassIcon,
   ChatCircleIcon,
   PlusIcon,
-  CaretRightIcon,
   HardDrivesIcon,
   HouseIcon,
   MicrophoneIcon,
@@ -13,7 +12,15 @@ import {
   SidebarIcon,
   VideoCameraIcon,
   InfoIcon,
+  CaretRightIcon,
+  DotsThreeIcon,
 } from "@phosphor-icons/react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NavUser } from "@/components/nav-user";
 import { ObjectRegistryNavSection } from "@/components/ObjectRegistryNavSection";
@@ -48,79 +55,162 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
-function ChatThreadsNav() {
+const CHAT_PREVIEW_COUNT = 3;
+
+function AllChatsPopover({
+  threads,
+  open,
+  onOpenChange,
+}: {
+  threads: Array<{ id: string; title: string | null }>;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const { pathname } = useLocation();
-  const { data: threads } = useThreads(8);
-  const recentThreads = (threads ?? []).filter((t) => t.channel === "chat");
-  const hasThreads = recentThreads.length > 0;
-  const [open, setOpen] = useState(true);
+  const navigate = useNavigate();
 
   return (
-    <Collapsible
-      open={open}
-      onOpenChange={setOpen}
-      className="group/collapsible"
-    >
-      <SidebarGroup>
-        <div className="flex items-center">
-          <SidebarGroupLabel asChild className="flex-1">
-            <CollapsibleTrigger className="flex w-full items-center gap-1">
-              <CaretRightIcon className="size-3 shrink-0 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-              Chats
-            </CollapsibleTrigger>
-          </SidebarGroupLabel>
-          <SidebarGroupAction title="New Chat" asChild>
-            <Link to="/chat">
-              <PlusIcon className="size-4" />
-            </Link>
-          </SidebarGroupAction>
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger asChild>
+        <button
+          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+          title="All chats"
+        >
+          <DotsThreeIcon className="size-3.5" />
+          <span>+{threads.length} more</span>
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        side="right"
+        align="end"
+        sideOffset={8}
+        className="w-56 p-0 overflow-hidden"
+      >
+        <div className="flex items-center justify-between border-b px-3 py-2">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+            All Chats
+          </span>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 w-6 p-0"
+            title="New chat"
+            onClick={() => {
+              void navigate("/chat");
+              onOpenChange(false);
+            }}
+          >
+            <PlusIcon className="size-3.5" />
+          </Button>
         </div>
-        {!hasThreads ? (
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  isActive={pathname === "/chat"}
-                  tooltip="Start new chat"
-                >
-                  <Link to="/chat">
-                    <ChatCircleIcon className="size-4" />
-                    <span>Start new chat</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        ) : (
-          <CollapsibleContent>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {recentThreads.map((thread) => {
-                  const threadPath = `/chat/${thread.id}`;
-                  return (
-                    <SidebarMenuItem key={thread.id}>
-                      <SidebarMenuButton
-                        asChild
-                        isActive={pathname === threadPath}
-                        tooltip={thread.title ?? "Untitled"}
-                      >
-                        <Link to={threadPath}>
-                          <ChatCircleIcon className="size-4" />
-                          <span className="truncate">
-                            {thread.title ?? "Untitled"}
-                          </span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </CollapsibleContent>
-        )}
-      </SidebarGroup>
-    </Collapsible>
+        <div className="max-h-64 overflow-y-auto overscroll-contain py-1">
+          {threads.map((thread) => {
+            const threadPath = `/chat/${thread.id}`;
+            const isActive = pathname === threadPath;
+            return (
+              <Link
+                key={thread.id}
+                to={threadPath}
+                onClick={() => onOpenChange(false)}
+                className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-accent transition-colors ${
+                  isActive
+                    ? "bg-accent text-accent-foreground font-medium"
+                    : "text-foreground/80"
+                }`}
+              >
+                <ChatCircleIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                <span className="truncate min-w-0 flex-1">
+                  {thread.title ?? "Untitled"}
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function ChatThreadsNav() {
+  const { pathname } = useLocation();
+  const { data: threads } = useThreads(50);
+  const allThreads = (threads ?? []).filter((t) => t.channel === "chat");
+  const previewThreads = allThreads.slice(0, CHAT_PREVIEW_COUNT);
+  const overflowThreads = allThreads.slice(CHAT_PREVIEW_COUNT);
+  const hasMore = overflowThreads.length > 0;
+  const isOnChat = pathname === "/chat" || pathname.startsWith("/chat/");
+  const [popoverOpen, setPopoverOpen] = useState(false);
+
+  return (
+    <SidebarGroup>
+      <div className="flex items-center">
+        <SidebarGroupLabel asChild className="flex-1">
+          <Link
+            to="/chat"
+            className="flex w-full items-center gap-1 hover:text-foreground transition-colors"
+          >
+            <ChatCircleIcon className="size-3 shrink-0" />
+            Chats
+          </Link>
+        </SidebarGroupLabel>
+        <SidebarGroupAction title="New Chat" asChild>
+          <Link to="/chat">
+            <PlusIcon className="size-4" />
+          </Link>
+        </SidebarGroupAction>
+      </div>
+      <SidebarGroupContent>
+        <SidebarMenu>
+          {previewThreads.length === 0 ? (
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                asChild
+                isActive={isOnChat}
+                tooltip="Start new chat"
+              >
+                <Link to="/chat">
+                  <ChatCircleIcon className="size-4" />
+                  <span>Start new chat</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ) : (
+            <>
+              {previewThreads.map((thread) => {
+                const threadPath = `/chat/${thread.id}`;
+                return (
+                  <SidebarMenuItem key={thread.id}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname === threadPath}
+                      tooltip={thread.title ?? "Untitled"}
+                    >
+                      <Link to={threadPath}>
+                        <ChatCircleIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                        <span className="truncate text-xs">
+                          {thread.title ?? "Untitled"}
+                        </span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+              {hasMore && (
+                <SidebarMenuItem>
+                  <div className="px-2 py-0.5">
+                    <AllChatsPopover
+                      threads={overflowThreads}
+                      open={popoverOpen}
+                      onOpenChange={setPopoverOpen}
+                    />
+                  </div>
+                </SidebarMenuItem>
+              )}
+            </>
+          )}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
   );
 }
 

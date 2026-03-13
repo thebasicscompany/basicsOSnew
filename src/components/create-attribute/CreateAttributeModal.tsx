@@ -32,6 +32,7 @@ import {
   MapPinIcon,
   UserIcon,
   LinkIcon,
+  BuildingIcon,
 } from "@phosphor-icons/react";
 import {
   Dialog,
@@ -102,6 +103,8 @@ const TYPE_OPTIONS: TypeOption[] = [
   { key: "phone", label: "Phone", icon: PhoneIcon, group: "standard" },
   { key: "location", label: "Location", icon: MapPinIcon, group: "standard" },
   { key: "user", label: "User", icon: UserIcon, group: "relational" },
+  { key: "contact", label: "Contact", icon: UserIcon, group: "relational" },
+  { key: "company", label: "Company", icon: BuildingIcon, group: "relational" },
   {
     key: "relationship",
     label: "Relationship",

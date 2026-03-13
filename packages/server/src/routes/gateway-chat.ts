@@ -248,9 +248,9 @@ function inferWorkflowHints(queryText: string): WorkflowHints {
     "Only reply after all required tool calls are complete, or after a required next step is genuinely blocked.",
   ];
 
-  const isUpdate = /\b(update|rename|change|edit|set)\b/.test(lower);
+  const isUpdate = /\b(update|rename|change|edit|set|move|bump|mark)\b/.test(lower);
   const isTask = /\b(task|reminder|follow-up|follow up|todo)\b/.test(lower);
-  const isNote = /\bnote\b/.test(lower);
+  const isNote = /\bnotes?\b/.test(lower);
   const isCreateContact =
     /\b(create|add|make)\b/.test(lower) &&
     /\b(contact|person|lead)\b/.test(lower);
@@ -276,11 +276,12 @@ function inferWorkflowHints(queryText: string): WorkflowHints {
       `Next required step for this request: call \`${updateTool}\` now using the matching ${entity.label} id or exact ${entity.label} name from the lookup result. Apply the requested change from the user's original request exactly: "${trimmed}". Do not reply yet.`;
   }
 
-  if (isTask && /\bcontact|contacts|person|people|lead|leads\b/.test(lower)) {
+  if (isTask) {
     planLines.push(
-      "For task requests about a person/contact, the usual sequence is: identify the contact first if needed, then call `create_task`, then confirm the task was created.",
+      "For task requests, the usual sequence is: identify the contact or company first if needed, then call `create_task`, then confirm the task was created.",
     );
     nextHintByTool.search_contacts = `Next required step for this request: call \`create_task\` now using the matching contact id or exact contact name from the lookup result. Apply the user's original request exactly: "${trimmed}". Do not reply yet.`;
+    nextHintByTool.search_companies = `Next required step for this request: call \`create_task\` now using the matching company id or exact company name from the lookup result. Apply the user's original request exactly: "${trimmed}". Do not reply yet.`;
   }
 
   if (isNote && /\bdeal|deals|opportunity|opportunities\b/.test(lower)) {
@@ -288,28 +289,36 @@ function inferWorkflowHints(queryText: string): WorkflowHints {
       "For note requests about a deal, the usual sequence is: identify the deal first if needed, then call `add_note`, then confirm the note was added.",
     );
     nextHintByTool.search_deals = `Next required step for this request: call \`add_note\` now using the matching deal id or exact deal name from the lookup result. Apply the user's original request exactly: "${trimmed}". Do not reply yet.`;
-  } else if (
-    isNote &&
-    /\bcontact|contacts|person|people|lead|leads\b/.test(lower)
-  ) {
+  } else if (isNote) {
     planLines.push(
-      "For note requests about a contact, the usual sequence is: identify the contact first if needed, then call `add_note`, then confirm the note was added.",
+      "For note requests about a contact, the usual sequence is: identify the contact first if needed, then call `create_note` or `add_note`, then confirm the note was added. Always include a short title.",
     );
-    nextHintByTool.search_contacts = `Next required step for this request: call \`add_note\` now using the matching contact id or exact contact name from the lookup result. Apply the user's original request exactly: "${trimmed}". Do not reply yet.`;
+    nextHintByTool.search_contacts = `Next required step for this request: call \`create_note\` now using the matching contact id from the lookup result. Apply the user's original request exactly: "${trimmed}". Do not reply yet.`;
   }
 
   if (isCreateContact && /\bcompany|companies|organization\b/.test(lower)) {
     planLines.push(
-      "When creating a contact linked to a company, identify the company first if needed, then call `create_contact` with the company id/name, then confirm the contact was created.",
+      "When creating a contact with a company name, pass company_name directly to create_contact. Do NOT search for the company first — the tool auto-creates the company if it does not exist.",
     );
-    nextHintByTool.search_companies = `Next required step for this request: call \`create_contact\` now using the matching company id or exact company name from the lookup result. Apply the user's original request exactly: "${trimmed}". Do not reply yet.`;
+    // No nextHintByTool for search_companies — we skip the search step entirely
   }
 
   if (isCreateDeal && /\bcompany|companies|organization\b/.test(lower)) {
     planLines.push(
-      "When creating a deal linked to a company, identify the company first if needed, then call `create_deal` with the company id/name, then confirm the deal was created.",
+      "When creating a deal with a company name, pass company_name directly to create_deal. Do NOT search for the company first — the tool auto-creates the company if it does not exist.",
     );
-    nextHintByTool.search_companies = `Next required step for this request: call \`create_deal\` now using the matching company id or exact company name from the lookup result. Apply the user's original request exactly: "${trimmed}". Do not reply yet.`;
+    // No nextHintByTool for search_companies — we skip the search step entirely
+  }
+
+  const isBulkCreate =
+    (/\b(and also|and then|also|too)\b|,/.test(lower) &&
+    /\b(create|add|make|added)\b/.test(lower)) ||
+    (/\b(create|add|make)\b/.test(lower) && /\b(contact|company|deal)\b/.test(lower) && /\b(and|,)\b/.test(lower));
+  if (isBulkCreate) {
+    planLines.push(
+      "For bulk create requests (multiple contacts, companies, or deals in one message), call one create tool per record in sequence, then confirm all were created.",
+      "Do not stop after the first record. Complete every create action before replying.",
+    );
   }
 
   return { planText: planLines.join("\n"), nextHintByTool };

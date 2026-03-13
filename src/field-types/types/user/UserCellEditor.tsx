@@ -1,5 +1,6 @@
 import { CheckIcon } from "@phosphor-icons/react";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import type { CellEditorProps } from "@/field-types/types";
 import {
   Popover,
@@ -14,11 +15,28 @@ import {
   CommandItem,
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
+import { fetchApi } from "@/lib/api";
+
 interface UserOption {
   id: string;
   name?: string;
   email?: string;
   avatarUrl?: string;
+}
+
+interface OrgMember {
+  id: number;
+  email: string;
+  firstName: string;
+  lastName: string;
+}
+
+function useOrgMembers() {
+  return useQuery({
+    queryKey: ["org_members_for_user_field"],
+    queryFn: () => fetchApi<OrgMember[]>("/api/rbac/users"),
+    staleTime: 5 * 60 * 1000,
+  });
 }
 
 function getInitials(name: string): string {
@@ -56,7 +74,21 @@ export function UserCellEditor({
   onCancel,
 }: CellEditorProps) {
   const [open, setOpen] = useState(true);
-  const users: UserOption[] = config.users ?? [];
+  const { data: orgMembers } = useOrgMembers();
+
+  // Merge org members (fetched live) with any users baked into config (legacy/static)
+  const configUsers: UserOption[] = config.users ?? [];
+  const fetchedUsers: UserOption[] = (orgMembers ?? []).map((m) => ({
+    id: String(m.id),
+    name: [m.firstName, m.lastName].filter(Boolean).join(" ") || undefined,
+    email: m.email,
+  }));
+  // Dedupe: prefer fetched over config by id
+  const fetchedIds = new Set(fetchedUsers.map((u) => u.id));
+  const users: UserOption[] = [
+    ...fetchedUsers,
+    ...configUsers.filter((u) => !fetchedIds.has(u.id)),
+  ];
 
   const currentId =
     typeof value === "object" && value?.id

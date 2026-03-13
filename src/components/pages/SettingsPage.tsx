@@ -8,7 +8,7 @@ import {
   MonitorIcon,
 } from "@phosphor-icons/react";
 import { useState, useCallback, useEffect } from "react";
-import { useSearchParams } from "react-router";
+import { useSearchParams, useNavigate } from "react-router";
 import { useTheme } from "next-themes";
 
 import { toast } from "sonner";
@@ -80,6 +80,7 @@ export function SettingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { theme, setTheme } = useTheme();
   const { data: me } = useMe();
+  const navigate = useNavigate();
   const { restartOnboarding, isRestartingOnboarding } = useOnboarding();
   const { data: organization } = useOrganization();
   const { data: rbacRoles } = useRbacRoles(Boolean(me?.administrator));
@@ -1442,9 +1443,10 @@ export function SettingsPage() {
               variant="outline"
               className="h-8 text-[12px]"
               onClick={() =>
-                restartOnboarding().then(() =>
-                  toast.success("Onboarding reset — it will show next time you visit Home"),
-                )
+                restartOnboarding().then(() => {
+                  toast.success("Onboarding reset — taking you to the welcome guide");
+                  void navigate("/home");
+                })
               }
               disabled={isRestartingOnboarding}
             >

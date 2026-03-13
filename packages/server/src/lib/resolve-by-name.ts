@@ -700,7 +700,7 @@ export async function searchTasksByQuery(
   return merged.slice(0, limit);
 }
 
-const RESOLUTION_MIN_SCORE = 0.18;
+const RESOLUTION_MIN_SCORE = 0.4;
 
 export async function resolveContactByName(
   db: Db,

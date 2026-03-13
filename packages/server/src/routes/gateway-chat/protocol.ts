@@ -59,14 +59,18 @@ Update workflow (CRITICAL — follow exactly):
    - search_companies/search_contacts/search_deals/search_tasks -> update_company/update_contact/update_deal
    - search_contacts/search_companies/search_tasks -> create_task
    - search_contacts/search_deals -> add_note
-   - search_companies -> create_contact/create_deal
 
 Record creation workflow (CRITICAL):
-- Before creating ANY record, verify you have all required fields. If the user hasn't provided them, ask ONCE for all missing fields in a single question.
-- Contact: need at least a name. Ask for email and company if not provided before creating.
-- Deal: need a name. Ask for amount, stage, and associated company if not provided.
-- Company: need a name. Ask for domain and category if not provided.
-- After creating a contact with a company, or a deal with a company, confirm the linkage explicitly in your response (e.g. "Created John Smith and linked to Acme Corp").
+- Before creating ANY record, check what fields the user has provided vs what's missing.
+- If required or important fields are missing, ask for them SPECIFICALLY — name the exact fields AND the person/company you need them for.
+- Contact fields: first_name/last_name (required), email (ask if missing), company (ask if missing), phone (ask if missing). Example: "What's Sarah's email address, phone number, and company?"
+- For BULK contacts (multiple people at once without details), ask per-person: "For Mike Torres — what's his email, phone, and company? For Elena Vasquez — same info?"
+- Deal fields: name (required), amount (ask: "What's the deal value?"), stage/status (ask: "What stage — Lead, Qualified, Proposal, or Closed Won?"), company (ask if missing).
+- Company fields: name (required), domain (ask: "What's their website domain?"), category (ask: "What category — e.g. B2B, SaaS, Enterprise?").
+- Ask for ALL missing important fields in ONE focused question per entity, not multiple rounds.
+- Only proceed to create AFTER you have the missing fields, OR if the user explicitly says to skip them (e.g. "just add the name for now").
+- When creating a contact or deal with a company_name, pass company_name directly — do NOT search for the company first. The tool will auto-create the company if it does not exist.
+- After creating a contact with a company, or a deal with a company, confirm the linkage explicitly in your response (e.g. "Created John Smith and linked to Acme Corp (newly created)").
 - If a user mentions both a person and a company in the same request, create both entities.
 
 Delete workflow (CRITICAL):
@@ -76,8 +80,9 @@ Delete workflow (CRITICAL):
 - For deals, deletion is a soft archive — the deal is hidden but not permanently removed.
 
 Clarification behavior:
-- If a request is ambiguous or missing required context, ask ONE focused clarifying question rather than guessing.
-- Keep clarifying questions short and specific — don't list every possible missing field at once.
+- If a request is ambiguous or missing required context, ask ONE focused clarifying question that names the specific fields needed.
+- Do NOT ask "Can you provide more details?" — instead ask "What's [Name]'s email address?" or "What's the deal value and which stage?"
+- Keep clarifying questions short and specific — list only the missing fields, not every possible option.
 - After getting the answer, complete the full action without asking again.`;
 
 export const requestSchema = z.object({
@@ -317,6 +322,7 @@ export const createNoteSchema = z
   .object({
     contact_id: z.number().int().positive().optional(),
     contact_name: z.string().min(1).optional(),
+    title: z.string().min(1).optional(),
     text: z.string().min(1),
     type: z.string().optional(),
   })
@@ -334,6 +340,7 @@ export const addNoteSchema = z
     contact_name: z.string().min(1).optional(),
     deal_id: z.number().int().positive().optional(),
     deal_name: z.string().min(1).optional(),
+    title: z.string().min(1).optional(),
     text: z.string().min(1),
   })
   .superRefine((v, ctx) => {
@@ -390,7 +397,7 @@ export const OPENAI_TOOL_DEFS = [
     function: {
       name: "create_contact",
       description:
-        "Create a new contact. Use company_name to link to a company by name.",
+        "Create a new contact. Use company_name to link to a company by name. If the company does not exist it will be created automatically — do NOT search for the company first.",
       parameters: {
         type: "object",
         properties: {
@@ -470,7 +477,7 @@ export const OPENAI_TOOL_DEFS = [
     function: {
       name: "create_deal",
       description:
-        "Create a new deal. Use company_name to link to a company by name.",
+        "Create a new deal. Use company_name to link to a company by name. If the company does not exist it will be created automatically — do NOT search for the company first.",
       parameters: {
         type: "object",
         properties: {
@@ -704,7 +711,7 @@ export const OPENAI_TOOL_DEFS = [
     type: "function",
     function: {
       name: "create_note",
-      description: "Add a note to a contact. Use contact_name or contact_id.",
+      description: "Add a note to a contact (contact-only). For deals, use add_note instead. Use contact_name or contact_id.",
       parameters: {
         type: "object",
         properties: {
@@ -716,6 +723,7 @@ export const OPENAI_TOOL_DEFS = [
             type: "string",
             description: "Contact name or email to look up",
           },
+          title: { type: "string", description: "Short title or subject for the note" },
           text: { type: "string" },
           type: { type: "string" },
         },
@@ -728,7 +736,7 @@ export const OPENAI_TOOL_DEFS = [
     function: {
       name: "add_note",
       description:
-        "Add a note to a contact or deal. Use contact_name/deal_name (e.g. 'Acme deal') or contact_id/deal_id.",
+        "Add a note to a contact OR a deal. Use this when the note is for a deal. Use contact_name/deal_name or contact_id/deal_id. Always provide a title.",
       parameters: {
         type: "object",
         properties: {
@@ -745,6 +753,7 @@ export const OPENAI_TOOL_DEFS = [
             description: "Deal ID from a prior search",
           },
           deal_name: { type: "string", description: "Deal name to look up" },
+          title: { type: "string", description: "Short title or subject for the note" },
           text: { type: "string", description: "The note content" },
         },
         required: ["text"],

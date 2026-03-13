@@ -215,6 +215,32 @@ export async function executeValidatedTool(
     if (!parsed.success)
       return { error: "Invalid arguments", details: parsed.error.flatten() };
     const args = parsed.data;
+
+    const fullName = [args.first_name, args.last_name].filter(Boolean).join(" ");
+    if (fullName) {
+      const existingId = await resolveContactByName(
+        db,
+        organizationId,
+        fullName,
+        searchContext,
+      );
+      if (existingId != null) {
+        const [existing] = await db
+          .select()
+          .from(schema.contacts)
+          .where(
+            and(
+              eq(schema.contacts.id, existingId),
+              eq(schema.contacts.organizationId, organizationId),
+            ),
+          )
+          .limit(1);
+        if (existing) {
+          return `Contact already exists: ${formatContact(existing)}. Use update_contact to modify.`;
+        }
+      }
+    }
+
     let companyId = args.company_id ?? null;
     if (companyId == null && args.company_name) {
       companyId = await resolveCompanyByName(
@@ -223,6 +249,13 @@ export async function executeValidatedTool(
         args.company_name,
         searchContext,
       );
+      if (companyId == null) {
+        const [newCompany] = await db
+          .insert(schema.companies)
+          .values({ crmUserId, organizationId, name: args.company_name.trim() })
+          .returning();
+        companyId = newCompany?.id ?? null;
+      }
     }
     const [row] = await db
       .insert(schema.contacts)
@@ -345,6 +378,14 @@ export async function executeValidatedTool(
         args.company_name,
         searchContext,
       );
+      // Company doesn't exist yet — create it on the fly so the deal is properly linked
+      if (companyId == null) {
+        const [newCompany] = await db
+          .insert(schema.companies)
+          .values({ crmUserId, organizationId, name: args.company_name.trim() })
+          .returning();
+        companyId = newCompany?.id ?? null;
+      }
     }
     const [row] = await db
       .insert(schema.deals)
@@ -732,6 +773,7 @@ export async function executeValidatedTool(
         crmUserId,
         organizationId,
         contactId,
+        title: args.title?.trim() ?? null,
         text: args.text.trim(),
         status: args.type ?? null,
       })
@@ -779,6 +821,7 @@ export async function executeValidatedTool(
           crmUserId,
           organizationId,
           contactId,
+          title: args.title?.trim() ?? null,
           text: args.text.trim(),
           status: null,
         })
@@ -811,6 +854,7 @@ export async function executeValidatedTool(
           crmUserId,
           organizationId,
           dealId,
+          title: args.title?.trim() ?? null,
           text: args.text.trim(),
         })
         .returning();
