@@ -1,18 +1,14 @@
 import { useEffect, useCallback, useRef, useState, useReducer } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import type { OverlaySettings, NotchInfo } from "@/shared-overlay/types";
-import { FLASH_SHORT_MS, FLASH_LONG_MS } from "@/shared-overlay/constants";
+import { FLASH_LONG_MS } from "@/shared-overlay/constants";
 import { setIgnoreMouse } from "./lib/ipc";
 import { cancel as cancelTTS } from "./lib/tts";
 import {
   useSpeechRecognition,
   type SpeechRecognitionState,
 } from "./lib/whisper";
-import {
-  pillReducer,
-  initialPillContext,
-  type InteractionMode,
-} from "./lib/notch-pill-state";
+import { pillReducer, initialPillContext } from "./lib/notch-pill-state";
 import { useMeetingRecorder } from "./meeting-recorder";
 import { useFlashMessage } from "./lib/use-flash-message";
 import { useAIResponse } from "./lib/use-ai-response";
