@@ -21,8 +21,9 @@ import {
 } from "@/components/shortcuts/ShortcutRecorder";
 import { saveWizardCompletedSteps, readWizardCompletedSteps } from "@/lib/wizard-storage";
 import { useQuery } from "@tanstack/react-query";
+import { getRuntimeApiUrl } from "@/lib/runtime-config";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "";
+const API_URL = getRuntimeApiUrl();
 
 /* ── Shared slide animation ──────────────────────────────────────────────── */
 
@@ -291,10 +292,10 @@ function PermissionsStep({
       </div>
 
       {bothGranted ? (
-        prompted.screen ? (
+        prompted.screen || prompted.a11y ? (
           <Button onClick={handleRestart} className="gap-1.5">
             <ArrowClockwiseIcon className="size-3.5" />
-            Restart to apply
+            Quit and restart Basics so permissions take effect
           </Button>
         ) : (
           <Button onClick={onAdvance} className="gap-1.5">

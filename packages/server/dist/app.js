@@ -3,23 +3,26 @@ import { join } from "node:path";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { serveStatic } from "@hono/node-server/serve-static";
-import { createAuth } from "@/auth.js";
-import { createAuthRoutes } from "@/routes/auth.js";
-import { createAutomationRunsRoutes } from "@/routes/automation-runs.js";
-import { createCrmRoutes } from "@/routes/crm/index.js";
-import { createCustomFieldRoutes } from "@/routes/custom-fields.js";
-import { createConnectionsRoutes } from "@/routes/connections.js";
-import { createGatewayChatRoutes } from "@/routes/gateway-chat.js";
-import { createObjectConfigRoutes } from "@/routes/object-config.js";
-import { createSchemaRoutes } from "@/routes/schema.js";
-import { createViewRoutes } from "@/routes/views.js";
-import { createVoiceProxyRoutes } from "@/routes/voice-proxy.js";
-import { createStreamAssistantRoutes } from "@/routes/stream-assistant.js";
-import { createThreadsRoutes } from "@/routes/threads.js";
-import { createMeetingsRoutes } from "@/routes/meetings.js";
-import { createEmailSyncRoutes } from "@/routes/email-sync.js";
-import { createRbacRoutes } from "@/routes/rbac.js";
-import { createAdminRoutes } from "@/routes/admin.js";
+import { createAuth } from "./auth.js";
+import { createAuthRoutes } from "./routes/auth.js";
+import { createAutomationRunsRoutes } from "./routes/automation-runs.js";
+import { createCrmRoutes } from "./routes/crm/index.js";
+import { createCustomFieldRoutes } from "./routes/custom-fields.js";
+import { createConnectionsRoutes } from "./routes/connections.js";
+import { createGatewayChatRoutes } from "./routes/gateway-chat.js";
+import { createObjectConfigRoutes } from "./routes/object-config.js";
+import { createSchemaRoutes } from "./routes/schema.js";
+import { createViewRoutes } from "./routes/views.js";
+import { createVoiceProxyRoutes } from "./routes/voice-proxy.js";
+import { createStreamAssistantRoutes } from "./routes/stream-assistant.js";
+import { createThreadsRoutes } from "./routes/threads.js";
+import { createMeetingsRoutes } from "./routes/meetings.js";
+import { createNotificationsRoutes } from "./routes/notifications.js";
+import { createSlackEventsRoutes } from "./routes/slack-events.js";
+import { createEmailSyncRoutes } from "./routes/email-sync.js";
+import { createRbacRoutes } from "./routes/rbac.js";
+import { createAdminRoutes } from "./routes/admin.js";
+import { isTrustedOrigin, isElectronUserAgent } from "./lib/trusted-origins.js";
 import { sql } from "drizzle-orm";
 const rateBuckets = new Map();
 const getClientKey = (c) => {
@@ -73,22 +76,16 @@ export function createApp(db, env) {
     const app = new Hono();
     const allowedOriginSet = new Set(allowedOrigins);
     app.use("/*", cors({
-        origin: (origin) => {
-            if (!origin)
-                return null;
-            try {
-                const url = new URL(origin);
-                const isLocalhost = (url.hostname === "localhost" || url.hostname === "127.0.0.1") &&
-                    (url.protocol === "http:" || url.protocol === "https:");
-                if (isLocalhost)
-                    return origin;
-                if (allowedOriginSet.has(origin))
-                    return origin;
-                return null;
-            }
-            catch {
-                return null;
-            }
+        origin: (origin, c) => {
+            const userAgent = c.req.header("user-agent");
+            const effectiveOrigin = origin !== undefined && origin !== ""
+                ? origin
+                : isElectronUserAgent(userAgent)
+                    ? "null"
+                    : undefined;
+            return effectiveOrigin && isTrustedOrigin(effectiveOrigin, allowedOriginSet, userAgent)
+                ? effectiveOrigin
+                : null;
         },
         allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allowHeaders: ["Content-Type", "Authorization"],
@@ -105,6 +102,11 @@ export function createApp(db, env) {
         await next();
     });
     app.use("/*", rateLimitMiddleware);
+    app.get("/", (c) => c.json({
+        name: "BasicsOS API",
+        health: "/health",
+        docs: "https://basicsos.com/api-docs",
+    }));
     app.get("/health", (c) => c.json({ status: "ok" }));
     app.get("/health/ready", async (c) => {
         try {
@@ -127,6 +129,10 @@ export function createApp(db, env) {
     app.route("/api/threads", createThreadsRoutes(db, auth, env));
     // Meeting recordings
     app.route("/api/meetings", createMeetingsRoutes(db, auth, env));
+    // Pill notifications SSE stream
+    app.route("/api/notifications", createNotificationsRoutes(db, auth, env));
+    // Slack Events API (webhook — no auth middleware)
+    app.route("/api/slack", createSlackEventsRoutes(db, auth, env));
     // Email sync + contact discovery
     app.route("/api/email-sync", createEmailSyncRoutes(db, auth, env));
     // Automation runs — must be before CRM generic routes

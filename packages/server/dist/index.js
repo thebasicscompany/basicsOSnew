@@ -1,13 +1,13 @@
 import "dotenv/config";
 import { serve } from "@hono/node-server";
-import { createApp } from "@/app.js";
-import { createAuth } from "@/auth.js";
-import { createDb } from "@/db/client.js";
-import { getEnv } from "@/env.js";
-import { startAutomationEngine, stopAutomationEngine, } from "@/lib/automation-engine.js";
-import { startEmailSyncEngine, stopEmailSyncEngine, } from "@/lib/email-sync/sync-engine.js";
-import { logger } from "@/lib/logger.js";
-import { attachTranscribeWs } from "@/websocket/transcribe.js";
+import { createApp } from "./app.js";
+import { createAuth } from "./auth.js";
+import { createDb } from "./db/client.js";
+import { getEnv } from "./env.js";
+import { startAutomationEngine, stopAutomationEngine, } from "./lib/automation-engine.js";
+import { startEmailSyncEngine, stopEmailSyncEngine, } from "./lib/email-sync/sync-engine.js";
+import { logger } from "./lib/logger.js";
+import { attachTranscribeWs } from "./websocket/transcribe.js";
 const log = logger.child({ component: "server" });
 async function main() {
     const env = getEnv();
@@ -22,6 +22,7 @@ async function main() {
     const server = serve({
         fetch: app.fetch,
         port: env.PORT,
+        hostname: "0.0.0.0",
     }, (info) => {
         log.info({ port: info.port, authUrl: `${env.BETTER_AUTH_URL}/api/auth/*` }, "HTTP server listening");
     });
@@ -55,5 +56,9 @@ async function main() {
 }
 main().catch((err) => {
     log.error({ err }, "Server failed to start");
+    // Ensure error is visible in Railway/log aggregators that may truncate JSON
+    console.error("Server failed to start:", err instanceof Error ? err.message : String(err));
+    if (err instanceof Error && err.stack)
+        console.error(err.stack);
     process.exit(1);
 });

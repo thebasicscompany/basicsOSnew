@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import * as schema from "@/db/schema/index.js";
+import * as schema from "../db/schema/index.js";
 /**
  * Supports both cookie-based auth (web) and Bearer token (pill overlay).
  * When the pill sends Authorization: Bearer <session_token>, we synthesize
@@ -9,12 +9,17 @@ export function authMiddleware(auth, db) {
     return async (c, next) => {
         let headers = c.req.raw.headers;
         const authHeader = c.req.header("Authorization");
+        const cookieHeader = c.req.header("Cookie") ?? "";
         if (authHeader?.startsWith("Bearer ") &&
-            !c.req.header("Cookie")?.includes("better-auth.session_token")) {
+            !cookieHeader.includes("better-auth.session_token") &&
+            !cookieHeader.includes("__Secure-better-auth.session_token")) {
             const token = authHeader.slice(7).trim();
             if (token) {
                 headers = new Headers(headers);
-                headers.set("Cookie", `better-auth.session_token=${token}`);
+                headers.set("Cookie", [
+                    `better-auth.session_token=${token}`,
+                    `__Secure-better-auth.session_token=${token}`,
+                ].join("; "));
             }
         }
         const session = await auth.api.getSession({ headers });

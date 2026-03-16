@@ -1,8 +1,8 @@
 import { Hono } from "hono";
-import type { Db } from "@/db/client.js";
-import type { Env } from "@/env.js";
-import type { createAuth } from "@/auth.js";
-import type * as schema from "@/db/schema/index.js";
+import type { Db } from "../db/client.js";
+import type { Env } from "../env.js";
+import type { createAuth } from "../auth.js";
+import type * as schema from "../db/schema/index.js";
 type BetterAuthInstance = ReturnType<typeof createAuth>;
 export type ProcessChatTurnParams = {
     crmUser: typeof schema.crmUsers.$inferSelect;
@@ -10,7 +10,7 @@ export type ProcessChatTurnParams = {
     gatewayUrl: string;
     messages: unknown[];
     threadId?: string;
-    channel?: "chat" | "voice" | "automation";
+    channel?: "chat" | "voice" | "automation" | "slack";
 };
 export type ProcessChatTurnResult = {
     finalContent: string;

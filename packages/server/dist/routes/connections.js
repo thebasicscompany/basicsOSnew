@@ -1,7 +1,7 @@
 import { Hono } from "hono";
-import { authMiddleware } from "@/middleware/auth.js";
-import { PERMISSIONS, requirePermission } from "@/lib/rbac.js";
-import { resolveOrgAiConfig, buildGatewayHeaders, } from "@/lib/org-ai-config.js";
+import { authMiddleware } from "../middleware/auth.js";
+import { PERMISSIONS, requirePermission } from "../lib/rbac.js";
+import { resolveOrgAiConfig, buildGatewayHeaders, } from "../lib/org-ai-config.js";
 export function createConnectionsRoutes(db, auth, env) {
     const app = new Hono();
     /** Extract Better Auth user ID from session */
@@ -35,7 +35,16 @@ export function createConnectionsRoutes(db, auth, env) {
         const headers = buildGatewayHeaders(aiResult.data.aiConfig);
         headers["X-User-Id"] = getUserId(c);
         const provider = c.req.param("provider");
-        const redirectAfter = encodeURIComponent(`${env.BETTER_AUTH_URL}/connections`);
+        // Default: basicsos.com/connections/success?provider=slack|google — that page should say "Connected. You can close this tab and return to your app."
+        const successBase = env.CONNECTIONS_SUCCESS_URL ?? "https://basicsos.com/connections/success";
+        const apiHost = new URL(env.BASICSOS_API_URL).host;
+        const useFrontendRedirect = env.FRONTEND_URL &&
+            new URL(env.FRONTEND_URL).host !== apiHost &&
+            !env.FRONTEND_URL.startsWith(env.BASICSOS_API_URL);
+        const redirectUrl = useFrontendRedirect
+            ? `${env.FRONTEND_URL}/connections?connected=${provider}`
+            : `${successBase}?provider=${provider}`;
+        const redirectAfter = encodeURIComponent(redirectUrl);
         const res = await fetch(`${env.BASICSOS_API_URL}/v1/connections/${provider}/authorize?redirect_after=${redirectAfter}`, { headers });
         if (!res.ok) {
             const text = await res.text();

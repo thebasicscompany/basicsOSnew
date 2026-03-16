@@ -7,9 +7,9 @@ import "dotenv/config";
 import { randomUUID } from "crypto";
 import { hashPassword } from "better-auth/crypto";
 import { eq } from "drizzle-orm";
-import { createDb } from "@/db/client.js";
-import * as schema from "@/db/schema/index.js";
-import { logger } from "@/lib/logger.js";
+import { createDb } from "../db/client.js";
+import * as schema from "../db/schema/index.js";
+import { logger } from "../lib/logger.js";
 const log = logger.child({ component: "seed" });
 const DEMO_USER = {
     email: "admin@example.com",
@@ -389,7 +389,7 @@ async function seed(db, crmUserId) {
     ]);
     log.info("Updating configuration...");
     const defaultConfig = {
-        title: "Basics CRM",
+        title: "Basics OS",
         companySectors: [
             { value: "information-technology", label: "Information Technology" },
             { value: "health-care", label: "Health Care" },

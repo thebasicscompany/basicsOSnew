@@ -14,6 +14,22 @@ const envSchema = z.object({
     },
     z.string().url().default("http://localhost:5173"),
   ),
+  // When set, OAuth redirect goes to your app (e.g. https://app.example.com/connections?connected=slack). When unset, redirect goes to CONNECTIONS_SUCCESS_URL (default basicsos.com).
+  FRONTEND_URL: z.preprocess(
+    (val) => {
+      const s = typeof val === "string" ? val.trim() : val;
+      return s === "" || s == null ? undefined : s;
+    },
+    z.string().url().optional(),
+  ),
+  // URL users see after connecting Gmail/Slack when not using FRONTEND_URL. Default: basicsos.com/connections/success (no frontend hosting required).
+  CONNECTIONS_SUCCESS_URL: z.preprocess(
+    (val) => {
+      const s = typeof val === "string" ? val.trim() : val;
+      return s === "" || s == null ? undefined : s;
+    },
+    z.string().url().optional(),
+  ),
   // Override for self-hosting / BYOK
   BASICSOS_API_URL: z.string().url().default("https://api.basicsos.com"),
   API_KEY_ENCRYPTION_KEY: z.string().optional(),

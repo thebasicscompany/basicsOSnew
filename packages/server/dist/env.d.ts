@@ -4,7 +4,9 @@ declare const envSchema: z.ZodObject<{
     PORT: z.ZodDefault<z.ZodNumber>;
     DATABASE_URL: z.ZodString;
     BETTER_AUTH_SECRET: z.ZodString;
-    BETTER_AUTH_URL: z.ZodDefault<z.ZodString>;
+    BETTER_AUTH_URL: z.ZodEffects<z.ZodDefault<z.ZodString>, string, unknown>;
+    FRONTEND_URL: z.ZodEffects<z.ZodOptional<z.ZodString>, string | undefined, unknown>;
+    CONNECTIONS_SUCCESS_URL: z.ZodEffects<z.ZodOptional<z.ZodString>, string | undefined, unknown>;
     BASICSOS_API_URL: z.ZodDefault<z.ZodString>;
     API_KEY_ENCRYPTION_KEY: z.ZodOptional<z.ZodString>;
     API_KEY_ENCRYPTION_KEY_PREVIOUS: z.ZodOptional<z.ZodString>;
@@ -29,6 +31,8 @@ declare const envSchema: z.ZodObject<{
     BETTER_AUTH_URL: string;
     BASICSOS_API_URL: string;
     ALLOWED_ORIGINS: string;
+    FRONTEND_URL?: string | undefined;
+    CONNECTIONS_SUCCESS_URL?: string | undefined;
     API_KEY_ENCRYPTION_KEY?: string | undefined;
     API_KEY_ENCRYPTION_KEY_PREVIOUS?: string | undefined;
     API_KEY_HASH_SECRET?: string | undefined;
@@ -48,7 +52,9 @@ declare const envSchema: z.ZodObject<{
     BETTER_AUTH_SECRET: string;
     NODE_ENV?: "development" | "test" | "production" | undefined;
     PORT?: number | undefined;
-    BETTER_AUTH_URL?: string | undefined;
+    BETTER_AUTH_URL?: unknown;
+    FRONTEND_URL?: unknown;
+    CONNECTIONS_SUCCESS_URL?: unknown;
     BASICSOS_API_URL?: string | undefined;
     API_KEY_ENCRYPTION_KEY?: string | undefined;
     API_KEY_ENCRYPTION_KEY_PREVIOUS?: string | undefined;

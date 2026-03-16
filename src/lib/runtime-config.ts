@@ -1,5 +1,6 @@
 /**
- * Returns the API base URL for the current runtime.
+ * Returns the API base URL for the current runtime (no trailing slash).
+ * Callers can safely append paths, e.g. `${getRuntimeApiUrl()}/api/...`.
  *
  * Priority order:
  *  1. window.__runtimeApiUrl__ — injected synchronously by the Electron preload
@@ -9,8 +10,11 @@
  *  3. Empty string fallback (relative URLs, dev proxy).
  */
 export function getRuntimeApiUrl(): string {
+  let url: string;
   if (typeof window !== "undefined" && window.__runtimeApiUrl__) {
-    return window.__runtimeApiUrl__;
+    url = window.__runtimeApiUrl__;
+  } else {
+    url = import.meta.env.VITE_API_URL ?? "";
   }
-  return import.meta.env.VITE_API_URL ?? "";
+  return url.replace(/\/+$/, "");
 }

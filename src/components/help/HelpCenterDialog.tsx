@@ -22,6 +22,7 @@ import { useConfiguredShortcuts } from "@/hooks/use-configured-shortcuts";
 import { readWizardCompletedSteps } from "@/lib/wizard-storage";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import { getRuntimeApiUrl } from "@/lib/runtime-config";
 
 export type HelpCenterMode = "help" | "onboarding";
 
@@ -33,7 +34,7 @@ type HelpCenterDialogProps = {
 };
 
 type Connection = { provider: string };
-const API_URL = import.meta.env.VITE_API_URL ?? "";
+const API_URL = getRuntimeApiUrl();
 
 export function HelpCenterDialog({
   open,

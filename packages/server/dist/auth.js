@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { createSendResetPassword } from "./lib/send-reset-password.js";
+import { isTrustedOrigin, isElectronUserAgent } from "./lib/trusted-origins.js";
 export function createAuth(db, baseUrl, secret, allowedOrigins, env) {
     const allowedSet = new Set(allowedOrigins.map((o) => o.trim()).filter(Boolean));
     const sendResetPasswordFn = createSendResetPassword(db, env);
@@ -11,22 +12,14 @@ export function createAuth(db, baseUrl, secret, allowedOrigins, env) {
         secret,
         // Localhost (dev) + ALLOWED_ORIGINS (production)
         trustedOrigins: async (req) => {
-            const origin = req?.headers?.get("origin");
-            if (!origin)
-                return [];
-            try {
-                const url = new URL(origin);
-                const isLocal = (url.hostname === "localhost" || url.hostname === "127.0.0.1") &&
-                    (url.protocol === "http:" || url.protocol === "https:");
-                if (isLocal)
-                    return [origin];
-                if (allowedSet.has(origin))
-                    return [origin];
-                return [];
+            const origin = req?.headers?.get("origin") ?? undefined;
+            const userAgent = req?.headers?.get("user-agent");
+            // Electron may send no Origin; treat as "null" so sign-out/auth works (avoids 403)
+            const effectiveOrigin = origin !== undefined && origin !== "" ? origin : (isElectronUserAgent(userAgent) ? "null" : undefined);
+            if (effectiveOrigin && isTrustedOrigin(effectiveOrigin, allowedSet, userAgent)) {
+                return [effectiveOrigin];
             }
-            catch {
-                return [];
-            }
+            return [];
         },
         emailAndPassword: {
             enabled: true,
@@ -37,5 +30,16 @@ export function createAuth(db, baseUrl, secret, allowedOrigins, env) {
         session: {
             cookieCache: { enabled: true },
         },
+        // Cross-origin (Electron/localhost -> Railway): cookies must use SameSite=None
+        ...(baseUrl.startsWith("https")
+            ? {
+                advanced: {
+                    defaultCookieAttributes: {
+                        sameSite: "none",
+                        secure: true,
+                    },
+                },
+            }
+            : {}),
     });
 }

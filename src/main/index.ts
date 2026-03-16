@@ -111,6 +111,9 @@ const WEB_URL = process.env["BASICSOS_URL"] ?? "http://localhost:5173";
  * On first launch the baked-in URL (set at build time via VITE_API_URL) is
  * written to userData/org-config.json.  Auto-updates from GitHub replace the
  * app bundle but never touch userData, so the org-specific URL survives.
+ *
+ * Cross-platform: path.join + app.getPath("userData") work on Windows, macOS,
+ * and Linux; userData is e.g. ~/Library/Application Support/<app>/ on macOS.
  */
 const resolveApiUrl = (): string => {
   const bakedUrl =

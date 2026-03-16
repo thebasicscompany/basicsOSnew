@@ -1,11 +1,19 @@
 "use client";
 
-import { useRef, useEffect } from "react";
-import { SlackLogoIcon, GoogleLogoIcon } from "@phosphor-icons/react";
+import { useRef, useEffect, useState } from "react";
+import { SlackLogoIcon, GoogleLogoIcon, CheckCircleIcon } from "@phosphor-icons/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { showError } from "@/lib/show-error";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useGateway } from "@/hooks/useGateway";
 
 import { getRuntimeApiUrl } from "@/lib/runtime-config";
@@ -71,6 +79,7 @@ export function ConnectionsContent({
 
   // Poll for connection after opening OAuth in system browser
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [successConnectedProvider, setSuccessConnectedProvider] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -111,8 +120,11 @@ export function ConnectionsContent({
           const conns: Connection[] = await checkRes.json();
           if (conns.some((c) => c.provider === provider)) {
             if (pollRef.current) clearInterval(pollRef.current);
+            pollRef.current = null;
             queryClient.invalidateQueries({ queryKey: ["connections"] });
-            toast.success(`${provider === "google" ? "Gmail" : "Slack"} connected!`);
+            const displayName = provider === "google" ? "Gmail" : "Slack";
+            toast.success(`${displayName} connected!`);
+            setSuccessConnectedProvider(provider);
           }
         } catch {
           // ignore polling errors
@@ -126,8 +138,32 @@ export function ConnectionsContent({
   const getConnection = (providerId: string) =>
     connections.find((c) => c.provider === providerId);
 
-  if (compact) {
-    return (
+  const successDisplayName =
+    successConnectedProvider === "google" ? "Gmail" : successConnectedProvider === "slack" ? "Slack" : null;
+
+  return (
+    <>
+      {successDisplayName && (
+        <Dialog open={!!successDisplayName} onOpenChange={(open) => !open && setSuccessConnectedProvider(null)}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-500/10 text-green-600 dark:text-green-400">
+                  <CheckCircleIcon weight="fill" className="h-5 w-5" />
+                </div>
+                <DialogTitle>{successDisplayName} connected</DialogTitle>
+              </div>
+              <DialogDescription>
+                You can now use {successDisplayName} in automations and workflows.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button onClick={() => setSuccessConnectedProvider(null)}>Done</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+      {compact ? (
       <div className="space-y-2 px-3 py-2">
         <p className="text-[11px] text-muted-foreground">
           Connect Gmail and Slack for automation nodes.
@@ -183,10 +219,7 @@ export function ConnectionsContent({
           </p>
         )}
       </div>
-    );
-  }
-
-  return (
+      ) : (
     <div className="flex h-full flex-col overflow-auto py-4">
       {!hasKey && (
         <div className="mb-4 rounded-md border border-border bg-muted/50 p-3 text-[13px] text-muted-foreground">
@@ -257,11 +290,13 @@ export function ConnectionsContent({
                 >
                   Connect
                 </Button>
-              )}
-            </div>
-          );
-        })}
+          )}
+        </div>
+      );
+    })}
       </div>
     </div>
+      )}
+    </>
   );
 }

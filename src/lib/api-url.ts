@@ -7,15 +7,15 @@
  *   synchronously before any modules initialize.
  */
 
-const VITE_URL = import.meta.env.VITE_API_URL ?? "";
+const VITE_URL = (import.meta.env.VITE_API_URL ?? "").replace(/\/+$/, "");
 
 // In packaged Electron, the main process injects this global into the HTML
 // via the app:// protocol handler. Available synchronously at module load time.
 const ELECTRON_URL =
-  (window as unknown as { __ELECTRON_API_URL__?: string }).__ELECTRON_API_URL__ ?? "";
+  ((window as unknown as { __ELECTRON_API_URL__?: string }).__ELECTRON_API_URL__ ?? "").replace(/\/+$/, "");
 
 /**
- * Returns the API URL synchronously.
+ * Returns the API URL synchronously (no trailing slash).
  * In Electron: reads the injected global (set by main process).
  * On web: reads VITE_API_URL (baked at build time).
  */

@@ -123,6 +123,22 @@ export function SettingsPage() {
   const [showSmtpPassword, setShowSmtpPassword] = useState(false);
   const [clearSmtpDialogOpen, setClearSmtpDialogOpen] = useState(false);
 
+  // Handle OAuth callback when redirected to /settings?connected=slack#connections
+  useEffect(() => {
+    const connected = searchParams.get("connected");
+    if (connected) {
+      const name =
+        connected === "google" ? "Gmail" : connected.charAt(0).toUpperCase() + connected.slice(1);
+      toast.success(`${name} connected!`);
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("connected");
+        return next;
+      }, { replace: true });
+      queryClient.invalidateQueries({ queryKey: ["connections"] });
+    }
+  }, [searchParams, setSearchParams, queryClient]);
+
   useEffect(() => {
     if (!aiConfigData?.config) return;
     setAiKeyType(aiConfigData.config.keyType);
