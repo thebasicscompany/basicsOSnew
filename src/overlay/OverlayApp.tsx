@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useRef, useState, useReducer } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import type { OverlaySettings, NotchInfo } from "@/shared-overlay/types";
-import { FLASH_SHORT_MS, FLASH_LONG_MS } from "@/shared-overlay/constants";
+import { FLASH_LONG_MS } from "@/shared-overlay/constants";
 import { setIgnoreMouse, navigateMain } from "./lib/ipc";
 import { cancel as cancelTTS } from "./lib/tts";
 import {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { getShortcutLabel, SHORTCUT_DEFINITIONS } from "@/lib/shortcut-definitions";
+import { getShortcutLabel } from "@/lib/shortcut-definitions";
 import type { OverlaySettings } from "@/shared-overlay/types";
 
 type ShortcutSlot = "dictation" | "assistant" | "meeting";

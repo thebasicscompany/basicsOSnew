@@ -1,6 +1,6 @@
 {
   "name": "basics-os",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "description": "Open-source CRM with AI chat, automations, and configurable objects.",
   "author": "The Basics Company <admin@basicsos.com> (https://basicsos.com)",
   "license": "AGPL-3.0",
@@ -18,7 +18,7 @@
     "test": "vitest",
     "dev": "vite --force",
     "dev:demo": "vite --config vite.demo.config --force",
-    "build": "cross-env NODE_OPTIONS=--max-old-space-size=4096 tsc && vite build",
+    "build": "pnpm --filter @basics-os/shared build && cross-env NODE_OPTIONS=--max-old-space-size=4096 tsc && vite build",
     "start": "vite preview",
     "build:demo": "tsc && vite build --config vite.demo.config",
     "typecheck": "tsc --noEmit",
@@ -32,7 +32,7 @@
     "setup": "node scripts/setup.js",
     "dev:electron": "cross-env VITE_USE_REST=true electron-vite dev",
     "dev:all": "concurrently -n server,electron -c blue,green \"turbo run dev --filter=@basics-os/server\" \"pnpm run dev:electron\"",
-    "build:electron": "electron-vite build",
+    "build:electron": "pnpm --filter @basics-os/shared build && electron-vite build",
     "start:electron": "electron-vite preview"
   },
   "dependencies": {
