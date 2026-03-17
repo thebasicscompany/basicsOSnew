@@ -31,6 +31,7 @@ const WRITE_ALLOWLISTS: Record<Resource, readonly string[]> = {
   tasks: [
     "contactId",
     "companyId",
+    "dealId",
     "assigneeId",
     "type",
     "text",

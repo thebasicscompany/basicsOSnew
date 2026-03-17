@@ -11,6 +11,7 @@ import {
 import { contacts } from "@/db/schema/contacts.js";
 import { companies } from "@/db/schema/companies.js";
 import { crmUsers } from "@/db/schema/crm_users.js";
+import { deals } from "@/db/schema/deals.js";
 import { organizations } from "@/db/schema/organizations.js";
 
 export const tasks = pgTable(
@@ -23,6 +24,10 @@ export const tasks = pgTable(
     ),
     companyId: bigint("company_id", { mode: "number" }).references(
       () => companies.id,
+      { onDelete: "set null" },
+    ),
+    dealId: bigint("deal_id", { mode: "number" }).references(
+      () => deals.id,
       { onDelete: "set null" },
     ),
     crmUserId: bigint("crm_user_id", { mode: "number" }).references(
@@ -43,6 +48,7 @@ export const tasks = pgTable(
   (t) => [
     index("tasks_contact_id_idx").on(t.contactId),
     index("tasks_company_id_idx").on(t.companyId),
+    index("tasks_deal_id_idx").on(t.dealId),
     index("tasks_crm_user_id_idx").on(t.crmUserId),
     index("tasks_org_idx").on(t.organizationId),
   ],

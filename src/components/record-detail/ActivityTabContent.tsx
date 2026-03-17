@@ -55,10 +55,10 @@ export function ActivityTabContent({
       objectSlug === "contacts"
         ? allTasks.filter((t) => t.contactId === recordId)
         : objectSlug === "companies"
-          ? allTasks.filter(
-              (t) => (t as Record<string, unknown>).companyId === recordId,
-            )
-          : [];
+          ? allTasks.filter((t) => t.companyId === recordId)
+          : objectSlug === "deals"
+            ? allTasks.filter((t) => t.dealId === recordId)
+            : [];
     for (const t of recordTasks) {
       result.push({
         id: `task-${t.id}`,

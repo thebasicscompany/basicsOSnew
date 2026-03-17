@@ -220,6 +220,9 @@ export async function listRecords(
   if (resource === "tasks" && filter.contact_id != null) {
     conditions.push(eq(schema.tasks.contactId, Number(filter.contact_id)));
   }
+  if (resource === "tasks" && filter.deal_id != null) {
+    conditions.push(eq(schema.tasks.dealId, Number(filter.deal_id)));
+  }
   if (resource === "contact_notes" && filter.contact_id != null) {
     conditions.push(
       eq(schema.contactNotes.contactId, Number(filter.contact_id)),

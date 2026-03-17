@@ -6,6 +6,7 @@ export interface Task {
   id: number;
   contactId: number | null;
   companyId: number | null;
+  dealId: number | null;
   crmUserId: number | null;
   assigneeId: number | null;
   type: string | null;
@@ -18,6 +19,7 @@ export interface Task {
 export interface CreateTaskData {
   contactId?: number;
   companyId?: number;
+  dealId?: number;
   assigneeId?: number;
   type?: string;
   text: string;

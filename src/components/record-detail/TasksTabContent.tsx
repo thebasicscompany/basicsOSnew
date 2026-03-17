@@ -85,6 +85,9 @@ export function TasksTabContent({
     if (objectSlug === "companies") {
       return all.filter((t) => t.companyId === recordId);
     }
+    if (objectSlug === "deals") {
+      return all.filter((t) => t.dealId === recordId);
+    }
     return [];
   }, [tasksData?.data, objectSlug, recordId]);
 
@@ -252,6 +255,8 @@ function AddTaskInlineDialog({
       data.contactId = recordId;
     } else if (objectSlug === "companies") {
       data.companyId = recordId;
+    } else if (objectSlug === "deals") {
+      data.dealId = recordId;
     }
 
     createTask.mutate(data, {
