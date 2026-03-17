@@ -104,6 +104,7 @@ const tasksWriteSchema = z
   .object({
     contactId: z.number().int().positive().nullable().optional(),
     companyId: z.number().int().positive().nullable().optional(),
+    dealId: z.number().int().positive().nullable().optional(),
     assigneeId: z.number().int().positive().nullable().optional(),
     type: nullableString.optional(),
     text: nullableString.optional(),
