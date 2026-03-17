@@ -73,6 +73,8 @@ export default defineConfig(({ mode }) => {
           "@": path.resolve(__dirname, "src"),
           "@renderer": path.resolve(__dirname, "src/renderer/src"),
           "basics-os/src": path.resolve(__dirname, "src"),
+          // Resolve workspace package so Vite can bundle it even when dist/ is missing
+          "@basics-os/shared": path.resolve(__dirname, "packages/shared/src/index.ts"),
           // Force the frontend to use the 2.x provider-utils that @ai-sdk/react
           // needs, not the 4.x one hoisted by the server's @ai-sdk/openai.
           "@ai-sdk/provider-utils": path.resolve(
