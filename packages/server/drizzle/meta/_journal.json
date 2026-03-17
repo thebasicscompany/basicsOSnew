@@ -239,6 +239,13 @@
       "when": 1773271000000,
       "tag": "0033_slack_bot_config",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1773272000000,
+      "tag": "0034_tasks_deal_id",
+      "breakpoints": true
     }
   ]
 }
