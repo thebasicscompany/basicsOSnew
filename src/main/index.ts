@@ -1474,6 +1474,29 @@ app.whenReady().then(async () => {
   });
   writeUpdaterLog(`Log file: ${updaterLogPath}`);
 
+  // In dev, simulate an update after a delay so the banner shows without packaging.
+  if (is.dev) {
+    const devFakeVersion = "0.0.0-dev";
+    setTimeout(() => {
+      if (!mainWindow?.webContents || mainWindow.isDestroyed()) return;
+      mainWindow.webContents.send("app-update-available", {
+        version: devFakeVersion,
+        releaseDate: new Date().toISOString(),
+      });
+      setTimeout(() => {
+        if (!mainWindow?.webContents || mainWindow.isDestroyed()) return;
+        mainWindow.webContents.send("app-update-downloaded", {
+          squirrelReady: process.platform !== "darwin",
+        });
+        if (process.platform === "darwin") {
+          setTimeout(() => {
+            mainWindow?.webContents.send("app-squirrel-ready");
+          }, 1500);
+        }
+      }, 1500);
+    }, 3000);
+  }
+
   app.on("browser-window-created", (_, window) => {
     optimizer.watchWindowShortcuts(window);
   });
