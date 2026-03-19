@@ -1424,7 +1424,19 @@ app.whenReady().then(async () => {
       } catch (e) {
         console.warn("[main] clearCache before update install failed:", e);
       }
+      // On macOS the overlay window sits at "screen-saver" alwaysOnTop level with
+      // visibleOnAllWorkspaces, which can block app.quit() called internally by
+      // quitAndInstall via setImmediate. Destroy it first so the quit goes through.
+      if (overlayWindow && !overlayWindow.isDestroyed()) {
+        overlayWindow.destroy();
+        overlayWindow = null;
+      }
       autoUpdater.quitAndInstall(false, true);
+      // macOS fallback: quitAndInstall uses setImmediate(() => app.quit()) internally.
+      // If the quit is still swallowed for any reason, force-exit after a short delay.
+      if (process.platform === "darwin") {
+        setTimeout(() => app.exit(0), 1500);
+      }
     });
     const updaterLogPath = path.join(app.getPath("userData"), "logs", "updater.log");
     const writeUpdaterLog = (msg: string) => {
