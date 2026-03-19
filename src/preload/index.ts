@@ -209,6 +209,11 @@ const overlayAPI = {
     onSquirrelReady: (cb: () => void) => {
       ipcRenderer.on("app-squirrel-ready", () => cb());
     },
+    onUpdateError: (cb: (data: { message: string }) => void) => {
+      ipcRenderer.on("app-update-error", (_e, data: { message?: string }) =>
+        cb({ message: data?.message ?? "Unknown update error" }),
+      );
+    },
     installUpdate: () => ipcRenderer.invoke("install-app-update") as Promise<void>,
   },
 };

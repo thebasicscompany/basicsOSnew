@@ -1447,6 +1447,9 @@ app.whenReady().then(async () => {
         overlayWindow = null;
       }
       autoUpdater.quitAndInstall(false, true);
+      // Safety net: if the quit was silently swallowed, force-exit after 60 s.
+      // The update is already staged at this point so it will apply on relaunch.
+      setTimeout(() => app.exit(0), 60_000);
     });
     const updaterLogPath = path.join(app.getPath("userData"), "logs", "updater.log");
     const writeUpdaterLog = (msg: string) => {
@@ -1465,6 +1468,7 @@ app.whenReady().then(async () => {
       const msg = String(err?.message ?? err);
       writeUpdaterLog(`error: ${msg}`);
       console.warn("[updater] error:", msg);
+      mainWindow?.webContents.send("app-update-error", { message: msg });
     });
     autoUpdater.checkForUpdatesAndNotify().catch((err) => {
       const msg = String(err?.message ?? err);

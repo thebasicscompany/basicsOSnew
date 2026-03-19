@@ -10,7 +10,8 @@ type UpdateState =
   | { status: "downloading"; version: string; percent: number }
   // macOS only: electron-updater zip is done but Squirrel.Mac is still staging
   | { status: "squirrel-preparing"; version: string }
-  | { status: "ready"; version: string };
+  | { status: "ready"; version: string }
+  | { status: "error"; version: string; message: string };
 
 export function AppUpdateBanner() {
   const [state, setState] = useState<UpdateState>({ status: "idle" });
@@ -52,6 +53,13 @@ export function AppUpdateBanner() {
         prev.status !== "idle" ? { status: "ready", version: prev.version } : prev,
       );
     });
+    updater.onUpdateError?.((data) => {
+      setState((prev) =>
+        prev.status === "squirrel-preparing" || prev.status === "downloading"
+          ? { status: "error", version: prev.version, message: data.message }
+          : prev,
+      );
+    });
   }, [isElectron, updater, isMacElectron]);
 
   const handleRestart = () => {
@@ -91,6 +99,9 @@ export function AppUpdateBanner() {
             Restart now
           </Button>
         </>
+      )}
+      {state.status === "error" && (
+        <span className="text-destructive">Update failed. Please restart the app and try again.</span>
       )}
       {state.status === "available" && (
         <span className="text-muted-foreground">Downloading update…</span>

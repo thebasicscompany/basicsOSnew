@@ -76,6 +76,7 @@ export type OverlayElectronAPI = {
     ) => void;
     onUpdateDownloaded: (cb: (data: { squirrelReady: boolean }) => void) => void;
     onSquirrelReady: (cb: () => void) => void;
+    onUpdateError: (cb: (data: { message: string }) => void) => void;
     installUpdate: () => Promise<void>;
   };
 };
