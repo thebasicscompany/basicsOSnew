@@ -201,8 +201,13 @@ const overlayAPI = {
     ) => {
       ipcRenderer.on("app-update-progress", (_e, progress) => cb(progress));
     },
-    onUpdateDownloaded: (cb: () => void) => {
-      ipcRenderer.on("app-update-downloaded", () => cb());
+    onUpdateDownloaded: (cb: (data: { squirrelReady: boolean }) => void) => {
+      ipcRenderer.on("app-update-downloaded", (_e, data: { squirrelReady?: boolean }) =>
+        cb({ squirrelReady: data?.squirrelReady ?? false }),
+      );
+    },
+    onSquirrelReady: (cb: () => void) => {
+      ipcRenderer.on("app-squirrel-ready", () => cb());
     },
     installUpdate: () => ipcRenderer.invoke("install-app-update") as Promise<void>,
   },

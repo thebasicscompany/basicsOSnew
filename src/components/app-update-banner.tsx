@@ -1,18 +1,24 @@
 import { useEffect, useState } from "react";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { CircleNotchIcon } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 
 type UpdateState =
   | { status: "idle" }
   | { status: "available"; version: string }
   | { status: "downloading"; version: string; percent: number }
+  // macOS only: electron-updater zip is done but Squirrel.Mac is still staging
+  | { status: "squirrel-preparing"; version: string }
   | { status: "ready"; version: string };
 
 export function AppUpdateBanner() {
   const [state, setState] = useState<UpdateState>({ status: "idle" });
   const isElectron = import.meta.env.VITE_IS_ELECTRON;
   const updater = typeof window !== "undefined" ? window.electronAPI?.updater : undefined;
+
+  const isMacElectron =
+    isElectron && typeof navigator !== "undefined" && navigator.platform?.toLowerCase().includes("mac");
 
   useEffect(() => {
     if (!isElectron || !updater) return;
@@ -29,22 +35,30 @@ export function AppUpdateBanner() {
             : prev,
       );
     });
-    updater.onUpdateDownloaded(() => {
+    updater.onUpdateDownloaded(({ squirrelReady }) => {
+      setState((prev) => {
+        const version = prev.status !== "idle" ? prev.version : "?";
+        // On macOS, Squirrel.Mac still needs to stage the update via its local proxy
+        // server before restart is safe. Show a "Preparing…" state until it signals
+        // ready. On all other platforms the update is immediately installable.
+        if (isMacElectron && !squirrelReady) {
+          return { status: "squirrel-preparing", version };
+        }
+        return { status: "ready", version };
+      });
+    });
+    updater.onSquirrelReady?.(() => {
       setState((prev) =>
-        prev.status !== "idle"
-          ? { status: "ready", version: prev.version }
-          : { status: "ready", version: "?" },
+        prev.status !== "idle" ? { status: "ready", version: prev.version } : prev,
       );
     });
-  }, [isElectron, updater]);
+  }, [isElectron, updater, isMacElectron]);
 
   const handleRestart = () => {
     window.electronAPI?.updater?.installUpdate?.();
   };
 
   if (state.status === "idle") return null;
-
-  const isMacElectron = isElectron && typeof navigator !== "undefined" && navigator.platform?.toLowerCase().includes("mac");
 
   return (
     <div
@@ -60,6 +74,12 @@ export function AppUpdateBanner() {
           <span className="text-muted-foreground">Updating…</span>
           <Progress value={state.percent} className="h-2 w-32" />
           <span className="text-muted-foreground tabular-nums">{Math.round(state.percent)}%</span>
+        </>
+      )}
+      {state.status === "squirrel-preparing" && (
+        <>
+          <CircleNotchIcon className="size-3.5 animate-spin text-muted-foreground" />
+          <span className="text-muted-foreground">Preparing update v{state.version}…</span>
         </>
       )}
       {state.status === "ready" && (

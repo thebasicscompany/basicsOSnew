@@ -74,7 +74,8 @@ export type OverlayElectronAPI = {
     onUpdateProgress: (
       cb: (progress: { percent: number; bytesPerSecond?: number; transferred?: number; total?: number }) => void,
     ) => void;
-    onUpdateDownloaded: (cb: () => void) => void;
+    onUpdateDownloaded: (cb: (data: { squirrelReady: boolean }) => void) => void;
+    onSquirrelReady: (cb: () => void) => void;
     installUpdate: () => Promise<void>;
   };
 };
