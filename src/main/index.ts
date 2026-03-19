@@ -1415,6 +1415,10 @@ app.whenReady().then(async () => {
       mainWindow?.webContents.send("app-update-downloaded");
     });
     ipcMain.handle("install-app-update", async () => {
+      // quitAndInstall() closes windows before emitting before-quit, so on macOS our
+      // main window "close" handler would see isQuitting false and preventDefault/hide.
+      // Set isQuitting so the window is allowed to close and the app can quit.
+      (app as any).isQuitting = true;
       try {
         await session.defaultSession.clearCache();
       } catch (e) {
