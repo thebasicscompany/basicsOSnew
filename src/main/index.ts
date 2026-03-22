@@ -1562,69 +1562,32 @@ async function handleDeepLink(url: string): Promise<void> {
     // All checks passed — consume the nonce now
     pendingAuthNonces.delete(state);
 
-    // Inject the Better Auth session cookie into Electron's session.
-    // Set BOTH cookie name variants — the server may check either depending on
-    // how the browser/Electron sends the request (Secure prefix vs plain).
-    const isHttps = parsedApiUrl.protocol === "https:";
-    const cookieBase = {
-      url: parsedApiUrl.origin,
-      value: token,
-      httpOnly: true,
-      secure: isHttps,
-      sameSite: isHttps ? ("no_restriction" as const) : ("lax" as const),
-      expirationDate: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
+    // Load the claim URL in a hidden window. The server validates the token,
+    // signs it, and returns Set-Cookie. Electron stores those cookies in the
+    // default session (shared with the main window).
+    const claimUrl = `${parsedApiUrl.origin}/api/auth/claim-deep-link-session?token=${encodeURIComponent(token)}`;
+    const claimWindow = new BrowserWindow({
+      show: false,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+      },
+    });
+    let claimed = false;
+    const finishClaim = () => {
+      if (claimed) return;
+      claimed = true;
+      if (!claimWindow.isDestroyed()) claimWindow.close();
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.show();
+        mainWindow.focus();
+        mainWindow.webContents.reload();
+      }
     };
-    // Set both variants so the session is found regardless of which name the client checks
-    await session.defaultSession.cookies.set({
-      ...cookieBase,
-      name: "better-auth.session_token",
-    });
-    if (isHttps) {
-      await session.defaultSession.cookies.set({
-        ...cookieBase,
-        name: "__Secure-better-auth.session_token",
-      });
-    }
-
-    // Verify cookies were stored
-    const stored = await session.defaultSession.cookies.get({
-      url: parsedApiUrl.origin,
-    });
-    const authCookies = stored.filter((c) =>
-      c.name.includes("better-auth.session_token"),
-    );
-    console.warn(
-      `[deep-link] cookie injection done — ${authCookies.length} auth cookie(s) set for ${parsedApiUrl.origin}:`,
-      authCookies.map((c) => `${c.name}=${c.value.slice(0, 8)}...`),
-    );
-
-    // Verify the token is actually valid by hitting the session endpoint
-    try {
-      const verifyRes = await fetch(
-        `${parsedApiUrl.origin}/api/auth/get-session`,
-        {
-          headers: {
-            Cookie: `better-auth.session_token=${token}`,
-          },
-        },
-      );
-      const body = await verifyRes.text();
-      console.warn(
-        `[deep-link] session verify: status=${verifyRes.status} body=${body.slice(0, 200)}`,
-      );
-    } catch (e) {
-      console.warn("[deep-link] session verify failed:", e);
-    }
-
-    // Show the main window and reload so the renderer picks up the new session cookie.
-    // A simple navigate("/") won't work because authClient.useSession() has already
-    // cached "no session" — a full reload forces a fresh session check.
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.show();
-      mainWindow.focus();
-      mainWindow.webContents.reload();
-    }
+    claimWindow.webContents.on("did-finish-load", finishClaim);
+    claimWindow.webContents.on("did-fail-load", () => finishClaim());
+    void claimWindow.loadURL(claimUrl);
   } catch (err) {
     console.warn("[deep-link] error handling deep link:", err);
   }

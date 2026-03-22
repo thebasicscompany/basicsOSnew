@@ -139,7 +139,7 @@ export function LoginPage() {
             </Link>
           </p>
         </form>
-        <SwitchOrganizationBlock compact className="mt-6" />
+        <SwitchOrganizationBlock variant="subtle" />
       </div>
     </div>
   );

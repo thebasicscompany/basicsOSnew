@@ -210,7 +210,7 @@ export function SignupPage() {
             </Link>
           </p>
         </form>
-        <SwitchOrganizationBlock compact className="mt-6" />
+        <SwitchOrganizationBlock variant="subtle" />
       </div>
     </div>
   );
