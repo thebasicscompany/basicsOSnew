@@ -65,6 +65,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 
 import { getRuntimeApiUrl } from "@/lib/runtime-config";
+import { applyServerUrlFromUi } from "@/lib/apply-server-url";
+
 const API_URL = getRuntimeApiUrl();
 
 const THEME_OPTIONS = [
@@ -165,6 +167,11 @@ export function SettingsPage() {
   const [inviteExpiresAt, setInviteExpiresAt] = useState<string | null>(null);
   const [creatingInvite, setCreatingInvite] = useState(false);
   const [roleDrafts, setRoleDrafts] = useState<Record<number, string>>({});
+  const [serverUrlDraft, setServerUrlDraft] = useState("");
+  const [serverSwitchBusy, setServerSwitchBusy] = useState(false);
+  const [serverSwitchError, setServerSwitchError] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     const connected = searchParams.get("connected");
@@ -419,6 +426,66 @@ export function SettingsPage() {
                   })}
                 </SelectContent>
               </Select>
+            </div>
+          </section>
+
+          <Separator />
+          <section id="switch-organization" className={sectionClass}>
+            <div className="mb-4">
+              <h2 className="text-[15px] font-semibold">Switch organization</h2>
+              <p className="text-[12px] text-muted-foreground">
+                {import.meta.env.VITE_IS_ELECTRON
+                  ? "Your organization’s server link is stored in org-config.json next to your app data. Switching signs you out and restarts the app."
+                  : "Your organization’s server link is stored in this browser for this device. Switching signs you out and reloads the page."}
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-[180px_minmax(0,1fr)] sm:items-start">
+              <Label
+                htmlFor="settings-server-url"
+                className="pt-2 text-[12px] text-muted-foreground"
+              >
+                Server link
+              </Label>
+              <div className="flex flex-col gap-2">
+                <Input
+                  id="settings-server-url"
+                  type="url"
+                  inputMode="url"
+                  autoComplete="off"
+                  placeholder="https://api.example.com"
+                  value={serverUrlDraft}
+                  onChange={(e) => {
+                    setServerUrlDraft(e.target.value);
+                    setServerSwitchError(null);
+                  }}
+                  disabled={serverSwitchBusy}
+                  className="font-mono text-sm"
+                />
+                {serverSwitchError ? (
+                  <p className="text-[12px] text-destructive">{serverSwitchError}</p>
+                ) : null}
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="w-fit"
+                  disabled={serverSwitchBusy || !serverUrlDraft.trim()}
+                  onClick={async () => {
+                    setServerSwitchError(null);
+                    setServerSwitchBusy(true);
+                    try {
+                      const result = await applyServerUrlFromUi(serverUrlDraft);
+                      if (!result.ok) {
+                        setServerSwitchError(result.error);
+                      }
+                    } finally {
+                      setServerSwitchBusy(false);
+                    }
+                  }}
+                >
+                  {serverSwitchBusy ? "Switching…" : "Switch organization"}
+                </Button>
+              </div>
             </div>
           </section>
 

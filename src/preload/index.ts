@@ -224,6 +224,17 @@ const overlayAPI = {
     apiUrl: string,
   ) =>
     ipcRenderer.invoke("open-auth-browser", action, apiUrl) as Promise<void>,
+  probeApiUrl: (url: string) =>
+    ipcRenderer.invoke("probe-api-url", url) as Promise<{
+      ok: boolean;
+      normalized?: string;
+      error?: string;
+    }>,
+  applyOrgApiUrl: (url: string) =>
+    ipcRenderer.invoke("apply-org-api-url", url) as Promise<{
+      ok: boolean;
+      error?: string;
+    }>,
 };
 
 // Fetch the resolved API URL synchronously (main process reads userData/org-config.json).

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { ColorPickerDot } from "@/field-types/components/ColorPickerDot";
 import {
   PencilSimple,
   TrashSimple,
@@ -23,7 +24,6 @@ import {
   SortableOverlay,
 } from "@/components/ui/sortable";
 import { TAG_COLOR_PALETTE, getColorClasses } from "@/field-types/colors";
-import { cn } from "@/lib/utils";
 
 export interface StageOption {
   id: string;
@@ -138,9 +138,10 @@ export function EditPipelineDialog({
                     <DotsSixVertical className="size-4" />
                   </SortableItemHandle>
 
-                  <ColorDot
-                    color={stage.color ?? "gray"}
-                    onChange={(c) => handleColorChange(stage.id, c)}
+                  <ColorPickerDot
+                    currentColor={stage.color ?? "gray"}
+                    dotClass={getColorClasses(stage.color ?? "gray").bg}
+                    onSelect={(c) => handleColorChange(stage.id, c)}
                   />
 
                   {editingId === stage.id ? (
@@ -213,53 +214,5 @@ export function EditPipelineDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-function ColorDot({
-  color,
-  onChange,
-}: {
-  color: string;
-  onChange: (color: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const classes = getColorClasses(color);
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className={cn(
-          "size-4 shrink-0 rounded-full border",
-          classes.bg,
-          classes.border,
-        )}
-      />
-      {open && (
-        <div className="absolute top-6 left-0 z-50 flex flex-wrap gap-1 rounded-md border bg-popover p-2 shadow-md">
-          {TAG_COLOR_PALETTE.map((c) => {
-            const cc = getColorClasses(c.name);
-            return (
-              <button
-                key={c.name}
-                type="button"
-                onClick={() => {
-                  onChange(c.name);
-                  setOpen(false);
-                }}
-                className={cn(
-                  "size-5 rounded-full border transition-transform hover:scale-110",
-                  cc.bg,
-                  cc.border,
-                  color === c.name && "ring-2 ring-primary ring-offset-1",
-                )}
-              />
-            );
-          })}
-        </div>
-      )}
-    </div>
   );
 }

@@ -43,6 +43,7 @@ import { RecordDetailPage } from "@/components/pages/RecordDetailPage";
 import { AppLayout } from "@/layouts/AppLayout";
 import { installDictationTargetBridge } from "@/lib/dictation-target";
 import { AppUpdateBanner } from "@/components/app-update-banner";
+import { ServerHealthGate } from "@/components/server/ServerHealthGate";
 
 function RedirectToSettingsConnections() {
   const [searchParams] = useSearchParams();
@@ -193,8 +194,10 @@ const App = () => (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <Router>
         <TooltipProvider>
-          <AppUpdateBanner />
-          <AppRoutes />
+          <ServerHealthGate>
+            <AppUpdateBanner />
+            <AppRoutes />
+          </ServerHealthGate>
           <Toaster />
         </TooltipProvider>
       </Router>

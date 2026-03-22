@@ -87,6 +87,7 @@ export default defineConfig(({ mode }) => {
         proxy: {
           "/api": { target: "http://localhost:3001", changeOrigin: true },
           "/assistant": { target: "http://localhost:3001", changeOrigin: true },
+          "/health": { target: "http://localhost:3001", changeOrigin: true },
           "/v1": { target: "http://localhost:3001", changeOrigin: true },
           "/stream": { target: "http://localhost:3001", changeOrigin: true },
         },

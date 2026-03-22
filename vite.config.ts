@@ -12,6 +12,7 @@ export default defineConfig({
     proxy: {
       "/api": { target: "http://localhost:3001", changeOrigin: true },
       "/assistant": { target: "http://localhost:3001", changeOrigin: true },
+      "/health": { target: "http://localhost:3001", changeOrigin: true },
     },
   },
   plugins: [

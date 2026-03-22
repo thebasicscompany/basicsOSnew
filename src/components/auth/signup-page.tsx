@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
 import { ROUTES } from "@basics-os/hub";
 import basicsIcon from "@/assets/basicos-icon.png";
+import { SwitchOrganizationBlock } from "@/components/auth/switch-organization-block";
 
 import { getRuntimeApiUrl } from "@/lib/runtime-config";
 const API_URL = getRuntimeApiUrl();
@@ -209,6 +210,7 @@ export function SignupPage() {
             </Link>
           </p>
         </form>
+        <SwitchOrganizationBlock compact className="mt-6" />
       </div>
     </div>
   );

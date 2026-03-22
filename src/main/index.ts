@@ -107,6 +107,13 @@ const pendingDictationInsertRequests = new Map<
 
 const WEB_URL = process.env["BASICSOS_URL"] ?? "http://localhost:5173";
 
+/** Dev server URL for the renderer (Vite). electron-vite sets ELECTRON_RENDERER_URL; relaunch drops it, so we fall back to WEB_URL. */
+function getDevRendererBaseUrl(): string {
+  const fromEnv = process.env["ELECTRON_RENDERER_URL"]?.trim();
+  if (fromEnv) return fromEnv.replace(/\/$/, "");
+  return WEB_URL.replace(/\/$/, "");
+}
+
 /** Short-lived nonces for the basicsos.com hosted auth deep-link flow.
  *  key = state param, value = { action, expires (ms timestamp) } */
 const pendingAuthNonces = new Map<string, { action: string; expires: number }>();
@@ -156,7 +163,25 @@ const resolveApiUrl = (): string => {
   return bakedUrl;
 };
 
-const API_URL = resolveApiUrl();
+/** Same rules as src/lib/org-api-url.ts — inlined here so the main bundle does not depend on @/lib. */
+function normalizeIncomingOrgApiUrl(input: string): string {
+  let s = input.trim();
+  if (!s) throw new Error("URL is required");
+  s = s.replace(/\/+$/, "");
+  if (!/^https?:\/\//i.test(s)) {
+    s = `https://${s}`;
+  }
+  const u = new URL(s);
+  if (u.protocol !== "http:" && u.protocol !== "https:") {
+    throw new Error("Only http and https URLs are supported");
+  }
+  const p =
+    u.pathname === "/" || u.pathname === ""
+      ? ""
+      : u.pathname.replace(/\/+$/, "");
+  return `${u.origin}${p}`;
+}
+
 const ALLOWED_PROXY_PATHS = new Set([
   "/v1/audio/transcriptions",
   "/v1/audio/speech",
@@ -166,6 +191,32 @@ const AUTH_COOKIE_NAMES = [
   "__Secure-better-auth.session_token",
   "better-auth.session_token",
 ] as const;
+
+async function clearSessionCookiesForApiBases(
+  ...bases: (string | undefined)[]
+): Promise<void> {
+  const origins = bases
+    .filter((b): b is string => Boolean(b?.trim()))
+    .map((b) => {
+      try {
+        return new URL(b).origin;
+      } catch {
+        return null;
+      }
+    })
+    .filter((x): x is string => x !== null);
+  const uniq = [...new Set(origins)];
+  for (const origin of uniq) {
+    const url = `${origin}/`;
+    for (const name of AUTH_COOKIE_NAMES) {
+      try {
+        await session.defaultSession.cookies.remove(url, name);
+      } catch {
+        // ignore
+      }
+    }
+  }
+}
 
 const isLoopbackHost = (hostname: string): boolean =>
   hostname === "localhost" || hostname === "127.0.0.1";
@@ -202,7 +253,7 @@ const getSessionTokenForApi = async (
   targetUrl: string,
 ): Promise<SessionTokenLookup> => {
   let apiHost = "";
-  let baseUrl = API_URL.replace(/\/$/, "");
+  let baseUrl = resolveApiUrl().replace(/\/$/, "");
   try {
     const url = new URL(targetUrl);
     apiHost = url.hostname;
@@ -326,12 +377,11 @@ const getAllowedOrigins = (): Set<string> => {
   } catch {
     // ignore invalid WEB_URL
   }
-  const rendererUrl = process.env["ELECTRON_RENDERER_URL"];
-  if (rendererUrl) {
+  if (!app.isPackaged) {
     try {
-      origins.add(new URL(rendererUrl).origin);
+      origins.add(new URL(getDevRendererBaseUrl()).origin);
     } catch {
-      // ignore invalid renderer URL
+      // ignore invalid dev renderer URL
     }
   }
   return origins;
@@ -550,8 +600,8 @@ function createMainWindow(): void {
     console.warn(`[main] Main window load failed: ${errorCode} ${errorDescription}`);
     setTimeout(() => {
       if (mainWindow && !mainWindow.isDestroyed()) {
-        if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
-          mainWindow.loadURL(process.env["ELECTRON_RENDERER_URL"]);
+        if (!app.isPackaged) {
+          mainWindow.loadURL(getDevRendererBaseUrl());
         } else {
           mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
         }
@@ -567,8 +617,8 @@ function createMainWindow(): void {
     }
   });
 
-  if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
-    mainWindow.loadURL(process.env["ELECTRON_RENDERER_URL"]);
+  if (!app.isPackaged) {
+    mainWindow.loadURL(getDevRendererBaseUrl());
   } else {
     mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
   }
@@ -609,13 +659,8 @@ function createOverlayWindow(): void {
   overlayWindow.setAlwaysOnTop(true, "screen-saver");
   overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
-  const overlayUrl =
-    is.dev && process.env["ELECTRON_RENDERER_URL"]
-      ? `${process.env["ELECTRON_RENDERER_URL"].replace(/\/$/, "")}/overlay.html`
-      : path.join(__dirname, "../renderer/overlay.html");
-
-  if (is.dev && overlayUrl.startsWith("http")) {
-    overlayWindow.loadURL(overlayUrl);
+  if (!app.isPackaged) {
+    overlayWindow.loadURL(`${getDevRendererBaseUrl()}/overlay.html`);
   } else {
     overlayWindow.loadFile(path.join(__dirname, "../renderer/overlay.html"));
   }
@@ -671,10 +716,110 @@ function createOverlayWindow(): void {
   // Do not show on startup; user opens pill via shortcut or UI
 }
 
-ipcMain.handle("get-api-url", () => API_URL);
+ipcMain.handle("get-api-url", () => resolveApiUrl());
 // Synchronous variant used by the preload to inject the URL before React mounts.
 ipcMain.on("get-api-url-sync", (event) => {
-  event.returnValue = API_URL;
+  event.returnValue = resolveApiUrl();
+});
+
+ipcMain.handle("probe-api-url", async (_event, rawUrl: unknown) => {
+  let normalized: string;
+  try {
+    normalized = normalizeIncomingOrgApiUrl(String(rawUrl ?? ""));
+  } catch (e) {
+    return {
+      ok: false as const,
+      error: e instanceof Error ? e.message : "Invalid URL",
+    };
+  }
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), 15_000);
+  try {
+    const res = await fetch(`${normalized}/health`, {
+      signal: controller.signal,
+    });
+    clearTimeout(t);
+    if (!res.ok) {
+      return {
+        ok: false as const,
+        error: `Server returned ${res.status}`,
+      };
+    }
+    return { ok: true as const, normalized };
+  } catch (e) {
+    clearTimeout(t);
+    const msg =
+      e instanceof Error
+        ? e.name === "AbortError"
+          ? "Connection timed out"
+          : e.message
+        : "Unreachable";
+    return { ok: false as const, error: msg };
+  }
+});
+
+ipcMain.handle("apply-org-api-url", async (_event, rawUrl: unknown) => {
+  let normalized: string;
+  try {
+    normalized = normalizeIncomingOrgApiUrl(String(rawUrl ?? ""));
+  } catch (e) {
+    return {
+      ok: false as const,
+      error: e instanceof Error ? e.message : "Invalid URL",
+    };
+  }
+  const controller = new AbortController();
+  const t = setTimeout(() => controller.abort(), 15_000);
+  try {
+    const res = await fetch(`${normalized}/health`, {
+      signal: controller.signal,
+    });
+    clearTimeout(t);
+    if (!res.ok) {
+      return {
+        ok: false as const,
+        error: `Server returned ${res.status}`,
+      };
+    }
+  } catch (e) {
+    clearTimeout(t);
+    const msg =
+      e instanceof Error
+        ? e.name === "AbortError"
+          ? "Connection timed out"
+          : e.message
+        : "Unreachable";
+    return { ok: false as const, error: msg };
+  }
+  const previous = resolveApiUrl();
+  await clearSessionCookiesForApiBases(previous, normalized);
+  try {
+    const configPath = path.join(app.getPath("userData"), "org-config.json");
+    fs.mkdirSync(path.dirname(configPath), { recursive: true });
+    fs.writeFileSync(
+      configPath,
+      JSON.stringify({ apiUrl: normalized }, null, 2),
+    );
+  } catch (e) {
+    return {
+      ok: false as const,
+      error: e instanceof Error ? e.message : "Could not save configuration",
+    };
+  }
+  // Relaunch drops env vars that electron-vite injects (ELECTRON_RENDERER_URL), which
+  // makes the main window fall back to loadFile() and shows a white screen in dev.
+  // Reload keeps the same process and matches restart-app behavior when unpackaged.
+  if (!app.isPackaged) {
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) {
+        win.webContents.reloadIgnoringCache();
+      }
+    }
+  } else {
+    app.relaunch();
+    app.quit();
+  }
+  return { ok: true as const };
 });
 
 ipcMain.handle("get-overlay-settings", () => getOverlaySettings());
@@ -944,7 +1089,7 @@ ipcMain.handle(
   ) => {
     const method = (req.method ?? "GET").toUpperCase();
     const pathName = req.path?.trim();
-    const fullUrl = `${API_URL.replace(/\/$/, "")}${pathName ?? ""}`;
+    const fullUrl = `${resolveApiUrl().replace(/\/$/, "")}${pathName ?? ""}`;
     console.warn(
       "[proxy-overlay] request",
       method,
@@ -952,7 +1097,7 @@ ipcMain.handle(
       "->",
       fullUrl,
       "API_URL=",
-      API_URL,
+      resolveApiUrl(),
     );
     if (
       !pathName ||
@@ -1005,7 +1150,7 @@ ipcMain.handle(
     if (!token) {
       console.warn(
         "[proxy-overlay] 401: no session cookie for",
-        `${API_URL.replace(/\/$/, "")}/`,
+        `${resolveApiUrl().replace(/\/$/, "")}/`,
         "cookiesFound=",
         0,
         "lookupSource=",
@@ -1027,7 +1172,7 @@ ipcMain.handle(
     const headers = new Headers(req.headers ?? {});
     headers.set("Authorization", `Bearer ${token}`);
 
-    const res = await fetch(`${API_URL}${pathName}`, {
+    const res = await fetch(`${resolveApiUrl()}${pathName}`, {
       method,
       headers,
       body: req.body,
@@ -1145,7 +1290,7 @@ ipcMain.handle("start-meeting", async () => {
   console.warn("[IPC] start-meeting received, meetingMgr=", !!meetingMgr);
   console.warn(`[MEETING:MAIN:HN] start-meeting entry meetingMgr=${!!meetingMgr} t=${Date.now()}`);
   if (!meetingMgr) return;
-  const apiUrl = API_URL;
+  const apiUrl = resolveApiUrl();
   const tokenLookup = await getSessionTokenForApi(apiUrl);
   const token = tokenLookup.token;
   console.warn(
@@ -1175,7 +1320,7 @@ ipcMain.handle("stop-meeting", async () => {
   console.warn("[IPC] stop-meeting received, meetingMgr=", !!meetingMgr);
   console.warn(`[MEETING:MAIN:HN] stop-meeting entry meetingMgr=${!!meetingMgr} t=${Date.now()}`);
   if (!meetingMgr) return;
-  const apiUrl = API_URL;
+  const apiUrl = resolveApiUrl();
   try {
     console.warn(`[MEETING:MAIN:HN] stop-meeting before meetingMgr.stop t=${Date.now()}`);
     await meetingMgr.stop(apiUrl);
@@ -1199,11 +1344,11 @@ ipcMain.handle("get-persisted-meeting", () => {
 
 ipcMain.handle("start-system-audio", async (_event, meetingId: string) => {
   console.warn(`[MEETING:MAIN:HN] start-system-audio entry meetingId=${meetingId} t=${Date.now()}`);
-  const tokenLookup = await getSessionTokenForApi(API_URL);
+  const tokenLookup = await getSessionTokenForApi(resolveApiUrl());
   const token = tokenLookup.token;
   console.warn(`[MEETING:MAIN:HN] start-system-audio tokenPresent=${!!token} meetingId=${meetingId} t=${Date.now()}`);
   if (!token) return false;
-  return startSystemAudioCapture(meetingId, API_URL, token);
+  return startSystemAudioCapture(meetingId, resolveApiUrl(), token);
 });
 
 ipcMain.handle("stop-system-audio", async () => {
@@ -1279,7 +1424,7 @@ ipcMain.handle("restart-app", () => {
 });
 
 ipcMain.handle("get-session-token", async () => {
-  const tokenLookup = await getSessionTokenForApi(API_URL);
+  const tokenLookup = await getSessionTokenForApi(resolveApiUrl());
   return tokenLookup.token ?? "";
 });
 
@@ -1374,7 +1519,7 @@ async function handleDeepLink(url: string): Promise<void> {
       return;
     }
 
-    // Validate and consume the state nonce
+    // Validate the state nonce (do NOT consume yet — consume only after all checks pass)
     const nonce = pendingAuthNonces.get(state);
     if (!nonce) {
       console.warn("[deep-link] unknown or already-used state nonce — ignoring");
@@ -1385,50 +1530,100 @@ async function handleDeepLink(url: string): Promise<void> {
       console.warn("[deep-link] expired state nonce — ignoring");
       return;
     }
-    pendingAuthNonces.delete(state);
 
     // Validate apiUrl is a legitimate http(s) URL and matches this app's configured API
     let parsedApiUrl: URL;
     try {
       parsedApiUrl = new URL(apiUrl);
-      if (!["http:", "https:"].includes(parsedApiUrl.protocol)) {
-        console.warn("[deep-link] invalid apiUrl protocol");
-        return;
-      }
-      // Only accept callbacks for this app's configured backend — prevents a malicious
-      // basicsos.com from redirecting the token to an attacker-controlled domain.
-      const expectedOrigin = new URL(API_URL).origin;
+    } catch {
+      console.warn("[deep-link] apiUrl is not a valid URL:", apiUrl);
+      return;
+    }
+    if (!["http:", "https:"].includes(parsedApiUrl.protocol)) {
+      console.warn("[deep-link] invalid apiUrl protocol:", parsedApiUrl.protocol);
+      return;
+    }
+    // Only accept callbacks for this app's configured backend — prevents a malicious
+    // basicsos.com from redirecting the token to an attacker-controlled domain.
+    const configuredApiUrl = resolveApiUrl();
+    try {
+      const expectedOrigin = new URL(configuredApiUrl).origin;
       if (parsedApiUrl.origin !== expectedOrigin) {
-        console.warn("[deep-link] apiUrl origin mismatch — ignoring");
+        console.warn(
+          `[deep-link] apiUrl origin mismatch — got ${parsedApiUrl.origin}, expected ${expectedOrigin}`,
+        );
         return;
       }
     } catch {
-      console.warn("[deep-link] invalid apiUrl");
+      console.warn("[deep-link] could not parse configured API_URL:", configuredApiUrl);
       return;
     }
 
+    // All checks passed — consume the nonce now
+    pendingAuthNonces.delete(state);
+
     // Inject the Better Auth session cookie into Electron's session.
-    // Better Auth uses __Secure- prefix on HTTPS and plain name on HTTP.
+    // Set BOTH cookie name variants — the server may check either depending on
+    // how the browser/Electron sends the request (Secure prefix vs plain).
     const isHttps = parsedApiUrl.protocol === "https:";
-    const cookieName = isHttps
-      ? "__Secure-better-auth.session_token"
-      : "better-auth.session_token";
-    await session.defaultSession.cookies.set({
+    const cookieBase = {
       url: parsedApiUrl.origin,
-      name: cookieName,
       value: token,
       httpOnly: true,
       secure: isHttps,
-      sameSite: isHttps ? "no_restriction" : "lax",
+      sameSite: isHttps ? ("no_restriction" as const) : ("lax" as const),
       expirationDate: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
+    };
+    // Set both variants so the session is found regardless of which name the client checks
+    await session.defaultSession.cookies.set({
+      ...cookieBase,
+      name: "better-auth.session_token",
     });
+    if (isHttps) {
+      await session.defaultSession.cookies.set({
+        ...cookieBase,
+        name: "__Secure-better-auth.session_token",
+      });
+    }
 
-    // Show and focus the main window, then navigate to the app root
+    // Verify cookies were stored
+    const stored = await session.defaultSession.cookies.get({
+      url: parsedApiUrl.origin,
+    });
+    const authCookies = stored.filter((c) =>
+      c.name.includes("better-auth.session_token"),
+    );
+    console.warn(
+      `[deep-link] cookie injection done — ${authCookies.length} auth cookie(s) set for ${parsedApiUrl.origin}:`,
+      authCookies.map((c) => `${c.name}=${c.value.slice(0, 8)}...`),
+    );
+
+    // Verify the token is actually valid by hitting the session endpoint
+    try {
+      const verifyRes = await fetch(
+        `${parsedApiUrl.origin}/api/auth/get-session`,
+        {
+          headers: {
+            Cookie: `better-auth.session_token=${token}`,
+          },
+        },
+      );
+      const body = await verifyRes.text();
+      console.warn(
+        `[deep-link] session verify: status=${verifyRes.status} body=${body.slice(0, 200)}`,
+      );
+    } catch (e) {
+      console.warn("[deep-link] session verify failed:", e);
+    }
+
+    // Show the main window and reload so the renderer picks up the new session cookie.
+    // A simple navigate("/") won't work because authClient.useSession() has already
+    // cached "no session" — a full reload forces a fresh session check.
     if (mainWindow && !mainWindow.isDestroyed()) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.show();
       mainWindow.focus();
-      mainWindow.webContents.send("navigate-in-app", "/");
+      mainWindow.webContents.reload();
     }
   } catch (err) {
     console.warn("[deep-link] error handling deep link:", err);
@@ -1436,7 +1631,14 @@ async function handleDeepLink(url: string): Promise<void> {
 }
 
 // Register the custom URL scheme so the OS routes basicsos:// links here.
-app.setAsDefaultProtocolClient("basicsos");
+// On Windows in dev mode, Electron misresolves paths — pass execPath and main script explicitly.
+if (process.platform === "win32" && (process.defaultApp || /[\\/]electron/.test(process.execPath))) {
+  app.setAsDefaultProtocolClient("basicsos", process.execPath, [
+    path.resolve(process.argv[1]),
+  ]);
+} else {
+  app.setAsDefaultProtocolClient("basicsos");
+}
 
 // Single-instance lock — on Windows, a second instance passes the URL as argv.
 // On macOS the open-url event below handles it instead.
@@ -1507,8 +1709,8 @@ app.whenReady().then(async () => {
   // Better Auth's CSRF middleware rejects that with MISSING_OR_NULL_ORIGIN before
   // it ever reaches the trustedOrigins callback.
   // Fix: for any outbound request that has a null/missing Origin, inject the
-  // target URL's own origin.  We use the *target* origin rather than API_URL
-  // because API_URL is a runtime env var that may not be set in the installed
+  // target URL's own origin.  We use the *target* origin rather than the configured
+  // API base URL because that env var may not be set in the installed
   // app (VITE_API_URL is baked into the renderer at build time, but the main
   // process can only read env vars present at launch).
   session.defaultSession.webRequest.onBeforeSendHeaders(
@@ -1871,8 +2073,8 @@ app.whenReady().then(async () => {
   createOverlayWindow();
 
   connectNotificationStream(
-    async () => (await getSessionTokenForApi(API_URL)).token,
-    API_URL,
+    async () => (await getSessionTokenForApi(resolveApiUrl())).token,
+    resolveApiUrl(),
     overlayWindow,
     mainWindow,
   );

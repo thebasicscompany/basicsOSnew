@@ -9,6 +9,7 @@ import { authClient } from "@/lib/auth-client";
 import { getRuntimeApiUrl } from "@/lib/runtime-config";
 import { ROUTES } from "@basics-os/hub";
 import basicsIcon from "@/assets/basicos-icon.png";
+import { SwitchOrganizationBlock } from "@/components/auth/switch-organization-block";
 
 interface LoginForm {
   email: string;
@@ -138,6 +139,7 @@ export function LoginPage() {
             </Link>
           </p>
         </form>
+        <SwitchOrganizationBlock compact className="mt-6" />
       </div>
     </div>
   );

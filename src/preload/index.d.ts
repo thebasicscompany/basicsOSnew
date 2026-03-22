@@ -83,6 +83,15 @@ export type OverlayElectronAPI = {
     action: "login" | "signup" | "forgot-password",
     apiUrl: string,
   ) => Promise<void>;
+  probeApiUrl?: (url: string) => Promise<{
+    ok: boolean;
+    normalized?: string;
+    error?: string;
+  }>;
+  applyOrgApiUrl?: (url: string) => Promise<{
+    ok: boolean;
+    error?: string;
+  }>;
 };
 
 declare global {
