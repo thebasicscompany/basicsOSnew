@@ -47,8 +47,26 @@ async function sendViaBasicsApi(
 }
 
 /**
+ * Extracts the reset token from Better Auth's reset URL.
+ * Format: https://api.example.com/api/auth/reset-password/TOKEN?callbackURL=...
+ */
+function parseResetTokenFromUrl(url: string): string | null {
+  try {
+    const parsed = new URL(url);
+    const match = parsed.pathname.match(/\/reset-password\/([^/]+)/);
+    return match?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Creates the sendResetPassword callback for Better Auth.
  * Resolution order: org_smtp_config (Settings) → org_ai_config basicsos (Settings) → env MAIL_* → env SERVER_BASICS_API_KEY.
+ *
+ * When INVITE_LINK_BASE_URL is basicsos.com, the email link points to the hosted
+ * reset page (e.g. https://basicsos.com/auth/reset-password?token=...&apiUrl=...)
+ * instead of the API's reset endpoint.
  */
 export function createSendResetPassword(db: Db, env: Env) {
   return async (to: string, url: string, authUserId: string): Promise<void> => {
@@ -70,8 +88,21 @@ export function createSendResetPassword(db: Db, env: Env) {
       return;
     }
 
+    // When using hosted auth (basicsos.com), link to the hosted reset page so
+    // users get a proper form instead of the API's raw reset endpoint.
+    let resetLink = url;
+    const baseUrl = (env.INVITE_LINK_BASE_URL ?? "https://basicsos.com").replace(/\/$/, "");
+    const isHostedAuth = baseUrl.includes("basicsos.com");
+    if (isHostedAuth) {
+      const token = parseResetTokenFromUrl(url);
+      if (token) {
+        const apiOrigin = new URL(env.BETTER_AUTH_URL).origin;
+        resetLink = `${baseUrl}/auth/reset-password?token=${encodeURIComponent(token)}&apiUrl=${encodeURIComponent(apiOrigin)}`;
+      }
+    }
+
     const subject = "Reset your password";
-    const content = `Click the link to reset your password: ${url}`;
+    const content = `Click the link to reset your password: ${resetLink}`;
 
     try {
       if (sender.type === "smtp") {

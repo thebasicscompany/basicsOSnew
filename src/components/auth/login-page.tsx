@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router";
 import { EyeIcon, EyeSlashIcon } from "@phosphor-icons/react";
@@ -49,6 +49,13 @@ export function LoginPage() {
     await window.electronAPI!.openAuthBrowser!("login", apiUrl);
     setWebAuthPending(false);
   };
+
+  // Show deep-link auth errors (e.g. link already used or expired)
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api?.onDeepLinkAuthError) return;
+    api.onDeepLinkAuthError((data) => setError(data.message));
+  }, []);
 
   return (
     <div className="min-h-screen flex items-center justify-center">

@@ -79,6 +79,7 @@ export type OverlayElectronAPI = {
     onUpdateError: (cb: (data: { message: string }) => void) => void;
     installUpdate: () => Promise<void>;
   };
+  onDeepLinkAuthError?: (cb: (data: { message: string }) => void) => void;
   openAuthBrowser?: (
     action: "login" | "signup" | "forgot-password",
     apiUrl: string,

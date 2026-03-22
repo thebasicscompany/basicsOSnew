@@ -217,6 +217,11 @@ const overlayAPI = {
     installUpdate: () => ipcRenderer.invoke("install-app-update") as Promise<void>,
   },
 
+  /** Called when a deep-link auth callback fails (e.g. link already used). */
+  onDeepLinkAuthError: (cb: (data: { message: string }) => void) => {
+    ipcRenderer.on("deep-link-auth-error", (_e, data: { message: string }) => cb(data));
+  },
+
   /** Open the basicsos.com hosted auth page in the system browser and begin
    *  the deep-link sign-in / sign-up / password-reset flow. */
   openAuthBrowser: (

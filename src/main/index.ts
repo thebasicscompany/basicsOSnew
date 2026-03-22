@@ -1499,6 +1499,17 @@ async function clearCacheIfVersionChanged(): Promise<void> {
   }
 }
 
+/** Send a deep-link auth error to the sign-in page and ensure it's visible. */
+function notifyDeepLinkAuthError(message: string): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.show();
+    mainWindow.focus();
+    mainWindow.webContents.send("navigate-in-app", "/");
+    mainWindow.webContents.send("deep-link-auth-error", { message });
+  }
+}
+
 /**
  * Handle a `basicsos://auth/callback?code=X&apiUrl=Y&state=S` deep link.
  *
@@ -1535,11 +1546,17 @@ async function handleDeepLink(url: string): Promise<void> {
     const nonce = pendingAuthNonces.get(state);
     if (!nonce) {
       console.warn("[deep-link] unknown or already-used state nonce — ignoring");
+      notifyDeepLinkAuthError(
+        "This sign-in link has already been used or has expired. Please request a new one.",
+      );
       return;
     }
     if (Date.now() > nonce.expires) {
       pendingAuthNonces.delete(state);
       console.warn("[deep-link] expired state nonce — ignoring");
+      notifyDeepLinkAuthError(
+        "This sign-in link has expired. Please request a new one.",
+      );
       return;
     }
 
