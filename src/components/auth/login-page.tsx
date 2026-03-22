@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { EyeIcon, EyeSlashIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,10 @@ import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
 import { getRuntimeApiUrl } from "@/lib/runtime-config";
 import { ROUTES } from "@basics-os/hub";
-const API_URL = getRuntimeApiUrl();
+import {
+  fetchInitBootstrap,
+  INIT_BOOTSTRAP_QUERY_KEY,
+} from "@/lib/init-query";
 import basicsIcon from "@/assets/basicos-icon.png";
 import { SwitchOrganizationBlock } from "@/components/auth/switch-organization-block";
 
@@ -22,6 +25,7 @@ const isElectron = typeof window !== "undefined" && !!window.electronAPI?.openAu
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [webAuthPending, setWebAuthPending] = useState(false);
@@ -45,19 +49,14 @@ export function LoginPage() {
     }
   };
 
-  const { data: initData } = useQuery({
-    queryKey: ["init"],
-    queryFn: async () => {
-      const res = await fetch(`${API_URL}/api/init`, { credentials: "include" });
-      return res.json() as Promise<{ initialized: boolean; orgName?: string }>;
-    },
-    staleTime: 30_000,
-  });
-
   const openHostedLogin = async () => {
     setWebAuthPending(true);
     const apiUrl = getRuntimeApiUrl();
-    await window.electronAPI!.openAuthBrowser!("login", apiUrl, initData?.orgName);
+    const fresh = await queryClient.ensureQueryData({
+      queryKey: INIT_BOOTSTRAP_QUERY_KEY,
+      queryFn: fetchInitBootstrap,
+    });
+    await window.electronAPI!.openAuthBrowser!("login", apiUrl, fresh.orgName);
     setWebAuthPending(false);
   };
 

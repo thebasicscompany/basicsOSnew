@@ -77,6 +77,18 @@ export function registerInitSignupInviteRoutes(
     let organizationId: string | null = null;
     const inviteTokenParsed = invite_token?.trim();
 
+    // First user must sign up in-app (Electron or self-hosted), not via basicsos.com hosted auth
+    const origin = c.req.header("Origin") ?? c.req.header("Referer");
+    if (isFirstUser && origin?.includes("basicsos.com")) {
+      return c.json(
+        {
+          error:
+            "First user must complete signup in the app. Use the in-app signup form.",
+        },
+        403,
+      );
+    }
+
     if (isFirstUser) {
       const [org] = await db
         .insert(schema.organizations)

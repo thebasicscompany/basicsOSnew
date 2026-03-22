@@ -1,14 +1,17 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link } from "react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
 import { getRuntimeApiUrl } from "@/lib/runtime-config";
+import {
+  fetchInitBootstrap,
+  INIT_BOOTSTRAP_QUERY_KEY,
+} from "@/lib/init-query";
 import basicsIcon from "@/assets/basicos-icon.png";
-const API_URL = getRuntimeApiUrl();
 
 interface ForgotPasswordForm {
   email: string;
@@ -17,6 +20,7 @@ interface ForgotPasswordForm {
 const isElectron = typeof window !== "undefined" && !!window.electronAPI?.openAuthBrowser;
 
 export function ForgotPasswordPage() {
+  const queryClient = useQueryClient();
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [webAuthPending, setWebAuthPending] = useState(false);
@@ -46,22 +50,17 @@ export function ForgotPasswordPage() {
     }
   };
 
-  const { data: initData } = useQuery({
-    queryKey: ["init"],
-    queryFn: async () => {
-      const res = await fetch(`${API_URL}/api/init`, { credentials: "include" });
-      return res.json() as Promise<{ initialized: boolean; orgName?: string }>;
-    },
-    staleTime: 30_000,
-  });
-
   const openHostedForgotPassword = async () => {
     setWebAuthPending(true);
     const apiUrl = getRuntimeApiUrl();
+    const fresh = await queryClient.ensureQueryData({
+      queryKey: INIT_BOOTSTRAP_QUERY_KEY,
+      queryFn: fetchInitBootstrap,
+    });
     await window.electronAPI!.openAuthBrowser!(
       "forgot-password",
       apiUrl,
-      initData?.orgName,
+      fresh.orgName,
     );
     setWebAuthPending(false);
   };

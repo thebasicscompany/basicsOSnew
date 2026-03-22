@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { EyeIcon, EyeSlashIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,10 @@ import basicsIcon from "@/assets/basicos-icon.png";
 import { SwitchOrganizationBlock } from "@/components/auth/switch-organization-block";
 
 import { getRuntimeApiUrl } from "@/lib/runtime-config";
+import {
+  fetchInitBootstrap,
+  INIT_BOOTSTRAP_QUERY_KEY,
+} from "@/lib/init-query";
 const API_URL = getRuntimeApiUrl();
 
 interface SignupForm {
@@ -26,38 +30,19 @@ const isElectron = typeof window !== "undefined" && !!window.electronAPI?.openAu
 
 export function SignupPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
   const inviteFromUrl = searchParams.get("invite") ?? "";
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [webAuthPending, setWebAuthPending] = useState(false);
   const { data: initData } = useQuery({
-    queryKey: ["init"],
-    queryFn: async () => {
-      const res = await fetch(`${API_URL}/api/init`, {
-        credentials: "include",
-      });
-      return res.json() as Promise<{ initialized: boolean; orgName?: string }>;
-    },
+    queryKey: INIT_BOOTSTRAP_QUERY_KEY,
+    queryFn: fetchInitBootstrap,
     staleTime: 10 * 1000,
   });
   const isInitialized = initData?.initialized ?? false;
 
-  const { data: inviteInfo } = useQuery({
-    queryKey: ["invites", "info", inviteFromUrl],
-    queryFn: async () => {
-      if (!inviteFromUrl?.trim()) return null;
-      const res = await fetch(
-        `${API_URL}/api/invites/info?token=${encodeURIComponent(inviteFromUrl)}`,
-        { credentials: "include" },
-      );
-      return res.json() as Promise<{ orgName?: string }>;
-    },
-    enabled: !!inviteFromUrl?.trim(),
-    staleTime: 60_000,
-  });
-
-  const orgName = inviteInfo?.orgName ?? initData?.orgName;
   const {
     register,
     handleSubmit,
@@ -103,10 +88,28 @@ export function SignupPage() {
   const openHostedSignup = async () => {
     setWebAuthPending(true);
     const apiUrl = getRuntimeApiUrl();
+    const fresh = await queryClient.ensureQueryData({
+      queryKey: INIT_BOOTSTRAP_QUERY_KEY,
+      queryFn: fetchInitBootstrap,
+    });
+    let nameForHosted = fresh.orgName;
+    if (inviteFromUrl.trim()) {
+      const info = await queryClient.ensureQueryData({
+        queryKey: ["invites", "info", inviteFromUrl],
+        queryFn: async () => {
+          const res = await fetch(
+            `${API_URL}/api/invites/info?token=${encodeURIComponent(inviteFromUrl)}`,
+            { credentials: "include" },
+          );
+          return res.json() as Promise<{ orgName?: string }>;
+        },
+      });
+      if (info?.orgName) nameForHosted = info.orgName;
+    }
     await window.electronAPI!.openAuthBrowser!(
       "signup",
       apiUrl,
-      orgName,
+      nameForHosted,
       inviteFromUrl || undefined,
     );
     setWebAuthPending(false);
@@ -134,7 +137,7 @@ export function SignupPage() {
             </p>
           </div>
         </div>
-        {isElectron && (
+        {isElectron && isInitialized && (
           <>
             <Button
               className="w-full"

@@ -8,7 +8,7 @@ import {
   useNavigate,
   useSearchParams,
 } from "react-router";
-import { useEffect } from "react";
+import { startTransition, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ErrorBoundary } from "react-error-boundary";
 import { ThemeProvider } from "next-themes";
@@ -44,6 +44,7 @@ import { AppLayout } from "@/layouts/AppLayout";
 import { installDictationTargetBridge } from "@/lib/dictation-target";
 import { AppUpdateBanner } from "@/components/app-update-banner";
 import { ServerHealthGate } from "@/components/server/ServerHealthGate";
+import { authClient } from "@/lib/auth-client";
 
 function RedirectToSettingsConnections() {
   const [searchParams] = useSearchParams();
@@ -89,6 +90,26 @@ function AppRoutes() {
       navigate(path);
     });
   }, [navigate]);
+
+  // Hosted basicsos.com sign-in: main process sets cookies then signals here.
+  // Refetch session instead of webContents.reload() to avoid multi-second UI freeze.
+  // Use requestIdleCallback so the session refetch + heavy React mount waits until
+  // the browser is genuinely idle (DWM compositor & GPU layers fully settled).
+  useEffect(() => {
+    const api = window.electronAPI;
+    if (!api?.onHostedAuthComplete) return;
+    api.onHostedAuthComplete(() => {
+      const notify = () =>
+        startTransition(() => {
+          authClient.$store.notify("$sessionSignal");
+        });
+      if (typeof requestIdleCallback === "function") {
+        requestIdleCallback(notify, { timeout: 3000 });
+      } else {
+        setTimeout(notify, 100);
+      }
+    });
+  }, []);
 
   return (
     <ErrorBoundary

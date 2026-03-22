@@ -2,7 +2,10 @@ const ELECTRON_RENDERER_ORIGINS = new Set(["null", "file://"]);
 
 /** Origins that are always trusted regardless of ALLOWED_ORIGINS env var.
  *  basicsos.com hosts the auth pages that submit credentials to client servers. */
-const ALWAYS_TRUSTED_ORIGINS = new Set(["https://basicsos.com"]);
+const ALWAYS_TRUSTED_ORIGINS = new Set([
+  "https://basicsos.com",
+  "https://www.basicsos.com",
+]);
 
 export function isElectronUserAgent(userAgent: string | undefined | null): boolean {
   return /\bElectron\//i.test(userAgent ?? "");

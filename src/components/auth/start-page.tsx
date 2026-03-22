@@ -3,8 +3,10 @@ import { Navigate } from "react-router";
 import { authClient } from "@/lib/auth-client";
 import { LoginPage } from "./login-page";
 
-import { getRuntimeApiUrl } from "@/lib/runtime-config";
-const API_URL = getRuntimeApiUrl();
+import {
+  fetchInitBootstrap,
+  INIT_BOOTSTRAP_QUERY_KEY,
+} from "@/lib/init-query";
 
 /**
  * Entry point for the app. Handles three cases:
@@ -15,19 +17,15 @@ const API_URL = getRuntimeApiUrl();
 export function StartPage() {
   const { data: session, isPending: sessionPending } = authClient.useSession();
 
-  const { data: isInitialized, isPending: initPending } = useQuery({
-    queryKey: ["init"],
-    queryFn: async () => {
-      const res = await fetch(`${API_URL}/api/init`, {
-        credentials: "include",
-      });
-      const json = (await res.json()) as { initialized: boolean };
-      return json.initialized;
-    },
+  const { data: initData, isPending: initPending } = useQuery({
+    queryKey: INIT_BOOTSTRAP_QUERY_KEY,
+    queryFn: fetchInitBootstrap,
     retry: 1,
     // Only run after we know the session state
     enabled: !sessionPending && !session?.user,
   });
+
+  const isInitialized = initData?.initialized ?? false;
 
   // Still resolving session or init
   if (sessionPending || (!session?.user && initPending)) return null;

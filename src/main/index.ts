@@ -26,6 +26,11 @@ if (process.env["REMOTE_DEBUGGING_PORT"]) {
 // Prevent GPU process crash from killing the app (macOS Mission Control + transparent windows)
 app.commandLine.appendSwitch("disable-gpu-process-crash-limit");
 
+// Disable hardware acceleration — software rendering avoids the DWM + Chromium
+// GPU compositor storms that peg the GPU at 100% on Windows during heavy
+// transitions (e.g. deep-link sign-in mounting the full dashboard).
+app.disableHardwareAcceleration();
+
 import electronUpdater from "electron-updater";
 const { autoUpdater } = electronUpdater;
 import fs from "fs";
@@ -1598,6 +1603,12 @@ async function handleDeepLink(url: string): Promise<void> {
     // All checks passed — consume the nonce
     pendingAuthNonces.delete(state);
 
+    // DO NOT show/focus the window here. On Windows, pulling the window to the
+    // foreground (DWM repaint + compositor layer rebuild) while the renderer is
+    // about to mount the entire dashboard tree pegs the GPU at 100% for seconds.
+    // Instead: exchange code & set cookies silently, signal the renderer, and
+    // only bring the window forward after the heavy React mount has finished.
+
     // Exchange the one-time code for the actual signed cookie value
     console.warn("[deep-link] exchanging auth code…");
     let cookieName: string;
@@ -1656,29 +1667,25 @@ async function handleDeepLink(url: string): Promise<void> {
       });
     }
 
-    // Verify the cookie works
-    try {
-      const verifyRes = await fetch(
-        `${parsedApiUrl.origin}/api/auth/get-session`,
-        {
-          headers: {
-            Cookie: `${cookieName}=${cookieValue}`,
-          },
-        },
-      );
-      const verifyBody = await verifyRes.text();
-      console.warn(
-        `[deep-link] session verify: status=${verifyRes.status} body=${verifyBody.slice(0, 200)}`,
-      );
-    } catch (err) {
-      console.warn("[deep-link] session verify failed:", err);
-    }
-
+    // Signal the renderer to refetch the session. The window stays in the
+    // background so the heavy React mount doesn't fight the GPU compositor.
+    // A short delay lets the cookie store flush before the renderer reads it.
     if (mainWindow && !mainWindow.isDestroyed()) {
-      if (mainWindow.isMinimized()) mainWindow.restore();
-      mainWindow.show();
-      mainWindow.focus();
-      mainWindow.webContents.reload();
+      const win = mainWindow;
+      setTimeout(() => {
+        if (!win.isDestroyed()) {
+          win.webContents.send("hosted-auth-complete");
+        }
+      }, 200);
+
+      // After the renderer has had time to mount the full dashboard (~3-4s),
+      // gently surface the window without stealing focus from the browser.
+      setTimeout(() => {
+        if (!win.isDestroyed()) {
+          if (win.isMinimized()) win.restore();
+          win.showInactive();
+        }
+      }, 4000);
     }
   } catch (err) {
     console.warn("[deep-link] error handling deep link:", err);
@@ -1703,7 +1710,10 @@ if (!gotSingleInstanceLock) {
 } else {
   app.on("second-instance", (_event, argv) => {
     const deepLinkUrl = argv.find((arg) => arg.startsWith("basicsos://"));
-    if (deepLinkUrl) void handleDeepLink(deepLinkUrl);
+    if (deepLinkUrl) {
+      void handleDeepLink(deepLinkUrl);
+      return;
+    }
     if (mainWindow && !mainWindow.isDestroyed()) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.show();
@@ -2133,6 +2143,14 @@ app.whenReady().then(async () => {
     overlayWindow,
     mainWindow,
   );
+
+  // When the app is closed and user clicks basicsos:// sign-in link, Windows launches
+  // this process with the URL in argv. second-instance only fires when another
+  // instance tries to start — so we must process argv on cold start.
+  const coldStartDeepLink = process.argv.find((arg) => arg.startsWith("basicsos://"));
+  if (coldStartDeepLink) {
+    void handleDeepLink(coldStartDeepLink);
+  }
 
   // Fix 1: Force dock visibility — both windows start with show:false and the overlay
   // uses skipTaskbar:true, so macOS may never set the activation policy to "regular".

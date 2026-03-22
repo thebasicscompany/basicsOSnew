@@ -222,6 +222,11 @@ const overlayAPI = {
     ipcRenderer.on("deep-link-auth-error", (_e, data: { message: string }) => cb(data));
   },
 
+  /** Called after hosted sign-in cookies are set; refresh session without full reload. */
+  onHostedAuthComplete: (cb: () => void) => {
+    ipcRenderer.on("hosted-auth-complete", () => cb());
+  },
+
   /** Open the basicsos.com hosted auth page in the system browser and begin
    *  the deep-link sign-in / sign-up / password-reset flow. */
   openAuthBrowser: (
