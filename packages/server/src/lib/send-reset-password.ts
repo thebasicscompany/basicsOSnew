@@ -97,7 +97,19 @@ export function createSendResetPassword(db: Db, env: Env) {
       const token = parseResetTokenFromUrl(url);
       if (token) {
         const apiOrigin = new URL(env.BETTER_AUTH_URL).origin;
-        resetLink = `${baseUrl}/auth/reset-password?token=${encodeURIComponent(token)}&apiUrl=${encodeURIComponent(apiOrigin)}`;
+        const params = new URLSearchParams({
+          token,
+          apiUrl: apiOrigin,
+        });
+        if (organizationId) {
+          const [org] = await db
+            .select({ name: schema.organizations.name })
+            .from(schema.organizations)
+            .where(eq(schema.organizations.id, organizationId))
+            .limit(1);
+          if (org?.name) params.set("orgName", org.name);
+        }
+        resetLink = `${baseUrl}/auth/reset-password?${params.toString()}`;
       }
     }
 

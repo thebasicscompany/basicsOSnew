@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router";
+import { useQuery } from "@tanstack/react-query";
 import { EyeIcon, EyeSlashIcon } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { authClient } from "@/lib/auth-client";
 import { getRuntimeApiUrl } from "@/lib/runtime-config";
 import { ROUTES } from "@basics-os/hub";
+const API_URL = getRuntimeApiUrl();
 import basicsIcon from "@/assets/basicos-icon.png";
 import { SwitchOrganizationBlock } from "@/components/auth/switch-organization-block";
 
@@ -43,10 +45,19 @@ export function LoginPage() {
     }
   };
 
+  const { data: initData } = useQuery({
+    queryKey: ["init"],
+    queryFn: async () => {
+      const res = await fetch(`${API_URL}/api/init`, { credentials: "include" });
+      return res.json() as Promise<{ initialized: boolean; orgName?: string }>;
+    },
+    staleTime: 30_000,
+  });
+
   const openHostedLogin = async () => {
     setWebAuthPending(true);
     const apiUrl = getRuntimeApiUrl();
-    await window.electronAPI!.openAuthBrowser!("login", apiUrl);
+    await window.electronAPI!.openAuthBrowser!("login", apiUrl, initData?.orgName);
     setWebAuthPending(false);
   };
 

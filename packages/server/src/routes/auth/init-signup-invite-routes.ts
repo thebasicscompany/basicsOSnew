@@ -25,8 +25,36 @@ export function registerInitSignupInviteRoutes(
   env: Env,
 ): void {
   app.get("/init", async (c) => {
-    const orgs = await db.select().from(schema.organizations).limit(1);
-    return c.json({ initialized: orgs.length > 0 });
+    const orgs = await db
+      .select({ id: schema.organizations.id, name: schema.organizations.name })
+      .from(schema.organizations)
+      .limit(1);
+    const [org] = orgs;
+    return c.json({
+      initialized: orgs.length > 0,
+      orgName: org?.name ?? undefined,
+    });
+  });
+
+  /** Public endpoint: org name for a valid invite (for basicsos.com signup page). */
+  app.get("/invites/info", async (c) => {
+    const token = c.req.query("token")?.trim();
+    if (!token) return c.json({ orgName: undefined });
+    const [invite] = await db
+      .select({
+        organizationId: schema.invites.organizationId,
+      })
+      .from(schema.invites)
+      .where(eq(schema.invites.token, token))
+      .limit(1);
+    if (!invite || invite.organizationId == null) return c.json({ orgName: undefined });
+    const [org] = await db
+      .select({ name: schema.organizations.name })
+      .from(schema.organizations)
+      .where(eq(schema.organizations.id, invite.organizationId))
+      .limit(1);
+    if (!org) return c.json({ orgName: undefined });
+    return c.json({ orgName: org.name ?? undefined });
   });
 
   app.post("/signup", async (c) => {
@@ -222,11 +250,21 @@ export function registerInitSignupInviteRoutes(
       },
     });
 
+    const [org] = await db
+      .select({ name: schema.organizations.name })
+      .from(schema.organizations)
+      .where(eq(schema.organizations.id, crmUser.organizationId))
+      .limit(1);
     const baseUrl = (env.INVITE_LINK_BASE_URL ?? "https://basicsos.com").replace(/\/$/, "");
     const apiOrigin = new URL(env.BETTER_AUTH_URL).origin;
     const isHostedAuth = baseUrl.includes("basicsos.com");
+    const signupParams = new URLSearchParams({
+      invite: token,
+      apiUrl: apiOrigin,
+    });
+    if (org?.name) signupParams.set("orgName", org.name);
     const signupLink = isHostedAuth
-      ? `${baseUrl}/auth/signup?invite=${token}&apiUrl=${encodeURIComponent(apiOrigin)}`
+      ? `${baseUrl}/auth/signup?${signupParams.toString()}`
       : `${baseUrl}/sign-up?invite=${token}`;
 
     let emailSent = false;

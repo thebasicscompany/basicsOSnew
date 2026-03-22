@@ -83,6 +83,8 @@ export type OverlayElectronAPI = {
   openAuthBrowser?: (
     action: "login" | "signup" | "forgot-password",
     apiUrl: string,
+    orgName?: string,
+    invite?: string,
   ) => Promise<void>;
   probeApiUrl?: (url: string) => Promise<{
     ok: boolean;

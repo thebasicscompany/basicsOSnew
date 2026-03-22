@@ -47,7 +47,8 @@ const isSensitivePath = (path: string): boolean => {
     path.startsWith("/api/auth/") ||
     path.startsWith("/api/auth-code") ||
     path === "/api/signup" ||
-    path === "/api/invites" ||
+    path.startsWith("/api/invites") ||
+    path === "/api/init" ||
     path === "/api/gateway-chat" ||
     path === "/stream/assistant" ||
     path.startsWith("/v1/audio/")

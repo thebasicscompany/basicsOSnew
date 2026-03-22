@@ -1036,7 +1036,13 @@ ipcMain.on("data-changed", (_event, queryKeys: string[]) => {
 // the deep-link auth flow. A short-lived state nonce prevents CSRF replay.
 ipcMain.handle(
   "open-auth-browser",
-  (_event, action: string, apiUrl: string) => {
+  (
+    _event,
+    action: string,
+    apiUrl: string,
+    orgName?: string,
+    invite?: string,
+  ) => {
     const validActions = new Set(["login", "signup", "forgot-password"]);
     const safeAction = validActions.has(action) ? action : "login";
     const state = randomUUID();
@@ -1049,6 +1055,9 @@ ipcMain.handle(
       state,
       redirect: "basicsos://auth/callback",
     });
+    if (orgName?.trim()) params.set("orgName", orgName.trim());
+    if (safeAction === "signup" && invite?.trim())
+      params.set("invite", invite.trim());
     const url = `https://basicsos.com/auth/${safeAction}?${params.toString()}`;
     shell.openExternal(url).catch(() => undefined);
   },

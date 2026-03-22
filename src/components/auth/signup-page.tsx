@@ -31,17 +31,33 @@ export function SignupPage() {
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [webAuthPending, setWebAuthPending] = useState(false);
-  const { data: isInitialized } = useQuery({
+  const { data: initData } = useQuery({
     queryKey: ["init"],
     queryFn: async () => {
       const res = await fetch(`${API_URL}/api/init`, {
         credentials: "include",
       });
-      const json = (await res.json()) as { initialized: boolean };
-      return json.initialized;
+      return res.json() as Promise<{ initialized: boolean; orgName?: string }>;
     },
     staleTime: 10 * 1000,
   });
+  const isInitialized = initData?.initialized ?? false;
+
+  const { data: inviteInfo } = useQuery({
+    queryKey: ["invites", "info", inviteFromUrl],
+    queryFn: async () => {
+      if (!inviteFromUrl?.trim()) return null;
+      const res = await fetch(
+        `${API_URL}/api/invites/info?token=${encodeURIComponent(inviteFromUrl)}`,
+        { credentials: "include" },
+      );
+      return res.json() as Promise<{ orgName?: string }>;
+    },
+    enabled: !!inviteFromUrl?.trim(),
+    staleTime: 60_000,
+  });
+
+  const orgName = inviteInfo?.orgName ?? initData?.orgName;
   const {
     register,
     handleSubmit,
@@ -87,7 +103,12 @@ export function SignupPage() {
   const openHostedSignup = async () => {
     setWebAuthPending(true);
     const apiUrl = getRuntimeApiUrl();
-    await window.electronAPI!.openAuthBrowser!("signup", apiUrl);
+    await window.electronAPI!.openAuthBrowser!(
+      "signup",
+      apiUrl,
+      orgName,
+      inviteFromUrl || undefined,
+    );
     setWebAuthPending(false);
   };
 

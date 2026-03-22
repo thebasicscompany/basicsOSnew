@@ -227,8 +227,16 @@ const overlayAPI = {
   openAuthBrowser: (
     action: "login" | "signup" | "forgot-password",
     apiUrl: string,
+    orgName?: string,
+    invite?: string,
   ) =>
-    ipcRenderer.invoke("open-auth-browser", action, apiUrl) as Promise<void>,
+    ipcRenderer.invoke(
+      "open-auth-browser",
+      action,
+      apiUrl,
+      orgName,
+      invite,
+    ) as Promise<void>,
   probeApiUrl: (url: string) =>
     ipcRenderer.invoke("probe-api-url", url) as Promise<{
       ok: boolean;
