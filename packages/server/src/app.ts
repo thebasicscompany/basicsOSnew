@@ -7,7 +7,6 @@ import type { Context, Next } from "hono";
 import { createAuth } from "@/auth.js";
 import type { Db } from "@/db/client.js";
 import type { Env } from "@/env.js";
-import { handleClaimDeepLinkSession } from "@/routes/auth/claim-deep-link-session.js";
 import { createAuthRoutes } from "@/routes/auth.js";
 import { createAutomationRunsRoutes } from "@/routes/automation-runs.js";
 import { createCrmRoutes } from "@/routes/crm/index.js";
@@ -46,6 +45,7 @@ const getClientKey = (c: Context): string => {
 const isSensitivePath = (path: string): boolean => {
   return (
     path.startsWith("/api/auth/") ||
+    path.startsWith("/api/auth-code") ||
     path === "/api/signup" ||
     path === "/api/invites" ||
     path === "/api/gateway-chat" ||
@@ -160,11 +160,6 @@ export function createApp(db: Db, env: Env) {
       );
     }
   });
-
-  // Claim deep-link session (before auth handler — sets signed cookie from raw token)
-  app.get("/api/auth/claim-deep-link-session", (c) =>
-    handleClaimDeepLinkSession(c, db, env),
-  );
 
   // Better Auth
   app.on(["GET", "POST"], "/api/auth/*", (c) => auth.handler(c.req.raw));

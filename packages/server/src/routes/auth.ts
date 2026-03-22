@@ -6,6 +6,7 @@ import type { createAuth } from "@/auth.js";
 import { registerInitSignupInviteRoutes } from "@/routes/auth/init-signup-invite-routes.js";
 import { registerMeSettingsRoutes } from "@/routes/auth/me-settings-routes.js";
 import { registerOrganizationRoutes } from "@/routes/auth/organization-routes.js";
+import { registerAuthCodeRoutes } from "@/routes/auth/auth-code-routes.js";
 
 export function createAuthRoutes(
   db: Db,
@@ -26,6 +27,7 @@ export function createAuthRoutes(
   registerInitSignupInviteRoutes(app, db, auth, env);
   registerMeSettingsRoutes(app, db, auth, env);
   registerOrganizationRoutes(app, db, auth);
+  registerAuthCodeRoutes(app, db, auth);
 
   return app;
 }

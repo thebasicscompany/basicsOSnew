@@ -1500,9 +1500,22 @@ async function clearCacheIfVersionChanged(): Promise<void> {
 }
 
 /**
- * Handle a `basicsos://auth/callback?token=X&apiUrl=Y&state=S` deep link.
- * Validates the state nonce, injects the Better Auth session token into
- * Electron's cookie store for the client's API origin, then navigates home.
+ * Handle a `basicsos://auth/callback?code=X&apiUrl=Y&state=S` deep link.
+ *
+ * Better Auth **signs** session cookies with the server secret. The raw
+ * `response.token` from a sign-in request is NOT the cookie value — the cookie
+ * is `token.signature`. Because we can't replicate the signing client-side, we
+ * use a two-step auth-code exchange:
+ *
+ *  1. basicsos.com signs the user in (server sets a signed session cookie
+ *     on the browser via Set-Cookie).
+ *  2. basicsos.com calls `POST {apiUrl}/api/auth-code` with that cookie →
+ *     receives a one-time `code`.
+ *  3. basicsos.com passes the code via deep link.
+ *  4. Electron exchanges the code for the actual signed cookie value via
+ *     `POST {apiUrl}/api/auth-code/exchange`.
+ *  5. Electron injects the signed cookie into Electron's cookie store and
+ *     reloads.
  */
 async function handleDeepLink(url: string): Promise<void> {
   try {
@@ -1510,16 +1523,15 @@ async function handleDeepLink(url: string): Promise<void> {
     if (parsed.protocol !== "basicsos:") return;
     if (parsed.hostname !== "auth" || parsed.pathname !== "/callback") return;
 
-    const token = parsed.searchParams.get("token");
+    const code = parsed.searchParams.get("code");
     const apiUrl = parsed.searchParams.get("apiUrl");
     const state = parsed.searchParams.get("state");
 
-    if (!token || !apiUrl || !state) {
-      console.warn("[deep-link] missing required params (token/apiUrl/state)");
+    if (!code || !apiUrl || !state) {
+      console.warn("[deep-link] missing required params (code/apiUrl/state)");
       return;
     }
 
-    // Validate the state nonce (do NOT consume yet — consume only after all checks pass)
     const nonce = pendingAuthNonces.get(state);
     if (!nonce) {
       console.warn("[deep-link] unknown or already-used state nonce — ignoring");
@@ -1531,7 +1543,6 @@ async function handleDeepLink(url: string): Promise<void> {
       return;
     }
 
-    // Validate apiUrl is a legitimate http(s) URL and matches this app's configured API
     let parsedApiUrl: URL;
     try {
       parsedApiUrl = new URL(apiUrl);
@@ -1543,8 +1554,7 @@ async function handleDeepLink(url: string): Promise<void> {
       console.warn("[deep-link] invalid apiUrl protocol:", parsedApiUrl.protocol);
       return;
     }
-    // Only accept callbacks for this app's configured backend — prevents a malicious
-    // basicsos.com from redirecting the token to an attacker-controlled domain.
+
     const configuredApiUrl = resolveApiUrl();
     try {
       const expectedOrigin = new URL(configuredApiUrl).origin;
@@ -1559,35 +1569,91 @@ async function handleDeepLink(url: string): Promise<void> {
       return;
     }
 
-    // All checks passed — consume the nonce now
+    // All checks passed — consume the nonce
     pendingAuthNonces.delete(state);
 
-    // Load the claim URL in a hidden window. The server validates the token,
-    // signs it, and returns Set-Cookie. Electron stores those cookies in the
-    // default session (shared with the main window).
-    const claimUrl = `${parsedApiUrl.origin}/api/auth/claim-deep-link-session?token=${encodeURIComponent(token)}`;
-    const claimWindow = new BrowserWindow({
-      show: false,
-      webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: true,
-      },
-    });
-    let claimed = false;
-    const finishClaim = () => {
-      if (claimed) return;
-      claimed = true;
-      if (!claimWindow.isDestroyed()) claimWindow.close();
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        if (mainWindow.isMinimized()) mainWindow.restore();
-        mainWindow.show();
-        mainWindow.focus();
-        mainWindow.webContents.reload();
+    // Exchange the one-time code for the actual signed cookie value
+    console.warn("[deep-link] exchanging auth code…");
+    let cookieName: string;
+    let cookieValue: string;
+    try {
+      const exchangeRes = await fetch(
+        `${parsedApiUrl.origin}/api/auth-code/exchange`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code }),
+        },
+      );
+      if (!exchangeRes.ok) {
+        const errBody = await exchangeRes.text();
+        console.warn(`[deep-link] auth-code exchange failed: ${exchangeRes.status} ${errBody}`);
+        return;
       }
+      const exchangeData = (await exchangeRes.json()) as {
+        cookieName: string;
+        cookieValue: string;
+      };
+      cookieName = exchangeData.cookieName;
+      cookieValue = exchangeData.cookieValue;
+    } catch (err) {
+      console.warn("[deep-link] auth-code exchange request error:", err);
+      return;
+    }
+
+    if (!cookieName || !cookieValue) {
+      console.warn("[deep-link] exchange returned empty cookie data");
+      return;
+    }
+
+    // Inject the signed cookie into Electron's cookie store
+    const isHttps = parsedApiUrl.protocol === "https:";
+    const cookieBase = {
+      url: parsedApiUrl.origin,
+      value: cookieValue,
+      httpOnly: true,
+      secure: isHttps,
+      sameSite: isHttps ? ("no_restriction" as const) : ("lax" as const),
+      expirationDate: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
     };
-    claimWindow.webContents.on("did-finish-load", finishClaim);
-    claimWindow.webContents.on("did-fail-load", () => finishClaim());
-    void claimWindow.loadURL(claimUrl);
+
+    // Set both cookie name variants so the session is found regardless of which
+    // name the renderer sends
+    await session.defaultSession.cookies.set({
+      ...cookieBase,
+      name: "better-auth.session_token",
+    });
+    if (isHttps) {
+      await session.defaultSession.cookies.set({
+        ...cookieBase,
+        name: "__Secure-better-auth.session_token",
+      });
+    }
+
+    // Verify the cookie works
+    try {
+      const verifyRes = await fetch(
+        `${parsedApiUrl.origin}/api/auth/get-session`,
+        {
+          headers: {
+            Cookie: `${cookieName}=${cookieValue}`,
+          },
+        },
+      );
+      const verifyBody = await verifyRes.text();
+      console.warn(
+        `[deep-link] session verify: status=${verifyRes.status} body=${verifyBody.slice(0, 200)}`,
+      );
+    } catch (err) {
+      console.warn("[deep-link] session verify failed:", err);
+    }
+
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+      mainWindow.webContents.reload();
+    }
   } catch (err) {
     console.warn("[deep-link] error handling deep link:", err);
   }
