@@ -141,7 +141,7 @@ Views, columns, sorts, and filters are persisted via `/api/views/*` and used by 
 - Set `externalizeDeps: true` or use `externalizeDeps: { exclude: [...] }` — the exclude-list approach leads to whack-a-mole with transitive deps (`ms`, `debug`, `@electron-toolkit/utils`, etc.).
 - Move dependencies to `devDependencies` thinking electron-builder will skip them — it doesn't matter because we bundle everything via Vite anyway.
 
-**Variant builds:** `electron-builder.client.yml` and `electron-builder.team.yml` produce separate DMGs with distinct `appId`/`productName` so they install side-by-side. Build with `pnpm build:mac:client`, `pnpm build:mac:team`, or `pnpm build:mac:both`.
+**macOS DMG (local):** `pnpm build:mac` runs `electron-builder` with the default `electron-builder.yml`.
 
 ### Adding Custom Fields
 

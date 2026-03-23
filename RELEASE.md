@@ -133,17 +133,13 @@ ERR_MODULE_NOT_FOUND: Cannot find package 'X' imported from .../app.asar/out/mai
 
 Only native addons that Rollup cannot bundle (like `screencapturekit-audio-capture`) should be in `rollupOptions.external`.
 
-### Building variant DMGs locally
-
-To build separate "Client" and "Team" DMGs (distinct names so they install side-by-side):
+### Building a macOS DMG locally
 
 ```bash
-pnpm build:mac:client   # → dist/Basics-Hub-Client-{version}.dmg
-pnpm build:mac:team     # → dist/Basics-Hub-Team-{version}.dmg
-pnpm build:mac:both     # → builds both sequentially
+pnpm build:mac
 ```
 
-These use `electron-builder.client.yml` and `electron-builder.team.yml` which override `appId`, `productName`, and `artifactName`.
+Uses `electron-builder.yml` (default `appId` / `productName`). Output lands under `dist/`.
 
 ## Where to find logs (installed app)
 
