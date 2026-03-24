@@ -53,7 +53,7 @@ Update workflow (CRITICAL — follow exactly):
    - If you know the record's exact name → call update_contact / update_deal / update_company directly with company_name/contact_name/deal_name.
    - If the user describes a record by a detail (e.g. "the company about touching people") → call search_companies/search_contacts/search_deals/search_tasks ONCE. The result will show the name and id (e.g. "Katars (id: 42)"). Then IMMEDIATELY call the update tool using that id.
    - NEVER search more than once. NEVER search again after you already have results. Use the id from the first search result.
-2. Available update tools: update_contact (fields: first_name, last_name, email), update_deal (fields: name, status, amount), update_company (fields: name, category, domain, description). For deals, "stage" and "status" mean the same thing — when the user asks to change the stage, update the status.
+2. Available update tools: update_contact (fields: first_name, last_name, email, linkedin_url, custom_fields), update_deal (fields: name, status, amount, custom_fields), update_company (fields: name, category, domain, description, custom_fields). For deals, "stage" and "status" mean the same thing — when the user asks to change the stage, update the status. For any user-defined/custom column, use the custom_fields parameter with the field's column name as the key (e.g. custom_fields: {"phone": "+1234567890"}).
 3. After any update, confirm to the user what changed.
 4. Common multi-step patterns you must finish before replying:
    - search_companies/search_contacts/search_deals/search_tasks -> update_company/update_contact/update_deal
@@ -61,10 +61,19 @@ Update workflow (CRITICAL — follow exactly):
    - search_contacts/search_companies/search_tasks -> create_task when a lookup is needed before linking
    - search_contacts/search_deals -> add_note
 
+Custom field workflow (CRITICAL):
+- When the user asks to add/create a new column, field, or attribute on contacts, companies, or deals (e.g. "add a phone field to contacts", "add an industry column to companies"), use add_custom_field.
+- When the user asks to set a value on a field that doesn't exist yet as a built-in column, first call add_custom_field to create it, then use the corresponding update tool with custom_fields to set the value.
+- Built-in contact fields (first_name, last_name, email, linkedin_url) do NOT need add_custom_field. Only use add_custom_field for fields beyond those.
+- Built-in company fields (name, domain, category, description) do NOT need add_custom_field.
+- Built-in deal fields (name, status, amount) do NOT need add_custom_field.
+- Choose the right field_type: 'phone' for phone numbers, 'email' for email addresses, 'domain' for URLs/websites, 'date' for dates, 'number'/'currency' for numeric/money values, 'select' for dropdowns, 'text' for everything else.
+- After creating a field with add_custom_field, if the user also provided a value, immediately call the update tool (update_contact, update_company, update_deal) with custom_fields: {"field_name": "value"} to set it.
+
 Record creation workflow (CRITICAL):
 - Before creating ANY record, check what fields the user has provided vs what's missing.
 - If required or important fields are missing, ask for them SPECIFICALLY — name the exact fields AND the person/company you need them for.
-- Contact fields: first_name/last_name (required), email (ask if missing), company (ask if missing), phone (ask if missing). Example: "What's Sarah's email address, phone number, and company?"
+- Contact fields: first_name/last_name (required), email (ask if missing), company (ask if missing), linkedin_url (set if provided), phone (ask if missing — goes in custom_fields). Example: "What's Sarah's email address, phone number, and company?"
 - For BULK contacts (multiple people at once without details), ask per-person: "For Mike Torres — what's his email, phone, and company? For Elena Vasquez — same info?"
 - Deal fields: name (required), amount (ask: "What's the deal value?"), stage/status (ask: "What stage — Lead, Qualified, Proposal, or Closed Won?"), company (ask if missing).
 - Company fields: name (required), domain (ask: "What's their website domain?"), category (ask: "What category — e.g. B2B, SaaS, Enterprise?").
@@ -124,7 +133,7 @@ Pages & features that EXIST (with navigation paths):
   - Connections: connect Gmail and Slack for email search and message search (Settings → Connections tab)
   - Personal CRM API tokens: generate API tokens for programmatic access to the CRM REST API (Settings → scroll to "Personal CRM API tokens" section). Tokens use Bearer auth.
 - Search: global command palette search (sidebar → Search, or Cmd/Ctrl+K)
-- Custom fields: add custom fields to any object type (contacts, companies, deals, etc.)
+- Custom fields: add custom fields to any object type (contacts, companies, deals, etc.). You can also add custom fields via the chat using the add_custom_field tool.
 - Views: saved views with filters, sorts, and column configuration (on any list page, click the view tabs)
 - RBAC: role-based access control for team members
 
@@ -178,6 +187,8 @@ export const createContactSchema = z.object({
   email: z.string().email().optional(),
   company_id: z.number().int().positive().optional(),
   company_name: z.string().min(1).optional(),
+  linkedin_url: z.string().optional(),
+  custom_fields: z.record(z.unknown()).optional(),
 });
 export const updateContactSchema = z
   .object({
@@ -186,6 +197,8 @@ export const updateContactSchema = z
     first_name: z.string().optional(),
     last_name: z.string().optional(),
     email: z.string().email().optional(),
+    linkedin_url: z.string().optional(),
+    custom_fields: z.record(z.unknown()).optional(),
   })
   .superRefine((v, ctx) => {
     if (!v.id && !v.contact_name) {
@@ -197,12 +210,14 @@ export const updateContactSchema = z
     if (
       v.first_name === undefined &&
       v.last_name === undefined &&
-      v.email === undefined
+      v.email === undefined &&
+      v.linkedin_url === undefined &&
+      v.custom_fields === undefined
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message:
-          "At least one update field (first_name, last_name, email) is required",
+          "At least one update field (first_name, last_name, email, linkedin_url, custom_fields) is required",
       });
     }
   });
@@ -231,6 +246,7 @@ export const createDealSchema = z.object({
   company_id: z.number().int().positive().optional(),
   company_name: z.string().min(1).optional(),
   amount: z.number().optional(),
+  custom_fields: z.record(z.unknown()).optional(),
 });
 export const updateDealSchema = z
   .object({
@@ -239,6 +255,7 @@ export const updateDealSchema = z
     name: z.string().optional(),
     status: z.string().optional(),
     amount: z.number().optional(),
+    custom_fields: z.record(z.unknown()).optional(),
   })
   .superRefine((v, ctx) => {
     if (!v.id && !v.deal_name) {
@@ -250,11 +267,12 @@ export const updateDealSchema = z
     if (
       v.name === undefined &&
       v.status === undefined &&
-      v.amount === undefined
+      v.amount === undefined &&
+      v.custom_fields === undefined
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "At least one update field (name, status, amount) is required",
+        message: "At least one update field (name, status, amount, custom_fields) is required",
       });
     }
   });
@@ -281,6 +299,7 @@ export const createCompanySchema = z.object({
   category: z.string().optional(),
   domain: z.string().optional(),
   description: z.string().optional(),
+  custom_fields: z.record(z.unknown()).optional(),
 });
 export const updateCompanySchema = z
   .object({
@@ -290,6 +309,7 @@ export const updateCompanySchema = z
     category: z.string().optional(),
     domain: z.string().optional(),
     description: z.string().optional(),
+    custom_fields: z.record(z.unknown()).optional(),
   })
   .superRefine((v, ctx) => {
     if (!v.id && !v.company_name) {
@@ -302,12 +322,13 @@ export const updateCompanySchema = z
       v.name === undefined &&
       v.category === undefined &&
       v.domain === undefined &&
-      v.description === undefined
+      v.description === undefined &&
+      v.custom_fields === undefined
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message:
-          "At least one update field (name, category, domain, description) is required",
+          "At least one update field (name, category, domain, description, custom_fields) is required",
       });
     }
   });
@@ -435,6 +456,34 @@ export const addNoteSchema = z
     }
   });
 
+export const addCustomFieldSchema = z.object({
+  resource: z.enum(["contacts", "companies", "deals"]),
+  name: z.string().min(1),
+  label: z.string().min(1),
+  field_type: z
+    .enum([
+      "text",
+      "long-text",
+      "number",
+      "currency",
+      "select",
+      "multi-select",
+      "status",
+      "checkbox",
+      "date",
+      "timestamp",
+      "rating",
+      "email",
+      "domain",
+      "phone",
+      "location",
+    ])
+    .default("text"),
+  options: z
+    .array(z.union([z.string(), z.object({ id: z.string(), label: z.string(), color: z.string().optional() })]))
+    .optional(),
+});
+
 export const searchGmailSchema = z.object({
   query: z.string().min(1),
   max_results: z.number().int().min(1).max(20).optional(),
@@ -498,6 +547,14 @@ export const OPENAI_TOOL_DEFS = [
             type: "string",
             description: "Company name to link to",
           },
+          linkedin_url: {
+            type: "string",
+            description: "LinkedIn profile URL (e.g. https://linkedin.com/in/username)",
+          },
+          custom_fields: {
+            type: "object",
+            description: "Key-value pairs for any custom fields defined on contacts (use the field's column name as key, e.g. {\"phone\": \"+1234567890\", \"title\": \"CEO\"})",
+          },
         },
         required: [],
       },
@@ -508,7 +565,7 @@ export const OPENAI_TOOL_DEFS = [
     function: {
       name: "update_contact",
       description:
-        "Update an existing contact. Use id (preferred, from a prior search) or contact_name. Call this immediately after finding the contact — do NOT search again.",
+        "Update an existing contact. Use id (preferred, from a prior search) or contact_name. Call this immediately after finding the contact — do NOT search again. Supports linkedin_url and custom_fields for any user-defined columns.",
       parameters: {
         type: "object",
         properties: {
@@ -520,6 +577,14 @@ export const OPENAI_TOOL_DEFS = [
           first_name: { type: "string" },
           last_name: { type: "string" },
           email: { type: "string" },
+          linkedin_url: {
+            type: "string",
+            description: "LinkedIn profile URL",
+          },
+          custom_fields: {
+            type: "object",
+            description: "Key-value pairs to set custom fields (use the field's column name as key)",
+          },
         },
         required: [],
       },
@@ -578,6 +643,10 @@ export const OPENAI_TOOL_DEFS = [
             description: "Company name to link to",
           },
           amount: { type: "number" },
+          custom_fields: {
+            type: "object",
+            description: "Key-value pairs for any custom fields defined on deals",
+          },
         },
         required: ["name"],
       },
@@ -588,7 +657,7 @@ export const OPENAI_TOOL_DEFS = [
     function: {
       name: "update_deal",
       description:
-        "Update an existing deal. Use when the user wants to change deal stage, status, amount, or name. Stage and status mean the same thing — use the status parameter. Use id (preferred, from a prior search) or deal_name. Call this immediately after finding the deal — do NOT search again.",
+        "Update an existing deal. Use when the user wants to change deal stage, status, amount, name, or any custom field. Stage and status mean the same thing — use the status parameter. Use id (preferred, from a prior search) or deal_name. Call this immediately after finding the deal — do NOT search again.",
       parameters: {
         type: "object",
         properties: {
@@ -597,6 +666,10 @@ export const OPENAI_TOOL_DEFS = [
           name: { type: "string" },
           status: { type: "string", description: "New status/stage (stage and status mean the same thing)" },
           amount: { type: "number" },
+          custom_fields: {
+            type: "object",
+            description: "Key-value pairs to set custom fields on the deal",
+          },
         },
         required: [],
       },
@@ -645,6 +718,10 @@ export const OPENAI_TOOL_DEFS = [
           category: { type: "string" },
           domain: { type: "string" },
           description: { type: "string" },
+          custom_fields: {
+            type: "object",
+            description: "Key-value pairs for any custom fields defined on companies",
+          },
         },
         required: ["name"],
       },
@@ -655,7 +732,7 @@ export const OPENAI_TOOL_DEFS = [
     function: {
       name: "update_company",
       description:
-        "Update/rename an existing company. Use id (preferred, from a prior search result) or company_name. Call this immediately after finding the company — do NOT search again.",
+        "Update/rename an existing company. Use id (preferred, from a prior search result) or company_name. Call this immediately after finding the company — do NOT search again. Supports custom_fields for any user-defined columns.",
       parameters: {
         type: "object",
         properties: {
@@ -671,6 +748,10 @@ export const OPENAI_TOOL_DEFS = [
           category: { type: "string" },
           domain: { type: "string" },
           description: { type: "string" },
+          custom_fields: {
+            type: "object",
+            description: "Key-value pairs to set custom fields on the company",
+          },
         },
         required: [],
       },
@@ -880,6 +961,59 @@ export const OPENAI_TOOL_DEFS = [
           },
         },
         required: ["meeting_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_custom_field",
+      description:
+        "Add a new custom column/field to contacts, companies, or deals. Use when the user asks to add a new field like phone, LinkedIn, title, industry, etc. that doesn't exist yet. After adding the field, you can immediately set its value using update_contact/update_company/update_deal with custom_fields. The field name is auto-normalized to lowercase with underscores.",
+      parameters: {
+        type: "object",
+        properties: {
+          resource: {
+            type: "string",
+            enum: ["contacts", "companies", "deals"],
+            description: "Which object type to add the field to",
+          },
+          name: {
+            type: "string",
+            description: "Internal field name (e.g. 'phone_number', 'job_title', 'industry'). Will be normalized to lowercase with underscores.",
+          },
+          label: {
+            type: "string",
+            description: "Display label shown in the UI (e.g. 'Phone Number', 'Job Title', 'Industry')",
+          },
+          field_type: {
+            type: "string",
+            enum: [
+              "text",
+              "long-text",
+              "number",
+              "currency",
+              "select",
+              "multi-select",
+              "status",
+              "checkbox",
+              "date",
+              "timestamp",
+              "rating",
+              "email",
+              "domain",
+              "phone",
+              "location",
+            ],
+            description: "The type of field. Use 'text' for general text, 'phone' for phone numbers, 'email' for emails, 'domain' for URLs/websites, 'number' for numeric values, 'currency' for money amounts, 'date' for dates, 'select' for single-choice dropdowns (provide options), 'checkbox' for yes/no. Default: 'text'.",
+          },
+          options: {
+            type: "array",
+            items: { type: "string" },
+            description: "Options for select/multi-select/status field types (e.g. ['Option A', 'Option B'])",
+          },
+        },
+        required: ["resource", "name", "label"],
       },
     },
   },

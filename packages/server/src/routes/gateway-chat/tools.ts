@@ -13,6 +13,7 @@ import {
   searchTasksByQuery,
 } from "@/lib/resolve-by-name.js";
 import {
+  addCustomFieldSchema,
   addNoteSchema,
   completeTaskSchema,
   createCompanySchema,
@@ -269,6 +270,8 @@ export async function executeValidatedTool(
         lastName: args.last_name ?? null,
         email: args.email ?? null,
         companyId,
+        linkedinUrl: args.linkedin_url ?? null,
+        customFields: args.custom_fields ?? {},
       })
       .returning();
     if (!row) return "Error: failed to create contact";
@@ -307,6 +310,15 @@ export async function executeValidatedTool(
     if (args.first_name !== undefined) updates.firstName = args.first_name;
     if (args.last_name !== undefined) updates.lastName = args.last_name;
     if (args.email !== undefined) updates.email = args.email;
+    if (args.linkedin_url !== undefined) updates.linkedinUrl = args.linkedin_url;
+    if (args.custom_fields !== undefined) {
+      const [existing] = await db
+        .select({ customFields: schema.contacts.customFields })
+        .from(schema.contacts)
+        .where(and(eq(schema.contacts.id, id), eq(schema.contacts.organizationId, organizationId)))
+        .limit(1);
+      updates.customFields = { ...(existing?.customFields ?? {}), ...args.custom_fields };
+    }
 
     const [row] = await db
       .update(schema.contacts)
@@ -399,6 +411,7 @@ export async function executeValidatedTool(
         status: args.status ?? "opportunity",
         companyId,
         amount: args.amount ?? null,
+        customFields: args.custom_fields ?? {},
       })
       .returning();
     if (!row) return "Error: failed to create deal";
@@ -437,6 +450,14 @@ export async function executeValidatedTool(
     if (args.name !== undefined) updates.name = args.name;
     if (args.status !== undefined) updates.status = args.status;
     if (args.amount !== undefined) updates.amount = args.amount;
+    if (args.custom_fields !== undefined) {
+      const [existing] = await db
+        .select({ customFields: schema.deals.customFields })
+        .from(schema.deals)
+        .where(and(eq(schema.deals.id, id), eq(schema.deals.organizationId, organizationId), isNull(schema.deals.archivedAt)))
+        .limit(1);
+      updates.customFields = { ...(existing?.customFields ?? {}), ...args.custom_fields };
+    }
 
     const [row] = await db
       .update(schema.deals)
@@ -511,6 +532,7 @@ export async function executeValidatedTool(
         category: args.category ?? null,
         domain: args.domain ?? null,
         description: args.description ?? null,
+        customFields: args.custom_fields ?? {},
       })
       .returning();
     return row
@@ -540,6 +562,14 @@ export async function executeValidatedTool(
     if (args.category !== undefined) updates.category = args.category;
     if (args.domain !== undefined) updates.domain = args.domain;
     if (args.description !== undefined) updates.description = args.description;
+    if (args.custom_fields !== undefined) {
+      const [existing] = await db
+        .select({ customFields: schema.companies.customFields })
+        .from(schema.companies)
+        .where(and(eq(schema.companies.id, id), eq(schema.companies.organizationId, organizationId)))
+        .limit(1);
+      updates.customFields = { ...(existing?.customFields ?? {}), ...args.custom_fields };
+    }
 
     const [row] = await db
       .update(schema.companies)
@@ -980,6 +1010,43 @@ export async function executeValidatedTool(
     if (linked.length === 0)
       return "Could not link meeting — no valid contact or company found.";
     return `Linked meeting #${args.meeting_id} to ${linked.join(" and ")}.`;
+  }
+
+  if (toolName === "add_custom_field") {
+    const parsed = addCustomFieldSchema.safeParse(rawArgs);
+    if (!parsed.success)
+      return { error: "Invalid arguments", details: parsed.error.flatten() };
+    const args = parsed.data;
+    const safeName = args.name.toLowerCase().replace(/[^a-z0-9_]/g, "_");
+
+    const [existing] = await db
+      .select({ id: schema.customFieldDefs.id })
+      .from(schema.customFieldDefs)
+      .where(
+        and(
+          eq(schema.customFieldDefs.resource, args.resource),
+          eq(schema.customFieldDefs.name, safeName),
+          eq(schema.customFieldDefs.organizationId, organizationId),
+        ),
+      )
+      .limit(1);
+    if (existing) {
+      return `Field "${args.label}" (${safeName}) already exists on ${args.resource}. You can set values using custom_fields: {"${safeName}": "value"} in the update tool.`;
+    }
+
+    const [row] = await db
+      .insert(schema.customFieldDefs)
+      .values({
+        resource: args.resource,
+        name: safeName,
+        label: args.label,
+        fieldType: args.field_type,
+        options: args.options ?? null,
+        organizationId,
+      })
+      .returning();
+    if (!row) return "Error: failed to create custom field";
+    return `Custom field "${args.label}" (column: ${safeName}, type: ${args.field_type}) added to ${args.resource}. To set values, use custom_fields: {"${safeName}": "value"} in the update tool.`;
   }
 
   if (toolName === "search_gmail") {
