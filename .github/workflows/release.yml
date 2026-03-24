@@ -32,10 +32,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_OPTIONS: '--max-old-space-size=4096'
-          # Set the default production API URL baked into the public release.
-          # Per-org installers are built locally with their own VITE_API_URL and
-          # the app persists that URL in userData so auto-updates never overwrite it.
-          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          # API URL baked into the release. When vars.VITE_API_URL is unset, use
+          # localhost so the first probe fails and users see the server selection
+          # screen to enter their own server. Set vars.VITE_API_URL for per-org builds.
+          VITE_API_URL: ${{ vars.VITE_API_URL || 'http://localhost:3001' }}
           # macOS only: code signing (CSC_*) and notarization (APPLE_*). Optional:
           # add CSC_LINK, CSC_KEY_PASSWORD, APPLE_APP_SPECIFIC_PASSWORD for signed/notarized builds.
           CSC_LINK: ${{ matrix.os == 'macos-latest' && secrets.CSC_LINK || '' }}
