@@ -1,7 +1,11 @@
 import type { Context, Next } from "hono";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import type { Db } from "@/db/client.js";
 import * as schema from "@/db/schema/index.js";
+import {
+  hashCrmApiToken,
+  isCrmApiTokenFormat,
+} from "@/lib/crm-api-token-crypto.js";
 
 type AuthWithApi = {
   handler: (req: Request) => Promise<Response>;
@@ -14,22 +18,63 @@ type AuthWithApi = {
 };
 
 /**
- * Supports both cookie-based auth (web) and Bearer token (pill overlay).
- * When the pill sends Authorization: Bearer <session_token>, we synthesize
- * the cookie so getSession can validate it.
+ * Supports cookie-based auth (web), Bearer Better Auth session (pill overlay),
+ * and Bearer `bos_crm_*` personal API tokens (programmatic CRM access).
  */
 export function authMiddleware(auth: AuthWithApi, db: Db) {
   return async (c: Context, next: Next) => {
-    let headers = c.req.raw.headers;
     const authHeader = c.req.header("Authorization");
     const cookieHeader = c.req.header("Cookie") ?? "";
+
+    if (authHeader?.startsWith("Bearer ")) {
+      const bearer = authHeader.slice(7).trim();
+      if (bearer && isCrmApiTokenFormat(bearer)) {
+        const h = hashCrmApiToken(bearer);
+        const [row] = await db
+          .select({
+            userId: schema.crmUsers.userId,
+            disabled: schema.crmUsers.disabled,
+            tokenId: schema.crmApiTokens.id,
+          })
+          .from(schema.crmApiTokens)
+          .innerJoin(
+            schema.crmUsers,
+            eq(schema.crmApiTokens.crmUserId, schema.crmUsers.id),
+          )
+          .where(
+            and(
+              eq(schema.crmApiTokens.tokenHash, h),
+              isNull(schema.crmApiTokens.revokedAt),
+            ),
+          )
+          .limit(1);
+
+        if (!row || row.disabled) {
+          return c.json({ error: "Unauthorized" }, 401);
+        }
+
+        void db
+          .update(schema.crmApiTokens)
+          .set({ lastUsedAt: new Date() })
+          .where(eq(schema.crmApiTokens.id, row.tokenId));
+
+        c.set("session", {
+          user: { id: row.userId },
+          session: { token: bearer },
+        });
+        await next();
+        return;
+      }
+    }
+
+    let headers = c.req.raw.headers;
     if (
       authHeader?.startsWith("Bearer ") &&
       !cookieHeader.includes("better-auth.session_token") &&
       !cookieHeader.includes("__Secure-better-auth.session_token")
     ) {
       const token = authHeader.slice(7).trim();
-      if (token) {
+      if (token && !isCrmApiTokenFormat(token)) {
         headers = new Headers(headers);
         headers.set(
           "Cookie",

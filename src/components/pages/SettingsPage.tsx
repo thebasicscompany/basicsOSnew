@@ -66,6 +66,11 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { getRuntimeApiUrl } from "@/lib/runtime-config";
 import { applyServerUrlFromUi } from "@/lib/apply-server-url";
+import {
+  useCrmApiTokens,
+  useCreateCrmApiToken,
+  useRevokeCrmApiToken,
+} from "@/hooks/use-crm-api-tokens";
 
 const API_URL = getRuntimeApiUrl();
 
@@ -172,6 +177,15 @@ export function SettingsPage() {
   const [serverSwitchError, setServerSwitchError] = useState<string | null>(
     null,
   );
+
+  const canCrmApi = Boolean(me?.canManageCrmApiTokens);
+  const { data: crmApiTokensData, isLoading: crmApiTokensLoading } =
+    useCrmApiTokens(canCrmApi);
+  const createCrmApiToken = useCreateCrmApiToken();
+  const revokeCrmApiToken = useRevokeCrmApiToken();
+  const [newTokenName, setNewTokenName] = useState("");
+  const [createTokenOpen, setCreateTokenOpen] = useState(false);
+  const [revealedToken, setRevealedToken] = useState<string | null>(null);
 
   useEffect(() => {
     const connected = searchParams.get("connected");
@@ -488,6 +502,211 @@ export function SettingsPage() {
               </div>
             </div>
           </section>
+
+          {canCrmApi && (
+            <>
+              <Separator />
+              <section id="crm-api-tokens" className={sectionClass}>
+                <div className="mb-4">
+                  <h2 className="text-[15px] font-semibold">
+                    Personal CRM API tokens
+                  </h2>
+                  <p className="text-[12px] text-muted-foreground">
+                    Scripts and integrations can call your server with{" "}
+                    <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">
+                      Authorization: Bearer &lt;token&gt;
+                    </code>
+                    . Tokens act as you and follow your role permissions (same
+                    as the web app). CRM routes are under{" "}
+                    <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">
+                      /api/&lt;resource&gt;
+                    </code>{" "}
+                    — see{" "}
+                    <a
+                      href="https://basicsos.com/docs"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-primary underline-offset-2 hover:underline"
+                    >
+                      API docs
+                    </a>
+                    .
+                  </p>
+                </div>
+                <p className="mb-3 font-mono text-[12px] text-muted-foreground">
+                  Base URL: {API_URL || "(same origin)"}
+                </p>
+                <div className="mb-4 flex flex-wrap items-center gap-2">
+                  <Dialog
+                    open={createTokenOpen}
+                    onOpenChange={(open) => {
+                      setCreateTokenOpen(open);
+                      if (!open) {
+                        setNewTokenName("");
+                        setRevealedToken(null);
+                      }
+                    }}
+                  >
+                    <DialogTrigger asChild>
+                      <Button type="button" size="sm" variant="secondary">
+                        Create token
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-lg">
+                      <DialogHeader>
+                        <DialogTitle>Create API token</DialogTitle>
+                        <DialogDescription>
+                          Give it a label so you remember what uses it. The
+                          secret is shown only once.
+                        </DialogDescription>
+                      </DialogHeader>
+                      {revealedToken ? (
+                        <div className="grid gap-3">
+                          <p className="text-[12px] text-muted-foreground">
+                            Copy this token now. You will not be able to see it
+                            again.
+                          </p>
+                          <Input
+                            readOnly
+                            className="font-mono text-xs"
+                            value={revealedToken}
+                            onFocus={(e) => e.target.select()}
+                          />
+                          <DialogFooter className="gap-2 sm:gap-0">
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              onClick={() =>
+                                void copyText(
+                                  revealedToken,
+                                  "Copied to clipboard",
+                                )
+                              }
+                            >
+                              Copy
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => {
+                                setCreateTokenOpen(false);
+                                setRevealedToken(null);
+                                setNewTokenName("");
+                              }}
+                            >
+                              Done
+                            </Button>
+                          </DialogFooter>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="grid gap-2">
+                            <Label htmlFor="crm-api-token-name">Label</Label>
+                            <Input
+                              id="crm-api-token-name"
+                              placeholder="e.g. Zapier, local script"
+                              value={newTokenName}
+                              onChange={(e) => setNewTokenName(e.target.value)}
+                              autoComplete="off"
+                            />
+                          </div>
+                          <DialogFooter>
+                            <Button
+                              type="button"
+                              size="sm"
+                              disabled={
+                                createCrmApiToken.isPending ||
+                                !newTokenName.trim()
+                              }
+                              onClick={async () => {
+                                try {
+                                  const res = await createCrmApiToken.mutateAsync(
+                                    newTokenName.trim(),
+                                  );
+                                  setRevealedToken(res.token);
+                                  toast.success("Token created");
+                                } catch (err) {
+                                  toast.error(
+                                    err instanceof Error
+                                      ? err.message
+                                      : "Failed to create token",
+                                  );
+                                }
+                              }}
+                            >
+                              {createCrmApiToken.isPending
+                                ? "Creating…"
+                                : "Create"}
+                            </Button>
+                          </DialogFooter>
+                        </>
+                      )}
+                    </DialogContent>
+                  </Dialog>
+                </div>
+                {crmApiTokensLoading ? (
+                  <p className="text-[12px] text-muted-foreground">
+                    Loading tokens…
+                  </p>
+                ) : (crmApiTokensData?.tokens.length ?? 0) === 0 ? (
+                  <p className="text-[12px] text-muted-foreground">
+                    No active tokens. Create one for scripts or third-party tools.
+                  </p>
+                ) : (
+                  <ul className="divide-y rounded-lg border">
+                    {crmApiTokensData?.tokens.map((t) => (
+                      <li
+                        key={t.id}
+                        className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div>
+                          <p className="text-[13px] font-medium">{t.name}</p>
+                          <p className="font-mono text-[11px] text-muted-foreground">
+                            {t.tokenPrefix}…
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">
+                            Created{" "}
+                            {new Date(t.createdAt).toLocaleString(undefined, {
+                              dateStyle: "medium",
+                              timeStyle: "short",
+                            })}
+                            {t.lastUsedAt
+                              ? ` · Last used ${new Date(t.lastUsedAt).toLocaleString(undefined, {
+                                  dateStyle: "medium",
+                                  timeStyle: "short",
+                                })}`
+                              : ""}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="w-fit shrink-0"
+                          disabled={revokeCrmApiToken.isPending}
+                          onClick={async () => {
+                            try {
+                              await revokeCrmApiToken.mutateAsync(t.id);
+                              toast.success("Token revoked");
+                            } catch (err) {
+                              toast.error(
+                                err instanceof Error
+                                  ? err.message
+                                  : "Failed to revoke",
+                              );
+                            }
+                          }}
+                        >
+                          Revoke
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </>
+          )}
 
           {!isAdmin && me?.hasOrgAiConfig && (
             <>

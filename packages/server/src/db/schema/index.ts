@@ -1,6 +1,7 @@
 export * from "@/db/schema/auth.js";
 export * from "@/db/schema/organizations.js";
 export * from "@/db/schema/crm_users.js";
+export * from "@/db/schema/crm_api_tokens.js";
 export * from "@/db/schema/ai_memory.js";
 export * from "@/db/schema/companies.js";
 export * from "@/db/schema/contacts.js";

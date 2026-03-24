@@ -25,6 +25,7 @@ import { createSlackEventsRoutes } from "@/routes/slack-events.js";
 import { createEmailSyncRoutes } from "@/routes/email-sync.js";
 import { createRbacRoutes } from "@/routes/rbac.js";
 import { createAdminRoutes } from "@/routes/admin.js";
+import { createApiTokensRoutes } from "@/routes/api-tokens.js";
 import { isTrustedOrigin, isElectronUserAgent } from "@/lib/trusted-origins.js";
 import { sql } from "drizzle-orm";
 
@@ -145,7 +146,7 @@ export function createApp(db: Db, env: Env) {
     c.json({
       name: "BasicsOS API",
       health: "/health",
-      docs: "https://basicsos.com/api-docs",
+      docs: "https://basicsos.com/docs",
     }),
   );
   app.get("/health", (c) => c.json({ status: "ok" }));
@@ -209,6 +210,9 @@ export function createApp(db: Db, env: Env) {
 
   // Admin APIs (AI config, usage tracking)
   app.route("/api/admin", createAdminRoutes(db, auth, env));
+
+  // Personal CRM API tokens (before generic /api/:resource CRM routes)
+  app.route("/api/api-tokens", createApiTokensRoutes(db, auth, env));
 
   // CRM REST API
   app.route("/api", createCrmRoutes(db, auth, env));

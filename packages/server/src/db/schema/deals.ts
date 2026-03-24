@@ -3,6 +3,7 @@ import {
   bigserial,
   varchar,
   bigint,
+  doublePrecision,
   timestamp,
   jsonb,
   uuid,
@@ -22,7 +23,7 @@ export const deals = pgTable(
       { onDelete: "set null" },
     ),
     status: varchar("status", { length: 128 }).notNull(),
-    amount: bigint("amount", { mode: "number" }),
+    amount: doublePrecision("amount"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

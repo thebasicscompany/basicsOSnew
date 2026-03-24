@@ -11,6 +11,8 @@ export interface Identity {
   administrator?: boolean;
   hasApiKey?: boolean;
   hasOrgAiConfig?: boolean;
+  /** User may create personal CRM API tokens (`bos_crm_*`) when true. */
+  canManageCrmApiTokens?: boolean;
   onboardingSeenAt?: string | null;
   onboardingCompletedAt?: string | null;
 }

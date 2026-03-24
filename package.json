@@ -16,6 +16,7 @@
     "dev:server": "pnpm --filter @basics-os/shared build && cd packages/server && pnpm run dev",
     "dev:rest": "concurrently -n server,app -c blue,green \"pnpm run dev:server\" \"cross-env VITE_USE_REST=true pnpm run dev\"",
     "test": "pnpm --filter @basics-os/shared build && vitest",
+    "test:crm-api-e2e": "node scripts/crm-api-e2e.mjs",
     "dev": "vite --force",
     "dev:demo": "vite --config vite.demo.config --force",
     "build": "pnpm --filter @basics-os/shared build && cross-env NODE_OPTIONS=--max-old-space-size=4096 tsc && vite build",

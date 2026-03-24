@@ -234,7 +234,7 @@ AI features (chat, embeddings, voice) go through the **Basics gateway** (default
 
 - **Admin UI** (recommended): The admin configures the key from **Settings → AI Configuration** in the app. Supports switching between BasicsOS and BYOK.
 - **Environment variables** (fallback): Set `SERVER_BASICS_API_KEY` or `SERVER_BYOK_PROVIDER` + `SERVER_BYOK_API_KEY` in `packages/server/.env`. Admin UI config takes priority when both are set.
-- **BYOK (bring your own key)** — The default gateway supports your own provider keys (OpenAI, Anthropic, Gemini) via `x-byok-provider` and `x-byok-api-key` headers. See [gateway API docs](https://basicsos.com/api-docs).
+- **BYOK (bring your own key)** — The default gateway supports your own provider keys (OpenAI, Anthropic, Gemini) via `x-byok-provider` and `x-byok-api-key` headers. See [gateway API docs](https://basicsos.com/docs).
 - **Transcription BYOK** — Voice transcription (speech-to-text) can use a separate Deepgram key. In **Settings → AI Configuration** use the optional "Transcription (BYOK)" section, or set `SERVER_TRANSCRIPTION_BYOK_PROVIDER=deepgram` and `SERVER_TRANSCRIPTION_BYOK_API_KEY` in `.env`.
 
 

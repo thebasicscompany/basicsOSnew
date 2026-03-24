@@ -60,6 +60,7 @@ export function registerMeSettingsRoutes(
       administrator: hasPermission(permissions, PERMISSIONS.rbacManage),
       hasApiKey: hasOrgAiConfig,
       hasOrgAiConfig,
+      canManageCrmApiTokens: hasPermission(permissions, PERMISSIONS.recordsWrite),
       onboardingSeenAt: crmUser.onboardingSeenAt,
       onboardingCompletedAt: crmUser.onboardingCompletedAt,
     });
