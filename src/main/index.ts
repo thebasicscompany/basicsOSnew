@@ -2032,7 +2032,7 @@ app.whenReady().then(async () => {
       const remote = info?.version ?? "(unknown)";
       const msg = `update not available: current=${current} remote=${remote}`;
       writeUpdaterLog(msg);
-      console.log(`[updater] ${msg}`);
+      console.warn(`[updater] ${msg}`);
     });
     autoUpdater.on("error", (err) => {
       const msg = String(err?.message ?? err);
