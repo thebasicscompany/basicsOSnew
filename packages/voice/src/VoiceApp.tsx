@@ -308,7 +308,7 @@ export function VoiceApp() {
               This will give you transcription, STT, and AI features. Optionally instead, you can
               configure a custom <strong>Deepgram key</strong> (Settings → AI
               Configuration → Transcription BYOK) to use your own API key for
-              speech-to-text.
+              speech-to-text. TESTING THINGS!
             </p>
           </div>
         </div>
