@@ -1,4 +1,4 @@
-import { and, count, desc, eq, isNull, lt, sql, sum } from "drizzle-orm";
+import { and, count, desc, eq, isNull, isNotNull, lt, or, sql, sum } from "drizzle-orm";
 import type { Db } from "@/db/client.js";
 import * as schema from "@/db/schema/index.js";
 import { writeUsageLogSafe } from "@/lib/usage-log.js";
@@ -321,4 +321,110 @@ export async function retrieveDualContext(
     console.error(`[rag] retrieveDualContext error:`, err);
     return empty;
   }
+}
+
+type FieldDef = {
+  resource: string;
+  name: string;
+  label: string;
+  fieldType: string;
+  options: unknown;
+};
+
+const BUILT_IN_FIELDS: Record<string, Array<{ name: string; label: string; fieldType: string }>> = {
+  contacts: [
+    { name: "first_name", label: "First Name", fieldType: "text" },
+    { name: "last_name", label: "Last Name", fieldType: "text" },
+    { name: "email", label: "Email", fieldType: "email" },
+    { name: "linkedin_url", label: "LinkedIn", fieldType: "url" },
+    { name: "company", label: "Company", fieldType: "relation" },
+  ],
+  companies: [
+    { name: "name", label: "Name", fieldType: "text" },
+    { name: "domain", label: "Domain", fieldType: "url" },
+    { name: "category", label: "Category", fieldType: "text" },
+    { name: "description", label: "Description", fieldType: "text" },
+  ],
+  deals: [
+    { name: "name", label: "Name", fieldType: "text" },
+    { name: "status", label: "Stage/Status", fieldType: "text" },
+    { name: "amount", label: "Amount", fieldType: "number" },
+    { name: "company", label: "Company", fieldType: "relation" },
+  ],
+};
+
+/**
+ * Loads custom_field_defs for the organization and formats them alongside
+ * built-in fields into a system prompt section that tells the AI exactly
+ * which fields exist for each object type.
+ */
+export async function buildFieldSchemaContext(
+  db: Db,
+  organizationId: string,
+): Promise<string> {
+  const customDefs = await db
+    .select({
+      resource: schema.customFieldDefs.resource,
+      name: schema.customFieldDefs.name,
+      label: schema.customFieldDefs.label,
+      fieldType: schema.customFieldDefs.fieldType,
+      options: schema.customFieldDefs.options,
+    })
+    .from(schema.customFieldDefs)
+    .where(
+      or(
+        eq(schema.customFieldDefs.organizationId, organizationId),
+        isNull(schema.customFieldDefs.organizationId),
+      ),
+    )
+    .orderBy(schema.customFieldDefs.position);
+
+  const defsByResource = new Map<string, FieldDef[]>();
+  for (const def of customDefs) {
+    const existing = defsByResource.get(def.resource) ?? [];
+    existing.push(def);
+    defsByResource.set(def.resource, existing);
+  }
+
+  const sections: string[] = [];
+  for (const [resource, builtIns] of Object.entries(BUILT_IN_FIELDS)) {
+    const lines: string[] = [];
+    lines.push(`### ${resource}`);
+    lines.push("Built-in fields (use tool parameters directly):");
+    for (const f of builtIns) {
+      lines.push(`  - ${f.name} (${f.label}, ${f.fieldType})`);
+    }
+
+    const customs = defsByResource.get(resource);
+    if (customs && customs.length > 0) {
+      lines.push("Custom fields (use custom_fields parameter with these keys):");
+      for (const cf of customs) {
+        const optionsSuffix =
+          cf.fieldType === "select" && Array.isArray(cf.options) && cf.options.length > 0
+            ? ` — options: ${cf.options
+                .slice(0, 10)
+                .map((o) => (typeof o === "string" ? o : (o as { label?: string }).label ?? ""))
+                .filter(Boolean)
+                .join(", ")}`
+            : "";
+        lines.push(`  - ${cf.name} (${cf.label}, ${cf.fieldType}${optionsSuffix})`);
+      }
+    }
+    sections.push(lines.join("\n"));
+  }
+
+  // Include any custom fields for resources not in BUILT_IN_FIELDS (custom objects)
+  for (const [resource, customs] of defsByResource.entries()) {
+    if (BUILT_IN_FIELDS[resource]) continue;
+    const lines: string[] = [];
+    lines.push(`### ${resource}`);
+    lines.push("Custom fields (use custom_fields parameter with these keys):");
+    for (const cf of customs) {
+      lines.push(`  - ${cf.name} (${cf.label}, ${cf.fieldType})`);
+    }
+    sections.push(lines.join("\n"));
+  }
+
+  if (sections.length === 0) return "";
+  return `## Available Fields\nWhen creating or updating records, map each piece of data to the correct field below. NEVER combine multiple data points into a single field.\n\n${sections.join("\n\n")}`;
 }

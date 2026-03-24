@@ -5,6 +5,7 @@ import type { Env } from "@/env.js";
 import type { createAuth } from "@/auth.js";
 import {
   buildCrmSummary,
+  buildFieldSchemaContext,
   retrieveDualContext,
 } from "@/lib/context.js";
 import {
@@ -598,8 +599,9 @@ export async function processChatTurn(
     routingDecision.mode === "crm_context" ||
     routingDecision.mode === "tool_call"
   ) {
-    const [crmSummary, { crmContext, meetingContext }] = await Promise.all([
+    const [crmSummary, fieldSchema, { crmContext, meetingContext }] = await Promise.all([
       buildCrmSummary(db, crmUser.organizationId),
+      buildFieldSchemaContext(db, crmUser.organizationId),
       retrieveDualContext(
         db,
         gatewayUrl,
@@ -610,6 +612,8 @@ export async function processChatTurn(
       ),
     ]);
     systemPrompt += `\n\n## Your CRM\n${crmSummary}`;
+    if (fieldSchema)
+      systemPrompt += `\n\n${fieldSchema}`;
     if (crmContext)
       systemPrompt += `\n\n## Relevant context\n${crmContext}`;
     if (meetingContext)
