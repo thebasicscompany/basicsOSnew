@@ -162,6 +162,7 @@ const resolveApiUrl = (): string => {
         apiUrl?: string;
       };
       if (saved.apiUrl) return saved.apiUrl;
+      if (saved.apiUrl === "") return ""; // explicit blank → show "set your server" screen
     }
     // First install: persist the baked-in URL so it survives future updates.
     fs.mkdirSync(path.dirname(configPath), { recursive: true });

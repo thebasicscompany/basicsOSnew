@@ -37,6 +37,16 @@ export function ServerHealthGate({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     void (async () => {
+      const apiUrl = getRuntimeApiUrl();
+      if (
+        import.meta.env.VITE_IS_ELECTRON &&
+        apiUrl === ""
+      ) {
+        if (cancelled) return;
+        setError("No server configured. Enter your organization's server link below.");
+        setPhase("fail");
+        return;
+      }
       const result = await probeCurrentServer();
       if (cancelled) return;
       if (result.ok) {

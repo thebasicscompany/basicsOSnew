@@ -14,8 +14,9 @@ const RUNTIME_API_STORAGE_KEY = "basicsos_runtime_api_url";
  */
 export function getRuntimeApiUrl(): string {
   let url: string;
-  if (typeof window !== "undefined" && window.__runtimeApiUrl__) {
-    url = window.__runtimeApiUrl__;
+  const injected = typeof window !== "undefined" ? (window as { __runtimeApiUrl__?: string }).__runtimeApiUrl__ : undefined;
+  if (injected !== undefined) {
+    url = injected;
   } else if (typeof window !== "undefined") {
     try {
       const stored = localStorage.getItem(RUNTIME_API_STORAGE_KEY)?.trim();
