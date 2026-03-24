@@ -146,7 +146,7 @@ export function createApp(db: Db, env: Env) {
     c.json({
       name: "BasicsOS API",
       health: "/health",
-      docs: "https://basicsos.com/docs",
+      docs: "https://www.basicsos.com/docs/self-hosted-crm/introduction",
     }),
   );
   app.get("/health", (c) => c.json({ status: "ok" }));

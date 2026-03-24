@@ -523,12 +523,12 @@ export function SettingsPage() {
                     </code>{" "}
                     — see{" "}
                     <a
-                      href="https://basicsos.com/docs"
+                      href="https://www.basicsos.com/docs/self-hosted-crm/introduction"
                       target="_blank"
                       rel="noreferrer"
                       className="text-primary underline-offset-2 hover:underline"
                     >
-                      API docs
+                      Self-hosted CRM API docs
                     </a>
                     .
                   </p>
