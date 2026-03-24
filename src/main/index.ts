@@ -2027,12 +2027,23 @@ app.whenReady().then(async () => {
         // ignore
       }
     };
+    autoUpdater.on("update-not-available", (info) => {
+      const current = app.getVersion();
+      const remote = info?.version ?? "(unknown)";
+      const msg = `update not available: current=${current} remote=${remote}`;
+      writeUpdaterLog(msg);
+      console.log(`[updater] ${msg}`);
+    });
     autoUpdater.on("error", (err) => {
       const msg = String(err?.message ?? err);
       writeUpdaterLog(`error: ${msg}`);
       console.warn("[updater] error:", msg);
       mainWindow?.webContents.send("app-update-error", { message: msg });
     });
+    // Stable channel only: do not offer GitHub prerelease assets or semver prerelease
+    // tags (e.g. 1.0.0-beta.1) as automatic updates. Without this, users on stable
+    // builds could be prompted to install beta or draft-tagged releases.
+    autoUpdater.allowPrerelease = false;
     autoUpdater.checkForUpdatesAndNotify().catch((err) => {
       const msg = String(err?.message ?? err);
       writeUpdaterLog(`check failed: ${msg}`);

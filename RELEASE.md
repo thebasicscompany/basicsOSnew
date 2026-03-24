@@ -13,6 +13,8 @@ This doc explains how to cut a new release and trigger the GitHub Actions workfl
 
 Edit `package.json` in the project root and set `"version"` to the new release (e.g. `"0.1.5"`).
 
+**SemVer:** Do not put build or CI identifiers after a hyphen in `version` (e.g. avoid `0.1.5-build42` or `0.1.5-20250323`). In SemVer, the part after `-` is a **prerelease** label, which npm and `electron-updater` treat as older than the same release without a prerelease and can skew update ordering. For internal build discrimination, use **build metadata** after a plus sign instead, e.g. `0.1.5+build42` (metadata is ignored for version precedence).
+
 ### 2. Commit the version bump
 
 ```bash
