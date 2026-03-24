@@ -26,27 +26,29 @@ async function probeCurrentServer(): Promise<ProbeApiUrlResult> {
   return probeApiUrlFromRenderer(base);
 }
 
+const BLANK_SERVER_MSG =
+  "No server configured. Enter your organization's server link below.";
+
 /**
  * Blocks the app until the configured API responds to GET /health, or shows
  * {@link ServerConfigPage} so the user can fix or switch the server URL.
  */
 export function ServerHealthGate({ children }: { children: ReactNode }) {
-  const [phase, setPhase] = useState<"check" | "ok" | "fail">("check");
-  const [error, setError] = useState<string | null>(null);
+  const apiUrl = getRuntimeApiUrl();
+  const isBlankConfig =
+    import.meta.env.VITE_IS_ELECTRON === "true" && apiUrl === "";
+
+  const [phase, setPhase] = useState<"check" | "ok" | "fail">(
+    isBlankConfig ? "fail" : "check",
+  );
+  const [error, setError] = useState<string | null>(
+    isBlankConfig ? BLANK_SERVER_MSG : null,
+  );
 
   useEffect(() => {
+    if (isBlankConfig) return;
     let cancelled = false;
     void (async () => {
-      const apiUrl = getRuntimeApiUrl();
-      if (
-        import.meta.env.VITE_IS_ELECTRON &&
-        apiUrl === ""
-      ) {
-        if (cancelled) return;
-        setError("No server configured. Enter your organization's server link below.");
-        setPhase("fail");
-        return;
-      }
       const result = await probeCurrentServer();
       if (cancelled) return;
       if (result.ok) {
@@ -59,7 +61,7 @@ export function ServerHealthGate({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isBlankConfig]);
 
   if (phase === "check") {
     return (
