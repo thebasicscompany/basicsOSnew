@@ -87,7 +87,7 @@ export function DataTableBody<T extends Record<string, unknown>>({
               <TableRow
                 key={row.id}
                 data-row-index={row.index}
-                className={onRowExpand ? "cursor-default" : undefined}
+                className={cn("group", onRowExpand ? "cursor-default" : undefined)}
               >
                 {row.getVisibleCells().map((cell) => {
                   const colDef = cell.column.columnDef;

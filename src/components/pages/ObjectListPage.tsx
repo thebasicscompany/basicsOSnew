@@ -265,8 +265,10 @@ export function ObjectListPage() {
     if (!bulkDeleteIds?.length) return;
     setBulkDeleting(true);
     try {
-      for (const id of bulkDeleteIds) {
-        await deleteRecord.mutateAsync(id);
+      const batchSize = 5;
+      for (let i = 0; i < bulkDeleteIds.length; i += batchSize) {
+        const batch = bulkDeleteIds.slice(i, i + batchSize);
+        await Promise.all(batch.map((id) => deleteRecord.mutateAsync(id)));
       }
       toast.success(
         `Deleted ${bulkDeleteIds.length} ${obj?.pluralName?.toLowerCase() ?? "records"}`,

@@ -63,6 +63,7 @@ export function DataTableRowSelectCell({
       className={cn(
         "flex h-full min-h-9 items-center justify-center px-0.5",
         "touch-none select-none",
+        !isSelected && "opacity-0 group-hover:opacity-100 focus-within:opacity-100",
       )}
       onClick={(e) => {
         e.stopPropagation();

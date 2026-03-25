@@ -137,6 +137,8 @@ export function useDataTable(props: DataTableProps) {
   const dragAnchorRef = React.useRef<number | null>(null);
   const dragEndRowRef = React.useRef<number | null>(null);
   const selectDragMovedRef = React.useRef(false);
+  const preDragSelectionRef = React.useRef<Set<number>>(new Set());
+  const dragIsSelectingRef = React.useRef<boolean>(true);
   const prevSelectionClearKey = React.useRef(selectionClearKey);
 
   const getRecordId = React.useCallback((row: Record<string, unknown>) => {
@@ -196,7 +198,17 @@ export function useDataTable(props: DataTableProps) {
       dragAnchorRef.current = rowIndex;
       dragEndRowRef.current = rowIndex;
       selectionAnchorRef.current = rowIndex;
-      setSelectedRecordIds([id]);
+
+      setSelectedRecordIds((prev) => {
+        preDragSelectionRef.current = new Set(prev);
+        const isSelected = preDragSelectionRef.current.has(id);
+        dragIsSelectingRef.current = !isSelected;
+
+        const next = new Set(prev);
+        if (isSelected) next.delete(id);
+        else next.add(id);
+        return Array.from(next);
+      });
     },
     [data, getRecordId],
   );
@@ -208,12 +220,16 @@ export function useDataTable(props: DataTableProps) {
       dragEndRowRef.current = rowIndex;
       const lo = Math.min(anchor, rowIndex);
       const hi = Math.max(anchor, rowIndex);
-      const ids: number[] = [];
+
+      const next = new Set(preDragSelectionRef.current);
       for (let i = lo; i <= hi; i++) {
         const id = getRecordId(data[i] ?? {});
-        if (id) ids.push(id);
+        if (id) {
+          if (dragIsSelectingRef.current) next.add(id);
+          else next.delete(id);
+        }
       }
-      setSelectedRecordIds(ids);
+      setSelectedRecordIds(Array.from(next));
     },
     [data, getRecordId],
   );
@@ -236,17 +252,26 @@ export function useDataTable(props: DataTableProps) {
       if (anchor == null) {
         selectionAnchorRef.current = rowIndex;
         const id = getRecordId(data[rowIndex] ?? {});
-        setSelectedRecordIds(id ? [id] : []);
+        if (id) {
+          setSelectedRecordIds((prev) => {
+            const next = new Set(prev);
+            next.add(id);
+            return Array.from(next);
+          });
+        }
         return;
       }
       const lo = Math.min(anchor, rowIndex);
       const hi = Math.max(anchor, rowIndex);
-      const ids: number[] = [];
-      for (let i = lo; i <= hi; i++) {
-        const id = getRecordId(data[i] ?? {});
-        if (id) ids.push(id);
-      }
-      setSelectedRecordIds(ids);
+      
+      setSelectedRecordIds((prev) => {
+        const next = new Set(prev);
+        for (let i = lo; i <= hi; i++) {
+          const id = getRecordId(data[i] ?? {});
+          if (id) next.add(id);
+        }
+        return Array.from(next);
+      });
     },
     [data, getRecordId],
   );
