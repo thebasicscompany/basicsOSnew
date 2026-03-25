@@ -31,7 +31,6 @@ export function registerObjectViewRoutes(app: Hono, db: Db): void {
       .where(
         and(
           eq(schema.views.objectSlug, objectSlug),
-          eq(schema.views.crmUserId, crmUserId),
           eq(schema.views.organizationId, organizationId),
         ),
       )
@@ -125,7 +124,6 @@ export function registerObjectViewRoutes(app: Hono, db: Db): void {
       .where(
         and(
           eq(schema.views.objectSlug, objectSlug),
-          eq(schema.views.crmUserId, crmUserId),
           eq(schema.views.organizationId, organizationId),
         ),
       );

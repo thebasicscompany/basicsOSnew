@@ -29,6 +29,7 @@ export interface ViewFilter {
   operator: string;
   value: unknown;
   logicalOp: "and" | "or";
+  createdByName?: string | null;
 }
 
 export interface ViewState {

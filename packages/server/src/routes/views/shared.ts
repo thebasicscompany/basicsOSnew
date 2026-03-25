@@ -22,7 +22,7 @@ export async function getCrmUserId(
 export async function getViewAndCheckOwnership(
   db: Db,
   viewId: string,
-  crmUserId: number,
+  _crmUserId: number,
   organizationId: string,
 ): Promise<typeof schema.views.$inferSelect | null> {
   const [row] = await db
@@ -31,7 +31,6 @@ export async function getViewAndCheckOwnership(
     .where(
       and(
         eq(schema.views.id, viewId),
-        eq(schema.views.crmUserId, crmUserId),
         eq(schema.views.organizationId, organizationId),
       ),
     )

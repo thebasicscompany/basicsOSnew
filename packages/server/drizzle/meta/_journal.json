@@ -267,6 +267,13 @@
       "when": 1773275000000,
       "tag": "0037_deals_amount_double",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1773276000000,
+      "tag": "0038_shared_views_filter_creator",
+      "breakpoints": true
     }
   ]
 }

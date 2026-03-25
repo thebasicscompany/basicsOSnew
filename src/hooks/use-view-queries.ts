@@ -38,6 +38,7 @@ interface ViewFilterRaw {
   comparison_op: string;
   value: unknown;
   logical_op: "and" | "or";
+  created_by_name?: string | null;
 }
 
 const VIEW_TYPE_MAP: Record<number, ViewConfig["type"]> = {
@@ -85,6 +86,7 @@ function mapViewFilter(raw: ViewFilterRaw): ViewFilter {
     operator: raw.comparison_op,
     value: raw.value,
     logicalOp: raw.logical_op,
+    createdByName: raw.created_by_name ?? null,
   };
 }
 

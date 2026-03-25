@@ -30,11 +30,29 @@ export function registerFilterRoutes(app: Hono, db: Db): void {
     if (!view) return c.json({ error: "View not found" }, 404);
 
     const list = await db
-      .select()
+      .select({
+        id: schema.viewFilters.id,
+        viewId: schema.viewFilters.viewId,
+        fieldId: schema.viewFilters.fieldId,
+        comparisonOp: schema.viewFilters.comparisonOp,
+        value: schema.viewFilters.value,
+        logicalOp: schema.viewFilters.logicalOp,
+        createdByCrmUserId: schema.viewFilters.createdByCrmUserId,
+        createdByFirstName: schema.crmUsers.firstName,
+        createdByLastName: schema.crmUsers.lastName,
+      })
       .from(schema.viewFilters)
+      .leftJoin(
+        schema.crmUsers,
+        eq(schema.viewFilters.createdByCrmUserId, schema.crmUsers.id),
+      )
       .where(eq(schema.viewFilters.viewId, viewId));
 
-    return c.json({ list: list.map(filterRowToNocoRaw) });
+    return c.json({
+      list: list.map((row) =>
+        filterRowToNocoRaw(row, row.createdByFirstName, row.createdByLastName),
+      ),
+    });
   });
 
   app.post("/view/:viewId/filters", async (c) => {
@@ -76,11 +94,21 @@ export function registerFilterRoutes(app: Hono, db: Db): void {
         comparisonOp: body.comparison_op,
         value: body.value != null ? String(body.value) : null,
         logicalOp: body.logical_op,
+        createdByCrmUserId: crmUserId,
       })
       .returning();
 
     if (!inserted) return c.json({ error: "Insert failed" }, 500);
-    return c.json(filterRowToNocoRaw(inserted));
+
+    const [creator] = await db
+      .select({ firstName: schema.crmUsers.firstName, lastName: schema.crmUsers.lastName })
+      .from(schema.crmUsers)
+      .where(eq(schema.crmUsers.id, crmUserId))
+      .limit(1);
+
+    return c.json(
+      filterRowToNocoRaw(inserted, creator?.firstName, creator?.lastName),
+    );
   });
 
   app.delete("/view/:viewId/filters/:filterId", async (c) => {

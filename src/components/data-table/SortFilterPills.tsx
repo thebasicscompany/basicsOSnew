@@ -1,4 +1,9 @@
-import { FunnelIcon, SortAscendingIcon, XIcon } from "@phosphor-icons/react";
+import {
+  FunnelIcon,
+  SortAscendingIcon,
+  UserIcon,
+  XIcon,
+} from "@phosphor-icons/react";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import type { ViewFilter, ViewSort } from "@/types/views";
@@ -83,6 +88,15 @@ export function SortFilterPills({
               <span className="max-w-36 truncate font-medium">
                 {valueLabel}
               </span>
+            )}
+            {filter.createdByName && (
+              <>
+                <Separator orientation="vertical" className="mx-0.5 h-3" />
+                <UserIcon className="size-3 text-muted-foreground" />
+                <span className="max-w-24 truncate text-muted-foreground">
+                  {filter.createdByName}
+                </span>
+              </>
             )}
             <button
               type="button"

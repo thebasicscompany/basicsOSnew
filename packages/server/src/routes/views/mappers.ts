@@ -68,18 +68,26 @@ export function sortRowToNocoRaw(row: typeof schema.viewSorts.$inferSelect): {
 
 export function filterRowToNocoRaw(
   row: typeof schema.viewFilters.$inferSelect,
+  createdByFirstName?: string | null,
+  createdByLastName?: string | null,
 ): {
   id: string;
   fk_column_id: string;
   comparison_op: string;
   value: unknown;
   logical_op: string;
+  created_by_name: string | null;
 } {
+  const name =
+    createdByFirstName || createdByLastName
+      ? `${createdByFirstName ?? ""} ${createdByLastName ?? ""}`.trim()
+      : null;
   return {
     id: row.id,
     fk_column_id: row.fieldId,
     comparison_op: row.comparisonOp,
     value: row.value,
     logical_op: row.logicalOp,
+    created_by_name: name,
   };
 }

@@ -83,4 +83,6 @@ export const viewFilters = pgTable("view_filters", {
   comparisonOp: varchar("comparison_op", { length: 32 }).notNull(),
   value: text("value"),
   logicalOp: varchar("logical_op", { length: 8 }).notNull().default("and"),
+  createdByCrmUserId: bigint("created_by_crm_user_id", { mode: "number" })
+    .references(() => crmUsers.id, { onDelete: "set null" }),
 });
