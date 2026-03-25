@@ -644,13 +644,7 @@ export async function processChatTurn(
   const usedTools = new Set<string>();
   let finalContent = "";
   const latestToolOutputs: Array<{ name: string; result: unknown }> = [];
-  const calledOnceTool = new Set<string>();
   const executedToolSignatures = new Set<string>();
-  const ONCE_ONLY_TOOLS = new Set([
-    "create_contact",
-    "create_company",
-    "create_deal",
-  ]);
   const toolsEnabled = routingDecision.mode !== "direct";
 
   if (routingDecision.mode === "direct" && routingDecision.reply?.trim()) {
@@ -904,22 +898,6 @@ export async function processChatTurn(
         >;
       } catch {
         args = {};
-      }
-
-      if (
-        ONCE_ONLY_TOOLS.has(tc.function.name) &&
-        calledOnceTool.has(tc.function.name)
-      ) {
-        const skipped = `Skipped duplicate ${tc.function.name} call — record was already created.`;
-        chatMessages.push({
-          role: "tool",
-          tool_call_id: tc.id,
-          content: skipped,
-        });
-        continue;
-      }
-      if (ONCE_ONLY_TOOLS.has(tc.function.name)) {
-        calledOnceTool.add(tc.function.name);
       }
 
       const nextStepHint = workflowHints.nextHintByTool[tc.function.name];

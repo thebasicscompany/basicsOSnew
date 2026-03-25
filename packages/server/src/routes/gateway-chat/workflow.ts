@@ -46,7 +46,7 @@ const workflowStepSchema = z.object({
 
 const workflowPlanSchema = z.object({
   mode: z.enum(["none", "single_tool", "multi_tool"]),
-  steps: z.array(workflowStepSchema).max(10).default([]),
+  steps: z.array(workflowStepSchema).max(20).default([]),
 });
 
 const resolvedStepSchema = z.discriminatedUnion("mode", [
@@ -325,7 +325,8 @@ export async function planToolWorkflow(args: {
     "- IMPORTANT: Always include a 'title' arg in add_note and create_note — a short 2-5 word summary of the note.",
     "- IMPORTANT: For bulk requests ('create X and Y', 'add contact A and B'), emit one step per record.",
     "- IMPORTANT: For create_contact or create_deal with a company_name, do NOT search for the company first — pass company_name directly. The tool auto-creates the company if it does not exist.",
-    "- IMPORTANT: Only plan create_contact or create_deal if the user has provided the company name in the request. If no company is mentioned for a contact or deal, return mode=none so the main assistant can ask for missing details.",
+    "- IMPORTANT: For a SINGLE create_contact or create_deal, only plan if the user has provided the company name. If no company is mentioned for a single contact or deal, return mode=none so the main assistant can ask for missing details.",
+    "- IMPORTANT: For BULK create_contact (2+ people), always plan multi_tool with one step per person using whatever info is available (name, email). Do NOT return mode=none just because company names are missing — bulk requests should always be executed.",
     "- IMPORTANT: For 'move/mark/bump [deal] to [stage]', plan search_deals then update_deal with status (deferred=true).",
     "- IMPORTANT: For 'add a task for [person name]', plan search_contacts then create_task (deferred=true). The task text comes from what follows the colon.",
     "- IMPORTANT: Standalone tasks need NO contact or company. For requests like 'add these as tasks', 'create tasks from this list', or bullet to-dos with no person/company, plan one create_task step per item with only text (and optional due_date). Do NOT add search_contacts unless the user ties tasks to someone.",
@@ -347,13 +348,15 @@ export async function planToolWorkflow(args: {
     "User: add a note to the Acme deal: sent term sheet",
     'JSON: {"mode":"multi_tool","steps":[{"tool":"search_deals","args":{"query":"Acme"}},{"tool":"add_note","args":{"title":"Sent term sheet","text":"sent term sheet"},"deferred":true}]}',
     "User: create contacts John Smith and Jane Doe",
-    'JSON: {"mode":"none","steps":[]}',
+    'JSON: {"mode":"multi_tool","steps":[{"tool":"create_contact","args":{"first_name":"John","last_name":"Smith"}},{"tool":"create_contact","args":{"first_name":"Jane","last_name":"Doe"}}]}',
     "User: add a contact named Sarah Johnson",
     'JSON: {"mode":"none","steps":[]}',
     "User: create a contact Amara Brown at Blue Inc",
     'JSON: {"mode":"single_tool","steps":[{"tool":"create_contact","args":{"first_name":"Amara","last_name":"Brown","company_name":"Blue Inc"}}]}',
     "User: create 3 contacts: John Smith at Acme Corp, Sarah Lee at TechFlow, and Marcus Jones at Vertex Labs",
     'JSON: {"mode":"multi_tool","steps":[{"tool":"create_contact","args":{"first_name":"John","last_name":"Smith","company_name":"Acme Corp"}},{"tool":"create_contact","args":{"first_name":"Sarah","last_name":"Lee","company_name":"TechFlow"}},{"tool":"create_contact","args":{"first_name":"Marcus","last_name":"Jones","company_name":"Vertex Labs"}}]}',
+    "User: Add Anmol Garg | a.anmolgarg@gmail.com and Alicia Lin | alinagency@gmail.com to my contacts",
+    'JSON: {"mode":"multi_tool","steps":[{"tool":"create_contact","args":{"first_name":"Anmol","last_name":"Garg","email":"a.anmolgarg@gmail.com"}},{"tool":"create_contact","args":{"first_name":"Alicia","last_name":"Lin","email":"alinagency@gmail.com"}}]}',
     "User: create contact Sarah Lee at Acme Corp and a deal for them worth 10000",
     'JSON: {"mode":"multi_tool","steps":[{"tool":"create_contact","args":{"first_name":"Sarah","last_name":"Lee","company_name":"Acme Corp"}},{"tool":"create_deal","args":{"name":"Sarah Lee Deal","company_name":"Acme Corp","amount":10000}}]}',
     "User: create a deal called Omega Project for 300k",
