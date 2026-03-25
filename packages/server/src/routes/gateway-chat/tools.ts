@@ -55,6 +55,8 @@ type RecordRow = {
   dueDate?: unknown;
   contactId?: number | null;
   companyId?: number | null;
+  linkedinUrl?: unknown;
+  customFields?: Record<string, unknown> | null;
 };
 
 function mdLink(row: RecordRow, objectSlug: string): string {
@@ -64,10 +66,25 @@ function mdLink(row: RecordRow, objectSlug: string): string {
   return `[[${objectSlug}/${row.id}|${name}]]`;
 }
 
+function appendCustomFields(
+  parts: string[],
+  customFields: Record<string, unknown> | null | undefined,
+): void {
+  if (!customFields || typeof customFields !== "object") return;
+  for (const [key, value] of Object.entries(customFields)) {
+    if (value == null || value === "") continue;
+    const display = typeof value === "string" ? value : JSON.stringify(value);
+    if (display.length > 200) continue;
+    parts.push(`${key}: ${display}`);
+  }
+}
+
 function formatContact(row: RecordRow): string {
   const parts = [mdLink(row, "contacts")];
   if (row.email) parts.push(`Email: ${row.email}`);
   if (row.companyName) parts.push(`Company: ${row.companyName}`);
+  if (row.linkedinUrl) parts.push(`LinkedIn: ${row.linkedinUrl}`);
+  appendCustomFields(parts, row.customFields);
   return parts.join(" — ");
 }
 
@@ -75,6 +92,7 @@ function formatDeal(row: RecordRow): string {
   const parts = [mdLink(row, "deals")];
   if (row.status) parts.push(`Status: ${row.status}`);
   if (row.amount != null) parts.push(`$${Number(row.amount).toLocaleString()}`);
+  appendCustomFields(parts, row.customFields);
   return parts.join(" — ");
 }
 
@@ -84,6 +102,7 @@ function formatCompany(row: RecordRow): string {
   if (row.domain) parts.push(String(row.domain));
   if (row.description)
     parts.push(`Description: ${String(row.description).slice(0, 100)}`);
+  appendCustomFields(parts, row.customFields);
   return parts.join(" — ");
 }
 
