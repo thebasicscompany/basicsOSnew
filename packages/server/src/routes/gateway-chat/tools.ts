@@ -1199,7 +1199,7 @@ export async function executeValidatedTool(
     if (existing.length > 0)
       return `A custom field named "${safeName}" already exists on ${resource}. You can use it with custom_fields: { "${safeName}": value }.`;
 
-    const [row] = await db
+    await db
       .insert(schema.customFieldDefs)
       .values({
         resource,

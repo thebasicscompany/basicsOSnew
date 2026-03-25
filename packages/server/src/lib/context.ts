@@ -1,4 +1,4 @@
-import { and, count, desc, eq, isNull, isNotNull, lt, or, sql, sum } from "drizzle-orm";
+import { and, count, desc, eq, isNull, lt, or, sql, sum } from "drizzle-orm";
 import type { Db } from "@/db/client.js";
 import * as schema from "@/db/schema/index.js";
 import { writeUsageLogSafe } from "@/lib/usage-log.js";
