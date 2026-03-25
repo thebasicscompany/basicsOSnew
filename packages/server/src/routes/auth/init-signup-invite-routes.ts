@@ -14,6 +14,17 @@ import {
 } from "@/schemas/auth.js";
 import { sendOrgEmail } from "@/lib/send-org-email.js";
 
+/** Thrown by `auth.api.signUpEmail` on failure (better-call APIError), not returned as `{ error }`. */
+function isBetterCallApiError(
+  e: unknown,
+): e is { statusCode: number; body?: { code?: string; message?: string } } {
+  return (
+    typeof e === "object" &&
+    e !== null &&
+    typeof (e as { statusCode?: unknown }).statusCode === "number"
+  );
+}
+
 function generateInviteToken(): string {
   return randomBytes(24).toString("hex");
 }
@@ -138,20 +149,44 @@ export function registerInitSignupInviteRoutes(
       organizationId = invite.organizationId;
     }
 
-    const signUpRes = (await auth.api.signUpEmail({
-      body: {
-        email,
-        password,
-        name: `${first_name} ${last_name}`,
-      },
-      headers: c.req.raw.headers,
-      returnHeaders: true,
-    })) as {
+    type SignUpResult = {
       headers?: Headers;
       error?: { message?: string };
       data?: { user?: { id: string } };
       response?: { user?: { id: string } };
     };
+
+    let signUpRes: SignUpResult;
+    try {
+      signUpRes = (await auth.api.signUpEmail({
+        body: {
+          email,
+          password,
+          name: `${first_name} ${last_name}`,
+        },
+        headers: c.req.raw.headers,
+        returnHeaders: true,
+      })) as SignUpResult;
+    } catch (e) {
+      if (isBetterCallApiError(e)) {
+        if (e.body?.code === "USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL") {
+          return c.json(
+            {
+              error:
+                "This email is already registered. Sign in with your existing account.",
+            },
+            409,
+          );
+        }
+        const msg =
+          typeof e.body?.message === "string"
+            ? e.body.message
+            : "Signup failed";
+        // Hono `c.json` expects a fixed status union; keep signup errors as 400 except 409 above.
+        return c.json({ error: msg }, 400);
+      }
+      throw e;
+    }
 
     if (signUpRes.error) {
       return c.json({ error: signUpRes.error.message ?? "Signup failed" }, 400);
