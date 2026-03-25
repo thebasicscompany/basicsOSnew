@@ -129,6 +129,10 @@ export function shouldPlanToolWorkflow(queryText: string): boolean {
     /\b(create|add|make)\b/.test(lower) &&
     /\b(contact|person|lead|contacts|people)\b/.test(lower) &&
     /\bat\b/.test(lower);
+  const isBulkContactList =
+    /\b(create|add|make)\b/.test(lower) &&
+    /\b(contact|person|lead|contacts|people|list)\b/.test(lower) &&
+    (queryText.match(/[\w.+-]+@[\w.-]+\.\w+/g)?.length ?? 0) >= 2;
   const isEmailSlackToCrm =
     /\b(email|gmail|inbox|slack|messages?|conversations?)\b/.test(lower) &&
     /\b(create|add|make|find|search|check|any|potential)\b/.test(lower) &&
@@ -139,6 +143,7 @@ export function shouldPlanToolWorkflow(queryText: string): boolean {
     isBulk ||
     isMultiAction ||
     isBulkContactCreate ||
+    isBulkContactList ||
     isTask ||
     isNote ||
     isCreateContact ||
@@ -390,7 +395,7 @@ export async function planToolWorkflow(args: {
       model: args.model,
       messages: [{ role: "user", content: prompt }],
       stream: false,
-      max_tokens: 600,
+      max_tokens: 1500,
     }),
   });
 
