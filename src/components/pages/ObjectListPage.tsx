@@ -6,7 +6,10 @@ import { DataTable, buildColumnItems } from "@/components/data-table";
 import { CreateRecordModal } from "@/components/create-record/CreateRecordModal";
 import { CreateAttributeModal } from "@/components/create-attribute/CreateAttributeModal";
 import { EditAttributeDialog } from "@/components/create-attribute/EditAttributeDialog";
-import { RecordDetailDeleteDialog } from "@/components/record-detail";
+import {
+  RecordBulkDeleteDialog,
+  RecordDetailDeleteDialog,
+} from "@/components/record-detail";
 import {
   DealsLayoutToggle,
   ObjectListHeaderActions,
@@ -57,6 +60,9 @@ export function ObjectListPage() {
     recordId: number;
     record: Record<string, unknown>;
   } | null>(null);
+  const [bulkDeleteIds, setBulkDeleteIds] = useState<number[] | null>(null);
+  const [rowSelectionClearKey, setRowSelectionClearKey] = useState(0);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [suggestionsSheetOpen, setSuggestionsSheetOpen] = useState(false);
   const [findFromEmailOpen, setFindFromEmailOpen] = useState(false);
   const [suggestionsBannerDismissed, setSuggestionsBannerDismissed] =
@@ -68,6 +74,10 @@ export function ObjectListPage() {
   const attributes = useAttributes(objectSlug);
   const isContacts = objectSlug === "contacts";
   const isDealsObj = objectSlug === "deals";
+  const enableRowMultiSelect =
+    objectSlug === "contacts" ||
+    objectSlug === "companies" ||
+    objectSlug === "deals";
   const { data: syncStatus } = useEmailSyncStatus();
   const pendingSuggestions =
     isContacts && !suggestionsBannerDismissed
@@ -250,6 +260,28 @@ export function ObjectListPage() {
       );
     }
   }, [deleteTarget, deleteRecord, obj?.singularName]);
+
+  const handleBulkDeleteConfirm = useCallback(async () => {
+    if (!bulkDeleteIds?.length) return;
+    setBulkDeleting(true);
+    try {
+      for (const id of bulkDeleteIds) {
+        await deleteRecord.mutateAsync(id);
+      }
+      toast.success(
+        `Deleted ${bulkDeleteIds.length} ${obj?.pluralName?.toLowerCase() ?? "records"}`,
+      );
+      setBulkDeleteIds(null);
+      setRowSelectionClearKey((k) => k + 1);
+    } catch (err) {
+      showError(
+        err,
+        `Failed to delete some ${obj?.pluralName?.toLowerCase() ?? "records"}`,
+      );
+    } finally {
+      setBulkDeleting(false);
+    }
+  }, [bulkDeleteIds, deleteRecord, obj?.pluralName]);
 
   const handleAddSort = useCallback(
     (sort: Omit<ViewSort, "id">) => {
@@ -493,6 +525,9 @@ export function ObjectListPage() {
               onCellUpdate={handleCellUpdate}
               onRowExpand={handleRowExpand}
               onRowDelete={handleRowDelete}
+              enableRowMultiSelect={enableRowMultiSelect}
+              selectionClearKey={rowSelectionClearKey}
+              onBulkDeleteRequest={(ids) => setBulkDeleteIds(ids)}
               onNewRecord={() => setCreateOpen(true)}
               onAddColumn={() => setAddColumnOpen(true)}
               onColumnResize={(fieldId, width) => {
@@ -567,6 +602,16 @@ export function ObjectListPage() {
           displayName={deleteDisplayName}
           onConfirm={handleDeleteConfirm}
           isDeleting={deleteRecord.isPending}
+        />
+
+        <RecordBulkDeleteDialog
+          open={bulkDeleteIds != null && bulkDeleteIds.length > 0}
+          onOpenChange={(open) => !open && setBulkDeleteIds(null)}
+          count={bulkDeleteIds?.length ?? 0}
+          singularName={obj.singularName}
+          pluralName={obj.pluralName}
+          onConfirm={handleBulkDeleteConfirm}
+          isDeleting={bulkDeleting}
         />
 
         <EditAttributeDialog

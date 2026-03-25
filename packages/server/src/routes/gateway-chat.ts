@@ -413,7 +413,7 @@ async function synthesizeFinalAnswer(args: {
   }
 
   const toolSummary = args.toolOutputs
-    .slice(0, 6)
+    .slice(0, 20)
     .map((output, index) => {
       const result =
         typeof output.result === "string"
@@ -440,7 +440,7 @@ async function synthesizeFinalAnswer(args: {
         },
       ],
       stream: false,
-      max_tokens: 800,
+      max_tokens: 1200,
     }),
   });
   if (!res.ok) {

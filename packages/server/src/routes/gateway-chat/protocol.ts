@@ -54,9 +54,11 @@ Update workflow (CRITICAL — follow exactly):
    - If the user describes a record by a detail (e.g. "the company about touching people") → call search_companies/search_contacts/search_deals/search_tasks ONCE. The result will show the name and id (e.g. "Katars (id: 42)"). Then IMMEDIATELY call the update tool using that id.
    - NEVER search more than once. NEVER search again after you already have results. Use the id from the first search result.
 2. Available update tools: update_contact (fields: first_name, last_name, email, linkedin_url, custom_fields), update_deal (fields: name, status, amount, custom_fields), update_company (fields: name, category, domain, description, custom_fields). For deals, "stage" and "status" mean the same thing — when the user asks to change the stage, update the status. For LinkedIn URLs, always use linkedin_url on contacts. For other fields beyond the built-in ones, use the custom_fields parameter with the field name as the key.
-3. After any update, confirm to the user what changed.
-4. Common multi-step patterns you must finish before replying:
+3. Available delete-record tools (permanent removal of CRM rows): delete_contact, delete_company, delete_deal — each accepts id (preferred) or contact_name / company_name / deal_name. Use these when the user asks to remove/delete contacts, companies, or deals. This is separate from delete_custom_field, which only removes a field definition.
+4. After any update or delete, confirm to the user what changed.
+5. Common multi-step patterns you must finish before replying:
    - search_companies/search_contacts/search_deals/search_tasks -> update_company/update_contact/update_deal
+   - search_* -> delete_contact/delete_company/delete_deal when the user wants records removed (use ids from search when batching)
    - create_task: use with only the text argument for standalone tasks (no contact/company required). Optionally link via contact_name/contact_id or company_name/company_id when the user names someone or a company.
    - search_contacts/search_companies/search_tasks -> create_task when a lookup is needed before linking
    - search_contacts/search_deals -> add_note
@@ -100,10 +102,10 @@ Custom field management (CRITICAL):
 - The Available Fields section at the end of this prompt lists all current fields including custom ones. Use those exact field names as keys.
 
 Delete workflow (CRITICAL):
-- NEVER delete or archive a record without explicit confirmation from the user.
-- Always search first and show the exact record (name, key details) before asking to confirm.
-- Ask "Are you sure you want to delete [exact name]?" before calling any delete action.
-- For deals, deletion is a soft archive — the deal is hidden but not permanently removed.
+- You have delete_contact, delete_company, and delete_deal tools for removing CRM records (not the same as delete_custom_field).
+- NEVER delete a record without explicit confirmation from the user, unless they clearly already confirmed (e.g. "yes delete all of them" after you listed who will be removed).
+- When ambiguous, search first and show the exact record (name, key details) before asking to confirm.
+- Ask "Are you sure you want to delete [exact name]?" before calling delete_* when the user was vague.
 
 Gmail and Slack integration:
 - Use search_gmail to search the user's email when they ask about emails, correspondence, or want context from their inbox (e.g. "find emails from John", "what did Acme send last week", "any unread proposals").
@@ -133,7 +135,7 @@ Pages & features that EXIST (with navigation paths):
 - Deals: list view + Kanban pipeline board (sidebar → Deals, or /objects/deals). The Kanban board shows deal stages as columns.
 - Tasks: task management with due dates, linked to contacts/companies/deals (sidebar → Tasks)
 - Notes: standalone notes page (sidebar → Notes). Notes can also be attached to contacts, companies, and deals from their detail pages.
-- Chat: AI assistant — this conversation (sidebar → Chats, or /chat). Supports creating/searching/updating CRM records via natural language.
+- Chat: AI assistant — this conversation (sidebar → Chats, or /chat). Supports creating, searching, updating, and deleting CRM records via natural language.
 - Voice: voice assistant for hands-free CRM interaction (sidebar → Voice). Available in the Electron desktop app.
 - Meetings: meeting recordings and transcripts (sidebar → Meetings)
 - Automations: workflow builder with triggers (events, schedules) and actions (email, AI, CRM updates, Slack, Gmail) (sidebar → Automations)
@@ -142,7 +144,7 @@ Pages & features that EXIST (with navigation paths):
   - Connections: connect Gmail and Slack for email search and message search (Settings → Connections tab)
   - Personal CRM API tokens: generate API tokens for programmatic access to the CRM REST API (Settings → scroll to "Personal CRM API tokens" section). Tokens use Bearer auth.
 - Search: global command palette search (sidebar → Search, or Cmd/Ctrl+K)
-- Custom fields: add custom fields to any object type (contacts, companies, deals, etc.). You can also create and delete custom fields via chat using the create_custom_field and delete_custom_field tools.
+- Custom fields: add custom fields to any object type (contacts, companies, deals, etc.). create_custom_field and delete_custom_field manage field definitions only — to remove actual contacts/companies/deals use delete_contact, delete_company, or delete_deal.
 - Views: saved views with filters, sorts, and column configuration (on any list page, click the view tabs)
 - RBAC: role-based access control for team members
 
@@ -338,6 +340,46 @@ export const updateCompanySchema = z
         code: z.ZodIssueCode.custom,
         message:
           "At least one update field is required",
+      });
+    }
+  });
+
+export const deleteContactSchema = z
+  .object({
+    id: z.number().int().positive().optional(),
+    contact_name: z.string().min(1).optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (!v.id && !v.contact_name) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Provide id or contact_name",
+      });
+    }
+  });
+export const deleteCompanySchema = z
+  .object({
+    id: z.number().int().positive().optional(),
+    company_name: z.string().min(1).optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (!v.id && !v.company_name) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Provide id or company_name",
+      });
+    }
+  });
+export const deleteDealSchema = z
+  .object({
+    id: z.number().int().positive().optional(),
+    deal_name: z.string().min(1).optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (!v.id && !v.deal_name) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Provide id or deal_name",
       });
     }
   });
@@ -779,6 +821,66 @@ export const OPENAI_TOOL_DEFS = [
             type: "object",
             description:
               "Key-value pairs for custom fields to update. Keys must match the field names from Available Fields.",
+          },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_contact",
+      description:
+        "Delete a contact permanently. Use id (preferred, from a prior search) or contact_name. Use search_contacts first if you only have a partial name.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "number", description: "Contact ID from a prior search" },
+          contact_name: {
+            type: "string",
+            description: "Name or email to look up",
+          },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_company",
+      description:
+        "Delete a company permanently. Use id (preferred, from a prior search) or company_name. Use search_companies first if you only have a partial name.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: {
+            type: "number",
+            description: "Company ID from a prior search",
+          },
+          company_name: {
+            type: "string",
+            description: "Company name to look up",
+          },
+        },
+        required: [],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_deal",
+      description:
+        "Delete a deal permanently. Use id (preferred, from a prior search) or deal_name. Use search_deals first if you only have a partial name.",
+      parameters: {
+        type: "object",
+        properties: {
+          id: { type: "number", description: "Deal ID from a prior search" },
+          deal_name: {
+            type: "string",
+            description: "Deal name to look up",
           },
         },
         required: [],

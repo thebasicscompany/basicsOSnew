@@ -12,6 +12,10 @@ import { TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import type { Attribute } from "@/field-types/types";
+import {
+  DATA_TABLE_ROW_SELECT_COLUMN_ID,
+  DATA_TABLE_SELECT_COL_WIDTH,
+} from "./DataTableRowSelectCells";
 
 export interface CellPosition {
   rowIndex: number;
@@ -30,6 +34,7 @@ interface DataTableBodyProps<T extends Record<string, unknown>> {
   perPage: number;
   pluralName: string;
   singularName: string;
+  enableRowMultiSelect?: boolean;
   onNewRecord?: () => void;
   onRowExpand?: (recordId: number) => void;
   onRowDelete?: (recordId: number, record: T) => void;
@@ -52,6 +57,7 @@ export function DataTableBody<T extends Record<string, unknown>>({
   perPage,
   pluralName: _pluralName,
   singularName: _singularName,
+  enableRowMultiSelect = false,
   onNewRecord: _onNewRecord,
   onRowExpand,
   onRowDelete,
@@ -80,6 +86,7 @@ export function DataTableBody<T extends Record<string, unknown>>({
             const rowContent = (
               <TableRow
                 key={row.id}
+                data-row-index={row.index}
                 className={onRowExpand ? "cursor-default" : undefined}
               >
                 {row.getVisibleCells().map((cell) => {
@@ -87,14 +94,21 @@ export function DataTableBody<T extends Record<string, unknown>>({
                   const colId = cell.column.id;
                   const rowIndex = row.index;
 
+                  const isSelectCol = colId === DATA_TABLE_ROW_SELECT_COLUMN_ID;
                   const isPrimaryAttr =
                     visibleCols.length > 0 &&
                     colId === visibleCols[0].attribute.id;
 
                   const stickyStyle: React.CSSProperties = {};
-                  if (isPrimaryAttr) {
+                  if (isSelectCol) {
                     stickyStyle.position = "sticky";
                     stickyStyle.left = 0;
+                    stickyStyle.zIndex = 4;
+                  } else if (isPrimaryAttr) {
+                    stickyStyle.position = "sticky";
+                    stickyStyle.left = enableRowMultiSelect
+                      ? DATA_TABLE_SELECT_COL_WIDTH
+                      : 0;
                     stickyStyle.zIndex = 2;
                   }
 
@@ -128,16 +142,18 @@ export function DataTableBody<T extends Record<string, unknown>>({
                       key={cell.id}
                       style={{ ...sizeStyle, ...stickyStyle }}
                       className={cn(
-                        isPrimaryAttr && "bg-background",
+                        (isPrimaryAttr || isSelectCol) && "bg-background",
                         isSel &&
                           "ring-2 ring-inset ring-primary/50 bg-primary/5",
                       )}
                       onClick={() => {
+                        if (isSelectCol) return;
                         if (matchedCol) {
                           onCellClick(rowIndex, colId, matchedCol.attribute);
                         }
                       }}
                       onDoubleClick={() => {
+                        if (isSelectCol) return;
                         if (matchedCol) {
                           onCellDoubleClick(
                             rowIndex,

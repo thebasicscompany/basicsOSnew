@@ -13,4 +13,5 @@ export { RecordDetailHeaderActions } from "./RecordDetailHeaderActions";
 export { RecordDetailBreadcrumb } from "./RecordDetailBreadcrumb";
 export { RecordDetailDetailsSidebar } from "./RecordDetailDetailsSidebar";
 export { RecordDetailDeleteDialog } from "./RecordDetailDeleteDialog";
+export { RecordBulkDeleteDialog } from "./RecordBulkDeleteDialog";
 export { useRecordDetail } from "./useRecordDetail";

@@ -21,7 +21,10 @@ import {
   createDealSchema,
   createNoteSchema,
   createTaskSchema,
+  deleteCompanySchema,
+  deleteContactSchema,
   deleteCustomFieldSchema,
+  deleteDealSchema,
   getCompanySchema,
   getContactSchema,
   getDealSchema,
@@ -39,6 +42,8 @@ import {
   updateContactSchema,
   updateDealSchema,
 } from "@/routes/gateway-chat/protocol.js";
+import { hardDeleteRecord } from "@/data-access/crm/delete.js";
+import { deleteEntityEmbedding, getEntityType } from "@/lib/embeddings.js";
 
 type RecordRow = {
   id: number | string;
@@ -152,6 +157,11 @@ function formatCreated(row: RecordRow | null, objectSlug: string): string {
 function formatUpdated(row: RecordRow | null, objectSlug: string): string {
   if (!row) return "Record not found.";
   return `Updated: ${mdLink(row, objectSlug)}`;
+}
+
+function formatDeleted(row: RecordRow | null, objectSlug: string): string {
+  if (!row) return "Record not found.";
+  return `Deleted: ${mdLink(row, objectSlug)}`;
 }
 
 export async function executeValidatedTool(
@@ -367,6 +377,36 @@ export async function executeValidatedTool(
     return row ? formatUpdated(row, "contacts") : "Error: contact not found";
   }
 
+  if (toolName === "delete_contact") {
+    const parsed = deleteContactSchema.safeParse(rawArgs);
+    if (!parsed.success)
+      return { error: "Invalid arguments", details: parsed.error.flatten() };
+    const args = parsed.data;
+    let id = args.id;
+    if (id == null && args.contact_name) {
+      id =
+        (await resolveContactByName(
+          db,
+          organizationId,
+          args.contact_name,
+          searchContext,
+        )) ?? undefined;
+      if (id == null) return "No contact found matching that name.";
+    }
+    if (id == null) return { error: "Provide id or contact_name" };
+    const deleted = await hardDeleteRecord(db, {
+      resource: "contacts",
+      id,
+      orgId: organizationId,
+    });
+    if (!deleted) return "Contact not found or already deleted.";
+    const entityType = getEntityType("contacts");
+    if (entityType) {
+      deleteEntityEmbedding(db, crmUserId, entityType, id).catch(() => {});
+    }
+    return formatDeleted(deleted as RecordRow, "contacts");
+  }
+
   if (toolName === "search_deals") {
     const parsed = searchDealsSchema.safeParse(rawArgs);
     if (!parsed.success)
@@ -522,6 +562,36 @@ export async function executeValidatedTool(
     return row ? formatUpdated(row, "deals") : "Error: deal not found";
   }
 
+  if (toolName === "delete_deal") {
+    const parsed = deleteDealSchema.safeParse(rawArgs);
+    if (!parsed.success)
+      return { error: "Invalid arguments", details: parsed.error.flatten() };
+    const args = parsed.data;
+    let id = args.id;
+    if (id == null && args.deal_name) {
+      id =
+        (await resolveDealByName(
+          db,
+          organizationId,
+          args.deal_name,
+          searchContext,
+        )) ?? undefined;
+      if (id == null) return "No deal found matching that name.";
+    }
+    if (id == null) return { error: "Provide id or deal_name" };
+    const deleted = await hardDeleteRecord(db, {
+      resource: "deals",
+      id,
+      orgId: organizationId,
+    });
+    if (!deleted) return "Deal not found or already deleted.";
+    const entityType = getEntityType("deals");
+    if (entityType) {
+      deleteEntityEmbedding(db, crmUserId, entityType, id).catch(() => {});
+    }
+    return formatDeleted(deleted as RecordRow, "deals");
+  }
+
   if (toolName === "search_companies") {
     const parsed = searchCompaniesSchema.safeParse(rawArgs);
     if (!parsed.success)
@@ -645,6 +715,36 @@ export async function executeValidatedTool(
       )
       .returning();
     return row ? formatUpdated(row, "companies") : "Error: company not found";
+  }
+
+  if (toolName === "delete_company") {
+    const parsed = deleteCompanySchema.safeParse(rawArgs);
+    if (!parsed.success)
+      return { error: "Invalid arguments", details: parsed.error.flatten() };
+    const args = parsed.data;
+    let id = args.id;
+    if (id == null && args.company_name) {
+      id =
+        (await resolveCompanyByName(
+          db,
+          organizationId,
+          args.company_name,
+          searchContext,
+        )) ?? undefined;
+      if (id == null) return "No company found matching that name.";
+    }
+    if (id == null) return { error: "Provide id or company_name" };
+    const deleted = await hardDeleteRecord(db, {
+      resource: "companies",
+      id,
+      orgId: organizationId,
+    });
+    if (!deleted) return "Company not found or already deleted.";
+    const entityType = getEntityType("companies");
+    if (entityType) {
+      deleteEntityEmbedding(db, crmUserId, entityType, id).catch(() => {});
+    }
+    return formatDeleted(deleted as RecordRow, "companies");
   }
 
   if (toolName === "search_tasks") {

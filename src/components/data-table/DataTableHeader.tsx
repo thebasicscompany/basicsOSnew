@@ -9,6 +9,10 @@ import { getNameAttributes } from "@/lib/crm/display-name";
 import { ColumnHeaderMenu } from "./ColumnHeaderMenu";
 import { ColumnResizeHandle } from "./ColumnResizeHandle";
 import type { Attribute } from "@/field-types/types";
+import {
+  DATA_TABLE_ROW_SELECT_COLUMN_ID,
+  DATA_TABLE_SELECT_COL_WIDTH,
+} from "./DataTableRowSelectCells";
 
 interface DataTableHeaderProps<T> {
   headerGroups: HeaderGroup<T>[];
@@ -18,6 +22,7 @@ interface DataTableHeaderProps<T> {
     viewColumn: { fieldId: string; title: string };
   }>;
   singularName: string;
+  enableRowMultiSelect?: boolean;
   onColumnResize: (fieldId: string, delta: number) => void;
   onAddSort?: (fieldId: string, direction: "asc" | "desc") => void;
   onHideColumn?: (fieldId: string) => void;
@@ -31,6 +36,7 @@ export function DataTableHeader<T extends Record<string, unknown>>({
   sortableColumnIds,
   visibleCols,
   singularName,
+  enableRowMultiSelect = false,
   onColumnResize,
   onAddSort,
   onHideColumn,
@@ -53,14 +59,21 @@ export function DataTableHeader<T extends Record<string, unknown>>({
             const visCol = visibleCols.find(
               (c) => c.attribute.id === header.id,
             );
+            const isSelectCol = header.id === DATA_TABLE_ROW_SELECT_COLUMN_ID;
             const isPrimaryAttr =
               visibleCols.length > 0 &&
               header.id === visibleCols[0].attribute.id;
 
             const stickyStyle: React.CSSProperties = {};
-            if (isPrimaryAttr) {
+            if (isSelectCol) {
               stickyStyle.position = "sticky";
               stickyStyle.left = 0;
+              stickyStyle.zIndex = 5;
+            } else if (isPrimaryAttr) {
+              stickyStyle.position = "sticky";
+              stickyStyle.left = enableRowMultiSelect
+                ? DATA_TABLE_SELECT_COL_WIDTH
+                : 0;
               stickyStyle.zIndex = 3;
             }
 
@@ -98,7 +111,9 @@ export function DataTableHeader<T extends Record<string, unknown>>({
                 <TableHead
                   key={header.id}
                   colSpan={header.colSpan}
-                  className={isPrimaryAttr ? "bg-background" : undefined}
+                  className={
+                    isPrimaryAttr || isSelectCol ? "bg-background" : undefined
+                  }
                   style={{ ...sizeStyle, ...stickyStyle }}
                 >
                   <ColumnHeaderMenu
@@ -134,7 +149,9 @@ export function DataTableHeader<T extends Record<string, unknown>>({
               <TableHead
                 key={header.id}
                 colSpan={header.colSpan}
-                className={isPrimaryAttr ? "bg-background" : undefined}
+                className={
+                  isPrimaryAttr || isSelectCol ? "bg-background" : undefined
+                }
                 style={{
                   width: header.getSize(),
                   minWidth: header.column.columnDef.minSize,

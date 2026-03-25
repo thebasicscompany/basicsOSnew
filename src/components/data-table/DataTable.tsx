@@ -1,4 +1,4 @@
-import { PlusIcon, TableIcon } from "@phosphor-icons/react";
+import { PlusIcon, TableIcon, TrashIcon } from "@phosphor-icons/react";
 import { Table } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -35,6 +35,10 @@ export function DataTable(props: DataTableProps) {
     onHideColumn,
     onRenameColumn,
     onEditAttribute,
+    enableRowMultiSelect,
+    selectedRecordIds,
+    clearRowSelection,
+    onBulkDeleteRequest,
   } = useDataTable(props);
 
   return (
@@ -73,6 +77,7 @@ export function DataTable(props: DataTableProps) {
               sortableColumnIds={sortableColumnIds}
               visibleCols={visibleCols}
               singularName={singularName}
+              enableRowMultiSelect={enableRowMultiSelect}
               onColumnResize={handleColumnResize}
               onAddSort={onAddSort}
               onHideColumn={onHideColumn}
@@ -90,6 +95,7 @@ export function DataTable(props: DataTableProps) {
               perPage={pagination.perPage}
               pluralName={pluralName}
               singularName={singularName}
+              enableRowMultiSelect={enableRowMultiSelect}
               onNewRecord={onNewRecord}
               onRowExpand={onRowExpand}
               onRowDelete={props.onRowDelete}
@@ -99,6 +105,28 @@ export function DataTable(props: DataTableProps) {
           </Table>
         )}
       </div>
+
+      {enableRowMultiSelect &&
+        selectedRecordIds.length > 0 &&
+        onBulkDeleteRequest && (
+          <div className="flex shrink-0 flex-wrap items-center gap-2 border-t bg-muted/30 px-3 py-2">
+            <span className="text-sm text-muted-foreground">
+              {selectedRecordIds.length} selected
+            </span>
+            <div className="flex-1" />
+            <Button variant="ghost" size="sm" onClick={clearRowSelection}>
+              Clear
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => onBulkDeleteRequest(selectedRecordIds)}
+            >
+              <TrashIcon className="mr-1.5 size-3.5" />
+              Delete
+            </Button>
+          </div>
+        )}
 
       <DataTablePagination
         total={total}

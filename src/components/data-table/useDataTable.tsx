@@ -24,6 +24,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Cell } from "@/components/cells";
 import { getVisibleAttributes, parseWidth } from "./utils";
+import {
+  DataTableSelectAllHeader,
+  DataTableRowSelectCell,
+  DATA_TABLE_SELECT_COL_WIDTH,
+  DATA_TABLE_ROW_SELECT_COLUMN_ID,
+} from "./DataTableRowSelectCells";
 
 export interface DataTableProps {
   objectSlug: string;
@@ -50,6 +56,11 @@ export interface DataTableProps {
   onPaginationChange: (page: number, perPage: number) => void;
   sorts?: ViewSort[];
   filters?: unknown[];
+  /** Checkbox column, shift/Cmd-click, drag across rows to select */
+  enableRowMultiSelect?: boolean;
+  onBulkDeleteRequest?: (recordIds: number[]) => void;
+  /** Increment (e.g. after bulk delete) to clear row selection */
+  selectionClearKey?: number;
 }
 
 export interface CellPosition {
@@ -77,6 +88,8 @@ export function useDataTable(props: DataTableProps) {
     onRenameColumn,
     pagination,
     onPaginationChange,
+    enableRowMultiSelect = false,
+    selectionClearKey = 0,
   } = props;
 
   const [selectedCell, setSelectedCell] = React.useState<CellPosition | null>(
@@ -84,6 +97,10 @@ export function useDataTable(props: DataTableProps) {
   );
   const [editingCell, setEditingCell] = React.useState<CellPosition | null>(
     null,
+  );
+
+  const [selectedRecordIds, setSelectedRecordIds] = React.useState<number[]>(
+    [],
   );
 
   const [columnWidths, setColumnWidths] = React.useState<
@@ -116,6 +133,139 @@ export function useDataTable(props: DataTableProps) {
   const editingCellRef = React.useRef(editingCell);
   editingCellRef.current = editingCell;
 
+  const selectionAnchorRef = React.useRef<number | null>(null);
+  const dragAnchorRef = React.useRef<number | null>(null);
+  const dragEndRowRef = React.useRef<number | null>(null);
+  const selectDragMovedRef = React.useRef(false);
+  const prevSelectionClearKey = React.useRef(selectionClearKey);
+
+  const getRecordId = React.useCallback((row: Record<string, unknown>) => {
+    const raw = row.Id ?? row.id;
+    const n = typeof raw === "number" ? raw : Number(raw);
+    return Number.isFinite(n) ? n : 0;
+  }, []);
+
+  const pageRecordIds = React.useMemo(
+    () => data.map((row) => getRecordId(row)).filter((id) => id > 0),
+    [data, getRecordId],
+  );
+
+  const selectedIdSet = React.useMemo(
+    () => new Set(selectedRecordIds),
+    [selectedRecordIds],
+  );
+
+  const selectedCountOnPage = React.useMemo(
+    () => pageRecordIds.filter((id) => selectedIdSet.has(id)).length,
+    [pageRecordIds, selectedIdSet],
+  );
+
+  const clearRowSelection = React.useCallback(() => {
+    setSelectedRecordIds([]);
+    selectionAnchorRef.current = null;
+    dragAnchorRef.current = null;
+    dragEndRowRef.current = null;
+  }, []);
+
+  React.useEffect(() => {
+    clearRowSelection();
+  }, [
+    props.objectSlug,
+    pagination.page,
+    pagination.perPage,
+    clearRowSelection,
+  ]);
+
+  React.useEffect(() => {
+    if (prevSelectionClearKey.current !== selectionClearKey) {
+      prevSelectionClearKey.current = selectionClearKey;
+      clearRowSelection();
+    }
+  }, [selectionClearKey, clearRowSelection]);
+
+  const selectAllOnPage = React.useCallback(() => {
+    setSelectedRecordIds([...pageRecordIds]);
+    selectionAnchorRef.current =
+      data.length > 0 ? Math.max(0, data.length - 1) : null;
+  }, [pageRecordIds, data.length]);
+
+  const beginDragSelect = React.useCallback(
+    (rowIndex: number) => {
+      const id = getRecordId(data[rowIndex] ?? {});
+      if (!id) return;
+      dragAnchorRef.current = rowIndex;
+      dragEndRowRef.current = rowIndex;
+      selectionAnchorRef.current = rowIndex;
+      setSelectedRecordIds([id]);
+    },
+    [data, getRecordId],
+  );
+
+  const dragSelectToRow = React.useCallback(
+    (rowIndex: number) => {
+      const anchor = dragAnchorRef.current;
+      if (anchor == null) return;
+      dragEndRowRef.current = rowIndex;
+      const lo = Math.min(anchor, rowIndex);
+      const hi = Math.max(anchor, rowIndex);
+      const ids: number[] = [];
+      for (let i = lo; i <= hi; i++) {
+        const id = getRecordId(data[i] ?? {});
+        if (id) ids.push(id);
+      }
+      setSelectedRecordIds(ids);
+    },
+    [data, getRecordId],
+  );
+
+  const endDragSelect = React.useCallback(() => {
+    const start = dragAnchorRef.current;
+    const end = dragEndRowRef.current;
+    if (start != null && end != null) {
+      selectionAnchorRef.current = end;
+    } else if (start != null) {
+      selectionAnchorRef.current = start;
+    }
+    dragAnchorRef.current = null;
+    dragEndRowRef.current = null;
+  }, []);
+
+  const handleShiftSelectRow = React.useCallback(
+    (rowIndex: number) => {
+      const anchor = selectionAnchorRef.current;
+      if (anchor == null) {
+        selectionAnchorRef.current = rowIndex;
+        const id = getRecordId(data[rowIndex] ?? {});
+        setSelectedRecordIds(id ? [id] : []);
+        return;
+      }
+      const lo = Math.min(anchor, rowIndex);
+      const hi = Math.max(anchor, rowIndex);
+      const ids: number[] = [];
+      for (let i = lo; i <= hi; i++) {
+        const id = getRecordId(data[i] ?? {});
+        if (id) ids.push(id);
+      }
+      setSelectedRecordIds(ids);
+    },
+    [data, getRecordId],
+  );
+
+  const handleCtrlToggleRow = React.useCallback(
+    (rowIndex: number) => {
+      const id = getRecordId(data[rowIndex] ?? {});
+      if (!id) return;
+      selectionAnchorRef.current = rowIndex;
+      setSelectedRecordIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return Array.from(next);
+      });
+    },
+    [getRecordId, data],
+  );
+
   const { visible: visibleCols, hiddenEmptyCount } = React.useMemo(
     () => getVisibleAttributes(attributes, viewColumns, data),
     [attributes, viewColumns, data],
@@ -145,6 +295,40 @@ export function useDataTable(props: DataTableProps) {
 
   const columns = React.useMemo<ColumnDef<Record<string, unknown>>[]>(() => {
     const cols: ColumnDef<Record<string, unknown>>[] = [];
+
+    if (enableRowMultiSelect) {
+      cols.push({
+        id: DATA_TABLE_ROW_SELECT_COLUMN_ID,
+        size: DATA_TABLE_SELECT_COL_WIDTH,
+        minSize: DATA_TABLE_SELECT_COL_WIDTH,
+        maxSize: DATA_TABLE_SELECT_COL_WIDTH,
+        enableResizing: false,
+        header: () => (
+          <DataTableSelectAllHeader
+            pageRecordIds={pageRecordIds}
+            selectedCountOnPage={selectedCountOnPage}
+            onSelectAllOnPage={selectAllOnPage}
+            onClearSelection={clearRowSelection}
+          />
+        ),
+        cell: ({ row }) => {
+          const rowIndex = row.index;
+          const recordId = getRecordId(row.original);
+          return (
+            <DataTableRowSelectCell
+              rowIndex={rowIndex}
+              isSelected={recordId > 0 && selectedIdSet.has(recordId)}
+              onShiftClick={() => handleShiftSelectRow(rowIndex)}
+              onCtrlToggle={() => handleCtrlToggleRow(rowIndex)}
+              beginDragSelect={beginDragSelect}
+              dragSelectToRow={dragSelectToRow}
+              endDragSelect={endDragSelect}
+              dragMovedRef={selectDragMovedRef}
+            />
+          );
+        },
+      });
+    }
 
     for (const { attribute, viewColumn } of visibleCols) {
       const fieldType = getFieldType(attribute.uiType);
@@ -301,6 +485,18 @@ export function useDataTable(props: DataTableProps) {
     attributes,
     firstNameAttr,
     usesSplitName,
+    enableRowMultiSelect,
+    pageRecordIds,
+    selectedCountOnPage,
+    selectAllOnPage,
+    clearRowSelection,
+    getRecordId,
+    selectedIdSet,
+    handleShiftSelectRow,
+    handleCtrlToggleRow,
+    beginDragSelect,
+    dragSelectToRow,
+    endDragSelect,
   ]);
 
   const table = useReactTable({
@@ -320,6 +516,29 @@ export function useDataTable(props: DataTableProps) {
 
   const handleKeyDown = React.useCallback(
     (e: React.KeyboardEvent) => {
+      if (
+        enableRowMultiSelect &&
+        e.key === "Escape" &&
+        selectedRecordIds.length > 0
+      ) {
+        e.preventDefault();
+        clearRowSelection();
+        return;
+      }
+
+      if (
+        enableRowMultiSelect &&
+        (e.ctrlKey || e.metaKey) &&
+        e.key.toLowerCase() === "a"
+      ) {
+        const t = e.target as HTMLElement;
+        if (!t.closest("input,textarea,[contenteditable=true]")) {
+          e.preventDefault();
+          selectAllOnPage();
+          return;
+        }
+      }
+
       if (!selectedCell) return;
 
       const { rowIndex, colId } = selectedCell;
@@ -372,7 +591,16 @@ export function useDataTable(props: DataTableProps) {
           break;
       }
     },
-    [selectedCell, editingCell, visibleCols, data.length],
+    [
+      selectedCell,
+      editingCell,
+      visibleCols,
+      data.length,
+      enableRowMultiSelect,
+      selectedRecordIds.length,
+      clearRowSelection,
+      selectAllOnPage,
+    ],
   );
 
   React.useEffect(() => {
@@ -486,5 +714,9 @@ export function useDataTable(props: DataTableProps) {
     onRenameColumn,
     onEditAttribute: props.onEditAttribute,
     onShowColumn: props.onShowColumn,
+    enableRowMultiSelect,
+    selectedRecordIds,
+    clearRowSelection,
+    onBulkDeleteRequest: props.onBulkDeleteRequest,
   };
 }
