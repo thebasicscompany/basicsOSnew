@@ -6,22 +6,28 @@ import { toast } from "sonner";
 import { getRuntimeApiUrl } from "@/lib/runtime-config";
 const API_URL = getRuntimeApiUrl();
 
-const TOOL_TO_QUERY_KEYS: Record<string, string[]> = {
-  search_contacts: ["contacts_summary"],
-  get_contact: ["contacts_summary"],
-  create_contact: ["contacts_summary"],
-  update_contact: ["contacts_summary"],
-  search_deals: ["deals"],
-  get_deal: ["deals"],
-  create_deal: ["deals"],
-  update_deal: ["deals"],
-  search_companies: ["companies_summary"],
-  create_company: ["companies_summary"],
-  list_tasks: ["tasks"],
-  create_task: ["tasks"],
-  complete_task: ["tasks"],
-  list_notes: ["contact_notes"],
-  create_note: ["contact_notes"],
+const TOOL_TO_QUERY_KEYS: Record<string, string[][]> = {
+  search_contacts: [["records", "contacts"]],
+  get_contact: [["records", "contacts"]],
+  create_contact: [["records", "contacts"]],
+  update_contact: [["records", "contacts"]],
+  search_deals: [["records", "deals"]],
+  get_deal: [["records", "deals"]],
+  create_deal: [["records", "deals"]],
+  update_deal: [["records", "deals"]],
+  search_companies: [["records", "companies"]],
+  get_company: [["records", "companies"]],
+  create_company: [["records", "companies"]],
+  update_company: [["records", "companies"]],
+  search_tasks: [["records", "tasks"]],
+  list_tasks: [["records", "tasks"]],
+  create_task: [["records", "tasks"]],
+  complete_task: [["records", "tasks"]],
+  list_notes: [["records", "contact_notes"]],
+  create_note: [["records", "contact_notes"]],
+  add_note: [["records", "contact_notes"], ["records", "deal_notes"]],
+  create_custom_field: [["columns"], ["object-config"], ["custom-fields"]],
+  delete_custom_field: [["columns"], ["object-config"], ["custom-fields"]],
 };
 
 interface UseGatewayChatOptions {
@@ -87,19 +93,15 @@ export function useGatewayChat(opts?: UseGatewayChatOptions) {
   const handleFinish = useCallback(() => {
     const names = pendingToolsRef.current;
     if (names.size === 0) {
-      // Fallback: server may mutate several entities via tools; keep UI fresh.
-      queryClient.invalidateQueries({ queryKey: ["contacts_summary"] });
-      queryClient.invalidateQueries({ queryKey: ["deals"] });
-      queryClient.invalidateQueries({ queryKey: ["companies_summary"] });
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["contact_notes"] });
+      queryClient.invalidateQueries({ queryKey: ["records"] });
+      queryClient.invalidateQueries({ queryKey: ["columns"] });
       return;
     }
     for (const name of names) {
       const keys = TOOL_TO_QUERY_KEYS[name];
       if (keys) {
-        for (const key of keys) {
-          queryClient.invalidateQueries({ queryKey: [key] });
+        for (const queryKey of keys) {
+          queryClient.invalidateQueries({ queryKey });
         }
       }
     }

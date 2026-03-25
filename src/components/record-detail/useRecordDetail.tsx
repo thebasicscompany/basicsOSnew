@@ -12,6 +12,7 @@ import {
 import {
   buildAttributeWritePayload,
   buildRecordWritePayload,
+  isCustomAttribute,
 } from "@/lib/crm/field-utils";
 import { useObject, useAttributes } from "@/hooks/use-object-registry";
 import type { Attribute } from "@/types/objects";
@@ -405,6 +406,7 @@ export function useRecordDetail(): UseRecordDetailReturn {
   const visibleEditableAttributes = useMemo(() => {
     if (showAllFields) return editableAttributes;
     return editableAttributes.filter((attr) => {
+      if (isCustomAttribute(attr)) return true;
       if (!record) return true;
       const rec = record as Record<string, unknown>;
       return !isValueEmpty(attr, getRecordValue(rec, attr.columnName));
@@ -414,8 +416,10 @@ export function useRecordDetail(): UseRecordDetailReturn {
   const emptyFieldsCount = useMemo(() => {
     if (!record) return 0;
     const rec = record as Record<string, unknown>;
-    return editableAttributes.filter((attr) =>
-      isValueEmpty(attr, getRecordValue(rec, attr.columnName)),
+    return editableAttributes.filter(
+      (attr) =>
+        !isCustomAttribute(attr) &&
+        isValueEmpty(attr, getRecordValue(rec, attr.columnName)),
     ).length;
   }, [editableAttributes, record, isValueEmpty]);
 

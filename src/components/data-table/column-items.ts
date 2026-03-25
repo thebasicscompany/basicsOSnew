@@ -43,7 +43,7 @@ export function buildColumnItems(
           id: `virtual-${attr.id}`,
           fieldId: attr.id,
           title: attr.name,
-          show: false,
+          show: !attr.isHiddenByDefault && !attr.isSystem,
           order: matched.length,
         } as ViewColumn,
         attr,

@@ -17,9 +17,11 @@ import {
   completeTaskSchema,
   createCompanySchema,
   createContactSchema,
+  createCustomFieldSchema,
   createDealSchema,
   createNoteSchema,
   createTaskSchema,
+  deleteCustomFieldSchema,
   getCompanySchema,
   getContactSchema,
   getDealSchema,
@@ -1071,6 +1073,79 @@ export async function executeValidatedTool(
     if (linked.length === 0)
       return "Could not link meeting — no valid contact or company found.";
     return `Linked meeting #${args.meeting_id} to ${linked.join(" and ")}.`;
+  }
+
+  if (toolName === "create_custom_field") {
+    const parsed = createCustomFieldSchema.safeParse(rawArgs);
+    if (!parsed.success)
+      return { error: "Invalid arguments", details: parsed.error.flatten() };
+
+    const { resource, label, field_type, options } = parsed.data;
+    const safeName = label.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z0-9_]/g, "");
+    if (!safeName)
+      return { error: "Could not generate a valid field name from that label." };
+
+    const existing = await db
+      .select({ id: schema.customFieldDefs.id })
+      .from(schema.customFieldDefs)
+      .where(
+        and(
+          eq(schema.customFieldDefs.resource, resource),
+          eq(schema.customFieldDefs.name, safeName),
+          eq(schema.customFieldDefs.organizationId, organizationId),
+        ),
+      )
+      .limit(1);
+    if (existing.length > 0)
+      return `A custom field named "${safeName}" already exists on ${resource}. You can use it with custom_fields: { "${safeName}": value }.`;
+
+    const [row] = await db
+      .insert(schema.customFieldDefs)
+      .values({
+        resource,
+        name: safeName,
+        label,
+        fieldType: field_type,
+        options: options ?? null,
+        organizationId,
+      })
+      .returning();
+
+    return `Created custom field "${label}" (key: ${safeName}, type: ${field_type}) on ${resource}. You can now set it via custom_fields: { "${safeName}": value } when creating or updating ${resource}.`;
+  }
+
+  if (toolName === "delete_custom_field") {
+    const parsed = deleteCustomFieldSchema.safeParse(rawArgs);
+    if (!parsed.success)
+      return { error: "Invalid arguments", details: parsed.error.flatten() };
+
+    const { resource, field_name } = parsed.data;
+
+    const [existing] = await db
+      .select({ id: schema.customFieldDefs.id, label: schema.customFieldDefs.label })
+      .from(schema.customFieldDefs)
+      .where(
+        and(
+          eq(schema.customFieldDefs.resource, resource),
+          eq(schema.customFieldDefs.name, field_name),
+          eq(schema.customFieldDefs.organizationId, organizationId),
+        ),
+      )
+      .limit(1);
+
+    if (!existing)
+      return `No custom field named "${field_name}" found on ${resource}.`;
+
+    await db
+      .delete(schema.customFieldDefs)
+      .where(
+        and(
+          eq(schema.customFieldDefs.id, existing.id),
+          eq(schema.customFieldDefs.organizationId, organizationId),
+        ),
+      );
+
+    return `Deleted custom field "${existing.label}" (key: ${field_name}) from ${resource}. The field definition has been removed.`;
   }
 
   if (toolName === "search_gmail") {

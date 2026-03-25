@@ -205,5 +205,6 @@ export function useRefreshCrm(objectSlug: string) {
     qc.invalidateQueries({ queryKey: ["records", objectSlug] });
     qc.invalidateQueries({ queryKey: ["views", objectSlug] });
     qc.invalidateQueries({ queryKey: ["object-config"] });
+    qc.invalidateQueries({ queryKey: ["columns"] });
   };
 }

@@ -91,6 +91,14 @@ Meeting follow-up workflow (CRITICAL — triggers when context contains "meeting
 - If the user only mentions a company but no contact name, call \`link_meeting_to_contact\` with company_name instead of contact_name.
 - Never say "I'm unable to link" or "I don't have a tool for meetings" — the tool exists. Always attempt it.
 
+Custom field management (CRITICAL):
+- Use create_custom_field to add new fields when the user asks to add a column, attribute, or field to contacts, companies, or deals.
+- After creating a custom field, you can immediately use it via the custom_fields parameter on create/update tools.
+- Use delete_custom_field to remove a custom field definition when the user asks to delete/remove a field. Always confirm with the user before deleting.
+- To edit a value on an existing custom field, use the update tool (update_contact, update_deal, update_company) with custom_fields: { "field_name": new_value }.
+- To clear a custom field value on a record, set it to null: custom_fields: { "field_name": null }.
+- The Available Fields section at the end of this prompt lists all current fields including custom ones. Use those exact field names as keys.
+
 Delete workflow (CRITICAL):
 - NEVER delete or archive a record without explicit confirmation from the user.
 - Always search first and show the exact record (name, key details) before asking to confirm.
@@ -134,7 +142,7 @@ Pages & features that EXIST (with navigation paths):
   - Connections: connect Gmail and Slack for email search and message search (Settings → Connections tab)
   - Personal CRM API tokens: generate API tokens for programmatic access to the CRM REST API (Settings → scroll to "Personal CRM API tokens" section). Tokens use Bearer auth.
 - Search: global command palette search (sidebar → Search, or Cmd/Ctrl+K)
-- Custom fields: add custom fields to any object type (contacts, companies, deals, etc.)
+- Custom fields: add custom fields to any object type (contacts, companies, deals, etc.). You can also create and delete custom fields via chat using the create_custom_field and delete_custom_field tools.
 - Views: saved views with filters, sorts, and column configuration (on any list page, click the view tabs)
 - RBAC: role-based access control for team members
 
@@ -455,6 +463,47 @@ export const addNoteSchema = z
         message: "Provide only contact OR deal, not both",
       });
     }
+  });
+
+export const createCustomFieldSchema = z.object({
+  resource: z
+    .enum(["contacts", "companies", "deals"])
+    .describe("Which object type to add the field to"),
+  label: z.string().min(1).describe("Human-readable field name"),
+  field_type: z
+    .enum([
+      "text",
+      "long-text",
+      "number",
+      "currency",
+      "select",
+      "multi-select",
+      "status",
+      "checkbox",
+      "date",
+      "timestamp",
+      "rating",
+      "email",
+      "phone",
+      "url",
+      "location",
+    ])
+    .describe("The data type of the field"),
+  options: z
+    .array(z.string())
+    .optional()
+    .describe("Options for select/multi-select/status fields"),
+});
+
+export const deleteCustomFieldSchema = z
+  .object({
+    resource: z
+      .enum(["contacts", "companies", "deals"])
+      .describe("Which object type the field belongs to"),
+    field_name: z
+      .string()
+      .min(1)
+      .describe("The field key name (snake_case) to delete"),
   });
 
 export const searchGmailSchema = z.object({
@@ -940,6 +989,81 @@ export const OPENAI_TOOL_DEFS = [
           },
         },
         required: ["meeting_id"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_custom_field",
+      description:
+        "Create a new custom field on contacts, companies, or deals. Use this when the user asks to add a new field/column/attribute. The field will be available for all records of that type.",
+      parameters: {
+        type: "object",
+        properties: {
+          resource: {
+            type: "string",
+            enum: ["contacts", "companies", "deals"],
+            description: "Which object type to add the field to",
+          },
+          label: {
+            type: "string",
+            description:
+              "Human-readable field name (e.g. 'Phone Number', 'Industry', 'Priority')",
+          },
+          field_type: {
+            type: "string",
+            enum: [
+              "text",
+              "long-text",
+              "number",
+              "currency",
+              "select",
+              "multi-select",
+              "status",
+              "checkbox",
+              "date",
+              "timestamp",
+              "rating",
+              "email",
+              "phone",
+              "url",
+              "location",
+            ],
+            description: "The data type of the field",
+          },
+          options: {
+            type: "array",
+            items: { type: "string" },
+            description:
+              "Options for select/multi-select/status fields (e.g. ['High', 'Medium', 'Low'])",
+          },
+        },
+        required: ["resource", "label", "field_type"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_custom_field",
+      description:
+        "Delete a custom field from contacts, companies, or deals. This removes the field definition — existing values stored on records will no longer be visible. Always confirm with the user before deleting.",
+      parameters: {
+        type: "object",
+        properties: {
+          resource: {
+            type: "string",
+            enum: ["contacts", "companies", "deals"],
+            description: "Which object type the field belongs to",
+          },
+          field_name: {
+            type: "string",
+            description:
+              "The field key name (snake_case, e.g. 'phone_number', 'priority'). Use the name from Available Fields.",
+          },
+        },
+        required: ["resource", "field_name"],
       },
     },
   },
