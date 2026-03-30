@@ -91,7 +91,7 @@ export function createStreamAssistantRoutes(
       organizationId: crmUser.organizationId ?? "",
       crmUserId: crmUser.id,
       feature: "assistant",
-      model: "basics-chat-smart",
+      model: "basics-chat-fast",
       inputTokens: 0,
       outputTokens: 0,
       durationMs: Date.now() - requestStart,

@@ -112,6 +112,7 @@ function parseJsonWithSchema<T>(text: string, schema: z.ZodType<T>): T | null {
 export function shouldPlanToolWorkflow(queryText: string): boolean {
   const lower = queryText.toLowerCase();
   const isUpdate = /\b(update|rename|change|edit|set|move|bump|mark)\b/.test(lower);
+  const isDelete = /\b(delete|remove)\b/.test(lower);
   const isTask = /\b(task|reminder|follow-up|follow up|todo)\b/.test(lower);
   const isNote = /\bnotes?\b/.test(lower);
   const isCreateContact =
@@ -123,11 +124,12 @@ export function shouldPlanToolWorkflow(queryText: string): boolean {
     /\b(deal|opportunity|deals|opportunities)\b/.test(lower);
   const isBulk =
     /\b(and also|and then|also|too)\b|,/.test(lower) &&
-    /\b(create|add|make|update|complete|added)\b/.test(lower);
+    /\b(create|add|make|update|complete|added|delete|remove)\b/.test(lower);
   const isMultiAction =
     /\b(create|add|make)\b.*\b(create|add|make)\b/.test(lower) ||
     /\b(update|change|move)\b.*\b(create|add)\b/.test(lower) ||
-    /\b(create|add)\b.*\b(update|change|move)\b/.test(lower);
+    /\b(create|add)\b.*\b(update|change|move)\b/.test(lower) ||
+    /\b(delete|remove)\b.*\b(delete|remove)\b/.test(lower);
   const isBulkContactCreate =
     /\b(create|add|make)\b/.test(lower) &&
     /\b(contact|person|lead|contacts|people)\b/.test(lower) &&
@@ -143,6 +145,7 @@ export function shouldPlanToolWorkflow(queryText: string): boolean {
 
   return (
     isUpdate ||
+    isDelete ||
     isBulk ||
     isMultiAction ||
     isBulkContactCreate ||
@@ -232,7 +235,7 @@ function normalizeLookupStepArgs(
   return query ? { ...rawArgs, query } : rawArgs;
 }
 
-function extractLookupCandidates(result: string): LookupCandidate[] {
+export function extractLookupCandidates(result: string): LookupCandidate[] {
   const candidates: LookupCandidate[] = [];
   const wikiMatches = result.matchAll(
     /\[\[([a-z][a-z0-9-]*)\/(\d+)(?:#[^\]|]+)?\|([^\]]+)\]\]/gi,
@@ -266,17 +269,17 @@ function normalizeResolvedArgs(
   const first = candidates[0];
   if (!first) return args;
 
-  if (expectedTool === "update_company" || expectedTool === "get_company") {
+  if (expectedTool === "update_company" || expectedTool === "get_company" || expectedTool === "delete_company") {
     if (args.id === undefined && args.company_name === undefined) {
       args.id = first.id;
     }
   }
-  if (expectedTool === "update_contact" || expectedTool === "get_contact") {
+  if (expectedTool === "update_contact" || expectedTool === "get_contact" || expectedTool === "delete_contact") {
     if (args.id === undefined && args.contact_name === undefined) {
       args.id = first.id;
     }
   }
-  if (expectedTool === "update_deal" || expectedTool === "get_deal") {
+  if (expectedTool === "update_deal" || expectedTool === "get_deal" || expectedTool === "delete_deal") {
     if (args.id === undefined && args.deal_name === undefined) {
       args.id = first.id;
     }
@@ -335,6 +338,10 @@ export async function planToolWorkflow(args: {
     "- IMPORTANT: For create_contact or create_deal with a company_name, do NOT search for the company first — pass company_name directly. The tool auto-creates the company if it does not exist.",
     "- IMPORTANT: For a SINGLE create_contact or create_deal, only plan if the user has provided the company name. If no company is mentioned for a single contact or deal, return mode=none so the main assistant can ask for missing details.",
     "- IMPORTANT: For BULK create_contact (2+ people), always plan multi_tool with one step per person using whatever info is available (name, email). Do NOT return mode=none just because company names are missing — bulk requests should always be executed.",
+    "- IMPORTANT: For delete requests ('delete company X', 'remove contact Y', 'delete sequoia'), ALWAYS plan search first then delete (deferred=true). Use delete_contact, delete_company, or delete_deal — NEVER skip the actual delete tool call. NEVER return mode=none for a delete request.",
+    "- IMPORTANT: For bulk delete ('delete all companies', 'remove each company'), plan search first, then one delete step per record (all deferred=true). If the exact records are unknown, plan search + one deferred delete — the resolver will handle batching.",
+    "- IMPORTANT: Users may misspell entity types (e.g. 'comapnies' for 'companies', 'contacs' for 'contacts'). Infer the correct entity type from context. Even without an explicit entity word, use the record name to guess the type (e.g. 'delete Sequoia' → likely a company → search_companies + delete_company).",
+    "- IMPORTANT: When the user says 'delete X and Y', plan separate search+delete pairs for EACH record, not a single search.",
     "- IMPORTANT: For 'move/mark/bump [deal] to [stage]', plan search_deals then update_deal with status (deferred=true).",
     "- IMPORTANT: For 'add a task for [person name]', plan search_contacts then create_task (deferred=true). The task text comes from what follows the colon.",
     "- IMPORTANT: Standalone tasks need NO contact or company. For requests like 'add these as tasks', 'create tasks from this list', or bullet to-dos with no person/company, plan one create_task step per item with only text (and optional due_date). Do NOT add search_contacts unless the user ties tasks to someone.",
@@ -387,6 +394,22 @@ export async function planToolWorkflow(args: {
     'JSON: {"mode":"multi_tool","steps":[{"tool":"search_slack","args":{"query":"Acme deal"}},{"tool":"add_note","args":{"deal_name":"Acme","title":"Slack updates on Acme"},"deferred":true}]}',
     "User: find emails from john@acme.com and create a contact for him",
     'JSON: {"mode":"multi_tool","steps":[{"tool":"search_gmail","args":{"query":"from:john@acme.com","max_results":3}},{"tool":"create_contact","args":{},"deferred":true}]}',
+    "User: delete company Sequoia Capital",
+    'JSON: {"mode":"multi_tool","steps":[{"tool":"search_companies","args":{"query":"Sequoia Capital"}},{"tool":"delete_company","args":{},"deferred":true}]}',
+    "User: delete Sequoia and Dragoneer companies",
+    'JSON: {"mode":"multi_tool","steps":[{"tool":"search_companies","args":{"query":"Sequoia"}},{"tool":"delete_company","args":{},"deferred":true},{"tool":"search_companies","args":{"query":"Dragoneer"}},{"tool":"delete_company","args":{},"deferred":true}]}',
+    "User: delete seqouia and dragon comapnies",
+    'JSON: {"mode":"multi_tool","steps":[{"tool":"search_companies","args":{"query":"seqouia"}},{"tool":"delete_company","args":{},"deferred":true},{"tool":"search_companies","args":{"query":"dragon"}},{"tool":"delete_company","args":{},"deferred":true}]}',
+    "User: delete sequoia",
+    'JSON: {"mode":"multi_tool","steps":[{"tool":"search_companies","args":{"query":"sequoia"}},{"tool":"delete_company","args":{},"deferred":true}]}',
+    "User: search all companies then delete each one",
+    'JSON: {"mode":"multi_tool","steps":[{"tool":"search_companies","args":{}},{"tool":"delete_company","args":{},"deferred":true}]}',
+    "User: remove contact John Smith",
+    'JSON: {"mode":"multi_tool","steps":[{"tool":"search_contacts","args":{"query":"John Smith"}},{"tool":"delete_contact","args":{},"deferred":true}]}',
+    "User: delete the Acme deal",
+    'JSON: {"mode":"multi_tool","steps":[{"tool":"search_deals","args":{"query":"Acme"}},{"tool":"delete_deal","args":{},"deferred":true}]}',
+    "User: remove John",
+    'JSON: {"mode":"multi_tool","steps":[{"tool":"search_contacts","args":{"query":"John"}},{"tool":"delete_contact","args":{},"deferred":true}]}',
     "",
     `User request: ${args.queryText}`,
   ].join("\n");

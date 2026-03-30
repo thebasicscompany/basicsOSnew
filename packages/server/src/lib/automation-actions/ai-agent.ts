@@ -20,7 +20,7 @@ export async function executeAIAgent(
 ): Promise<AiAgentResult> {
   const {
     objective = "",
-    model = "basics-chat-smart",
+    model = "basics-chat-fast",
     maxSteps = 6,
   } = config as {
     objective?: string;

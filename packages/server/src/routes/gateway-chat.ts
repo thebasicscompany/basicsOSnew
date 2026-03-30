@@ -40,6 +40,7 @@ import {
 } from "@/routes/gateway-chat/storage.js";
 import { executeValidatedTool } from "@/routes/gateway-chat/tools.js";
 import {
+  extractLookupCandidates,
   isLookupFailure,
   isLookupTool,
   planToolWorkflow,
@@ -270,6 +271,7 @@ function inferWorkflowHints(
   }
 
   const isUpdate = /\b(update|rename|change|edit|set|move|bump|mark)\b/.test(lower);
+  const isDelete = /\b(delete|remove)\b/.test(lower);
   const isTask = /\b(task|reminder|follow-up|follow up|todo)\b/.test(lower);
   const isNote = /\bnotes?\b/.test(lower);
   const isCreateContact =
@@ -295,6 +297,26 @@ function inferWorkflowHints(
     );
     nextHintByTool[entity.searchTool] =
       `Next required step for this request: call \`${updateTool}\` now using the matching ${entity.label} id or exact ${entity.label} name from the lookup result. Apply the requested change from the user's original request exactly: "${trimmed}". Do not reply yet.`;
+  }
+
+  if (isDelete && entity) {
+    const deleteTool = `delete_${entity.label}`;
+    planLines.push(
+      `For this request, the required sequence is: identify the ${entity.label}(s) with \`${entity.searchTool}\`, then call \`${deleteTool}\` for EACH record found, then confirm what was deleted.`,
+      `You MUST actually call \`${deleteTool}\` with the id from the search result. Do NOT skip the delete tool call. Do NOT just say you deleted the record without calling the tool.`,
+    );
+    nextHintByTool[entity.searchTool] =
+      `Next REQUIRED step: call \`${deleteTool}\` now using the id from the lookup result above. If multiple records were found, call \`${deleteTool}\` once for EACH record. Do NOT reply yet — you must call the delete tool first. Original request: "${trimmed}".`;
+  } else if (isDelete && !entity) {
+    planLines.push(
+      "The user wants to delete CRM records. You MUST search first to find matching records, then call the appropriate delete tool (delete_contact, delete_company, or delete_deal) with the id from the search result.",
+      "Do NOT respond saying you deleted something without actually calling a delete tool. Do NOT skip the delete tool call.",
+      `Original request: "${trimmed}".`,
+    );
+    const deleteHint = `Next REQUIRED step: call the appropriate delete tool (delete_contact, delete_company, or delete_deal) using the id from the lookup result above. Do NOT reply yet — you must call the delete tool first. Original request: "${trimmed}".`;
+    nextHintByTool.search_companies = deleteHint;
+    nextHintByTool.search_contacts = deleteHint;
+    nextHintByTool.search_deals = deleteHint;
   }
 
   if (isTask) {
@@ -364,8 +386,8 @@ function buildToolChatContent(
     const nextStepBlock = nextStepHint ? `\n\n${nextStepHint}` : "";
     return `${stripped}\n\nTool guidance: This lookup already produced the candidate records above. Reuse those exact names or IDs for the next tool call. Do not call this same lookup again in this request.${nextStepBlock}`;
   }
-  if (name.startsWith("create_") || name.startsWith("update_")) {
-    return `${stripped}\n\nTool guidance: The write action is complete. Respond to the user, or only call another tool if the user clearly asked for another action in the same message.`;
+  if (name.startsWith("create_") || name.startsWith("update_") || name.startsWith("delete_")) {
+    return `${stripped}\n\nTool guidance: The write action is complete. Respond to the user, or only call another tool if the user clearly asked for another action in the same message (e.g. deleting multiple records).`;
   }
   return stripped;
 }
@@ -427,7 +449,7 @@ async function synthesizeFinalAnswer(args: {
     method: "POST",
     headers: args.gatewayHeaders,
     body: JSON.stringify({
-      model: "basics-chat-smart",
+      model: "basics-chat-fast",
       messages: [
         {
           role: "system",
@@ -710,7 +732,7 @@ export async function processChatTurn(
     const plannedWorkflow = await planToolWorkflow({
       gatewayUrl,
       gatewayHeaders,
-      model: "basics-chat-smart",
+      model: "basics-chat-fast",
       queryText,
     });
     if (
@@ -731,10 +753,55 @@ export async function processChatTurn(
           if (!lastLookupContext || lastLookupContext.failed) {
             continue;
           }
+
+          const isBulkDelete =
+            (toolName === "delete_contact" || toolName === "delete_company" || toolName === "delete_deal") &&
+            lastLookupContext &&
+            !lastLookupContext.failed;
+          if (isBulkDelete) {
+            const candidates = extractLookupCandidates(lastLookupContext.result);
+            if (candidates.length > 0) {
+              for (const candidate of candidates) {
+                const deleteArgs = { id: candidate.id };
+                const sig = toolCallSignature(toolName, deleteArgs);
+                if (executedToolSignatures.has(sig)) continue;
+                executedToolSignatures.add(sig);
+
+                const deleteResult = await executeValidatedTool(
+                  db,
+                  crmUser.id,
+                  crmUser.organizationId,
+                  toolName,
+                  deleteArgs,
+                  {
+                    gatewayUrl,
+                    gatewayHeaders,
+                    crmUserId: crmUser.id,
+                    betterAuthUserId: crmUser.userId,
+                  },
+                );
+                usedTools.add(toolName);
+                latestToolOutputs.push({ name: toolName, result: deleteResult });
+                if (typeof deleteResult === "string") {
+                  threadEntityMemory = updateThreadEntityMemory(
+                    threadEntityMemory,
+                    extractRecordReferences(deleteResult),
+                  );
+                }
+                await persistMessage(db, threadId, "tool", JSON.stringify(deleteResult), {
+                  toolName,
+                  toolArgs: deleteArgs,
+                  toolResult: deleteResult,
+                });
+              }
+              continue;
+            }
+          }
+
           const resolvedStep = await resolveDeferredToolStep({
             gatewayUrl,
             gatewayHeaders,
-            model: "basics-chat-smart",
+            model: "basics-chat-fast",
             queryText,
             expectedTool: step.tool,
             plannedArgs: step.args ?? {},
@@ -817,7 +884,7 @@ export async function processChatTurn(
         method: "POST",
         headers: gatewayHeaders,
         body: JSON.stringify({
-          model: "basics-chat-smart",
+          model: "basics-chat-fast",
           messages: chatMessages,
           ...(toolsEnabled && !isLastRound
             ? { tools: OPENAI_TOOL_DEFS, tool_choice: "auto" }
@@ -1126,7 +1193,7 @@ async function generateSmartTitle(
     method: "POST",
     headers: gatewayHeaders,
     body: JSON.stringify({
-      model: "basics-chat-smart",
+      model: "basics-chat-fast",
       messages: [
         {
           role: "user",

@@ -1399,7 +1399,7 @@ function parseLookupItems(result: string): string[] {
 }
 
 function isMutationQuery(queryText: string): boolean {
-  return /\b(create|add|make|update|rename|change|edit|set|complete|mark)\b/i.test(
+  return /\b(create|add|make|update|rename|change|edit|set|complete|mark|delete|remove)\b/i.test(
     queryText,
   );
 }
@@ -1846,7 +1846,7 @@ export function deriveToolAnswer(
     .filter((result): result is string => typeof result === "string")
     .map((result) => cleanUserFacingText(result).trim())
     .filter((result) =>
-      /^(Created|Updated|Task created|Note added)/i.test(result),
+      /^(Created|Updated|Deleted|Task created|Note added)/i.test(result),
     );
   if (writeSummaries.length > 0) {
     return writeSummaries.join("\n");

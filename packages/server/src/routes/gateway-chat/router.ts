@@ -78,7 +78,7 @@ function detectFastPath(queryText: string): ChatRoutingDecision | null {
     hasEntity &&
     (
       /\b(latest|newest|most recent|recent|last|list|show|find|search|lookup)\b/.test(lower) ||
-      /\b(create|add|make|update|edit|rename|change|complete|mark)\b/.test(lower)
+      /\b(create|add|make|update|edit|rename|change|complete|mark|delete|remove)\b/.test(lower)
     );
 
   if (obviousToolQuery) {
@@ -113,7 +113,7 @@ export async function routeChatRequest(args: {
     '- Use "direct" for greetings, thanks, small talk, writing help, brainstorming, and normal conversation that does not require org-specific CRM data or knowledge of the app\'s features.',
     '- Use "crm_context" (NOT "direct") when the user asks about the app\'s features, capabilities, navigation, settings, integrations, API, webhooks, what the app can do, where to find something in the UI, or any question like "do we have X?", "where is X?", "how do I do X in the app?". The assistant has a built-in app-knowledge reference that requires the full system prompt — never answer these in "direct" mode.',
     '- Use "crm_context" for org-specific read questions like summaries, recent items, pipeline status, hot contacts, or questions that depend on CRM facts but not mutations. Also use for questions about past meetings or calls (e.g. "what did we decide?", "who said we\'d follow up?") so we can retrieve meeting context.',
-    '- Use "tool_call" for anything that should search specific records, list records for an entity, or create/update/complete/add records, tasks, or notes. Use for questions that mix a specific record with meeting/call context (e.g. "what did we decide about Acme?") so we retrieve both CRM and meeting context.',
+    '- Use "tool_call" for anything that should search specific records, list records for an entity, or create/update/complete/add/delete records, tasks, or notes. Use for questions that mix a specific record with meeting/call context (e.g. "what did we decide about Acme?") so we retrieve both CRM and meeting context.',
     '- Use "tool_call" when the user refers to a specific record by name, partial name, description, relationship, or prior context and the assistant needs to identify that record before answering.',
     '- Use recent conversation to resolve pronouns like "it", "that company", or "do that again".',
     '- If mode is "direct", include a short natural-language reply in "reply".',
@@ -128,7 +128,7 @@ export async function routeChatRequest(args: {
     method: "POST",
     headers: args.gatewayHeaders,
     body: JSON.stringify({
-      model: "basics-chat-smart",
+      model: "basics-chat-fast",
       messages: [{ role: "user", content: prompt }],
       stream: false,
       max_tokens: 140,
