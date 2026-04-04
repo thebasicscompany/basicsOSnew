@@ -38,6 +38,7 @@ interface DataTableBodyProps<T extends Record<string, unknown>> {
   onNewRecord?: () => void;
   onRowExpand?: (recordId: number) => void;
   onRowDelete?: (recordId: number, record: T) => void;
+  extraContextMenuItems?: (record: T) => React.ReactNode;
   onCellClick: (rowIndex: number, colId: string, attribute: Attribute) => void;
   onCellDoubleClick: (
     rowIndex: number,
@@ -61,6 +62,7 @@ export function DataTableBody<T extends Record<string, unknown>>({
   onNewRecord: _onNewRecord,
   onRowExpand,
   onRowDelete,
+  extraContextMenuItems,
   onCellClick,
   onCellDoubleClick,
 }: DataTableBodyProps<T>) {
@@ -174,7 +176,8 @@ export function DataTableBody<T extends Record<string, unknown>>({
               </TableRow>
             );
 
-            const hasActions = onRowExpand || onRowDelete;
+            const extraItems = extraContextMenuItems?.(row.original);
+            const hasActions = onRowExpand || onRowDelete || extraItems;
             if (!hasActions) {
               return rowContent;
             }
@@ -189,9 +192,15 @@ export function DataTableBody<T extends Record<string, unknown>>({
                       Open
                     </ContextMenuItem>
                   )}
-                  {onRowDelete && (
+                  {extraItems && (
                     <>
                       {onRowExpand && <ContextMenuSeparator />}
+                      {extraItems}
+                    </>
+                  )}
+                  {onRowDelete && (
+                    <>
+                      {(onRowExpand || extraItems) && <ContextMenuSeparator />}
                       <ContextMenuItem
                         variant="destructive"
                         onClick={() => onRowDelete(recordId, row.original)}

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, type ReactNode } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router";
 import { toast } from "sonner";
 import { showError } from "@/lib/show-error";
@@ -42,7 +42,11 @@ import { usePageTitle, usePageHeaderActions } from "@/contexts/page-header";
 import { useEmailSyncStatus } from "@/hooks/use-email-sync";
 import { SuggestedContactsSheet } from "@/components/email-sync/SuggestedContactsSheet";
 import { FindFromEmailDialog } from "@/components/email-sync/FindFromEmailDialog";
-import { SparkleIcon, XIcon } from "@phosphor-icons/react";
+import { SparkleIcon, XIcon, BuildingsIcon } from "@phosphor-icons/react";
+import {
+  ContextMenuItem,
+  ContextMenuSeparator,
+} from "@/components/ui/context-menu";
 import { Button } from "@/components/ui/button";
 
 /* ------------------------------------------------------------------ */
@@ -232,6 +236,21 @@ export function ObjectListPage() {
       navigate(`/objects/${objectSlug}/${recordId}`);
     },
     [navigate, objectSlug],
+  );
+
+  const dealsExtraContextMenuItems = useCallback(
+    (record: Record<string, unknown>): ReactNode => {
+      const companyId = (record.companyId ?? record.company_id) as number | null | undefined;
+      const companyName = (record.companyName ?? record.company_name) as string | null | undefined;
+      if (!companyId) return null;
+      return (
+        <ContextMenuItem onClick={() => navigate(`/objects/companies/${companyId}`)}>
+          <BuildingsIcon className="mr-2 h-4 w-4" />
+          Open company{companyName ? `: ${companyName}` : ""}
+        </ContextMenuItem>
+      );
+    },
+    [navigate],
   );
 
   const handleRowDelete = useCallback(
@@ -527,6 +546,7 @@ export function ObjectListPage() {
               onCellUpdate={handleCellUpdate}
               onRowExpand={handleRowExpand}
               onRowDelete={handleRowDelete}
+              extraContextMenuItems={isDeals ? dealsExtraContextMenuItems : undefined}
               enableRowMultiSelect={enableRowMultiSelect}
               selectionClearKey={rowSelectionClearKey}
               onBulkDeleteRequest={(ids) => setBulkDeleteIds(ids)}

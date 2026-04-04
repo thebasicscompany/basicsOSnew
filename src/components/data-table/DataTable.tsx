@@ -39,6 +39,7 @@ export function DataTable(props: DataTableProps) {
     selectedRecordIds,
     clearRowSelection,
     onBulkDeleteRequest,
+    extraContextMenuItems,
   } = useDataTable(props);
 
   return (
@@ -99,6 +100,7 @@ export function DataTable(props: DataTableProps) {
               onNewRecord={onNewRecord}
               onRowExpand={onRowExpand}
               onRowDelete={props.onRowDelete}
+              extraContextMenuItems={extraContextMenuItems}
               onCellClick={handleCellClick}
               onCellDoubleClick={handleCellDoubleClick}
             />

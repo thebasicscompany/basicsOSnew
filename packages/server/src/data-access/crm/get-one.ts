@@ -75,6 +75,29 @@ export async function getOneRecord(
     return row ?? null;
   }
 
+  if (resource === "deals") {
+    const [row] = await db
+      // @ts-expect-error - SelectedFields typing with spread + joined col
+      .select({
+        ...schema.deals,
+        companyName: schema.companies.name,
+      })
+      .from(schema.deals)
+      .leftJoin(
+        schema.companies,
+        eq(schema.deals.companyId, schema.companies.id),
+      )
+      .where(
+        and(
+          eq(schema.deals.id, id),
+          eq(schema.deals.organizationId, orgId),
+          sql`${schema.deals.archivedAt} is null`,
+        ),
+      )
+      .limit(1);
+    return row ?? null;
+  }
+
   const table =
     TABLE_MAP[
       resource as Exclude<Resource, "companies_summary" | "contacts_summary">
@@ -89,9 +112,6 @@ export async function getOneRecord(
     conditions.push(
       eq((table as typeof schema.companies).organizationId, orgId),
     );
-  }
-  if (resource === "deals") {
-    conditions.push(sql`${schema.deals.archivedAt} is null`);
   }
 
   const [row] = await db

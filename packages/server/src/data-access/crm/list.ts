@@ -184,6 +184,56 @@ export async function listRecords(
     return { rows, total };
   }
 
+  if (resource === "deals") {
+    const dealConds: SQL[] = [eq(schema.deals.organizationId, orgId)];
+    const includeArchived = filter.include_archived === true;
+    if (!includeArchived)
+      dealConds.push(sql`${schema.deals.archivedAt} is null`);
+    if (q) dealConds.push(ilike(schema.deals.name, `%${q}%`));
+    if (filter.status)
+      dealConds.push(eq(schema.deals.status, filter.status as string));
+    if (filter.company_id)
+      dealConds.push(eq(schema.deals.companyId, Number(filter.company_id)));
+
+    const genericExpr = buildGenericFilterExpression(
+      schema.deals as unknown as typeof schema.companies,
+      genericFilters,
+    );
+    if (genericExpr) dealConds.push(genericExpr);
+
+    const orderByExprs = sorts
+      .map((sort) =>
+        buildOrderByExpression(
+          schema.deals as unknown as typeof schema.companies,
+          sort,
+        ),
+      )
+      .filter((expr): expr is SQL => expr !== null);
+
+    const rows = await db
+      // @ts-expect-error - SelectedFields typing with spread + joined col
+      .select({
+        ...schema.deals,
+        companyName: schema.companies.name,
+      })
+      .from(schema.deals)
+      .leftJoin(
+        schema.companies,
+        eq(schema.deals.companyId, schema.companies.id),
+      )
+      .where(and(...dealConds))
+      .orderBy(...orderByExprs)
+      .limit(limit)
+      .offset(offset);
+
+    const [{ count: total }] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(schema.deals)
+      .where(and(...dealConds));
+
+    return { rows, total };
+  }
+
   const table =
     TABLE_MAP[
       resource as Exclude<Resource, "companies_summary" | "contacts_summary">
@@ -206,16 +256,6 @@ export async function listRecords(
         ilike(schema.companies.category, `%${q}%`),
       ) as SQL,
     );
-  }
-  if (resource === "deals") {
-    const includeArchived = filter.include_archived === true;
-    if (!includeArchived)
-      conditions.push(sql`${schema.deals.archivedAt} is null`);
-    if (q) conditions.push(ilike(schema.deals.name, `%${q}%`));
-    if (filter.status)
-      conditions.push(eq(schema.deals.status, filter.status as string));
-    if (filter.company_id)
-      conditions.push(eq(schema.deals.companyId, Number(filter.company_id)));
   }
   if (resource === "tasks" && filter.contact_id != null) {
     conditions.push(eq(schema.tasks.contactId, Number(filter.contact_id)));

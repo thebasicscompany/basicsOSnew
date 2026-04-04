@@ -43,6 +43,7 @@ export interface DataTableProps {
   onCellUpdate: (recordId: number, columnName: string, value: unknown) => void;
   onRowExpand?: (recordId: number) => void;
   onRowDelete?: (recordId: number, record: Record<string, unknown>) => void;
+  extraContextMenuItems?: (record: Record<string, unknown>) => React.ReactNode;
   onNewRecord?: () => void;
   onAddColumn?: () => void;
   onColumnResize?: (fieldId: string, width: number) => void;
@@ -743,5 +744,6 @@ export function useDataTable(props: DataTableProps) {
     selectedRecordIds,
     clearRowSelection,
     onBulkDeleteRequest: props.onBulkDeleteRequest,
+    extraContextMenuItems: props.extraContextMenuItems,
   };
 }

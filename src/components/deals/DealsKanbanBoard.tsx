@@ -7,7 +7,13 @@ import {
   Draggable,
   type DropResult,
 } from "@hello-pangea/dnd";
-import { PlusIcon, GearSix, TrashSimple } from "@phosphor-icons/react";
+import {
+  PlusIcon,
+  GearSix,
+  TrashSimple,
+  BuildingsIcon,
+  ArrowSquareOutIcon,
+} from "@phosphor-icons/react";
 import {
   Popover,
   PopoverContent,
@@ -541,6 +547,8 @@ export function DealsKanbanBoard() {
                               const amount = Number(
                                 deal.amount ?? deal.Amount ?? 0,
                               );
+                              const companyId = (deal.companyId ?? deal.company_id) as number | null | undefined;
+                              const companyName = (deal.companyName ?? deal.company_name) as string | null | undefined;
                               return (
                                 <Draggable
                                   key={`deal-${id}`}
@@ -551,22 +559,54 @@ export function DealsKanbanBoard() {
                                     <div
                                       ref={provided.innerRef}
                                       {...provided.draggableProps}
-                                      {...provided.dragHandleProps}
-                                      onClick={() => handleCardClick(id)}
-                                      className={cn(
-                                        "cursor-pointer rounded-md border bg-card p-3 shadow-sm transition-shadow hover:shadow-md",
-                                        snapshot.isDragging &&
-                                          "shadow-lg ring-2 ring-primary/50",
-                                      )}
                                     >
-                                      <p className="truncate font-medium">
-                                        {name}
-                                      </p>
-                                      {amount > 0 && (
-                                        <p className="text-sm text-muted-foreground">
-                                          {formatCurrency(amount)}
-                                        </p>
-                                      )}
+                                      <ContextMenu>
+                                        <ContextMenuTrigger asChild>
+                                          <div
+                                            {...provided.dragHandleProps}
+                                            onClick={() => handleCardClick(id)}
+                                            className={cn(
+                                              "cursor-pointer rounded-md border bg-card p-3 shadow-sm transition-shadow hover:shadow-md",
+                                              snapshot.isDragging &&
+                                                "shadow-lg ring-2 ring-primary/50",
+                                            )}
+                                          >
+                                            <p className="truncate font-medium">
+                                              {name}
+                                            </p>
+                                            {amount > 0 && (
+                                              <p className="text-sm text-muted-foreground">
+                                                {formatCurrency(amount)}
+                                              </p>
+                                            )}
+                                            {companyName && (
+                                              <p className="mt-1 flex items-center gap-1 truncate text-xs text-muted-foreground">
+                                                <BuildingsIcon className="size-3 shrink-0" />
+                                                {companyName}
+                                              </p>
+                                            )}
+                                          </div>
+                                        </ContextMenuTrigger>
+                                        <ContextMenuContent>
+                                          <ContextMenuItem onClick={() => handleCardClick(id)}>
+                                            <ArrowSquareOutIcon className="mr-2 size-4" />
+                                            Open deal
+                                          </ContextMenuItem>
+                                          {companyId && (
+                                            <>
+                                              <ContextMenuSeparator />
+                                              <ContextMenuItem
+                                                onClick={() =>
+                                                  navigate(`/objects/companies/${companyId}`)
+                                                }
+                                              >
+                                                <BuildingsIcon className="mr-2 size-4" />
+                                                Open company{companyName ? `: ${companyName}` : ""}
+                                              </ContextMenuItem>
+                                            </>
+                                          )}
+                                        </ContextMenuContent>
+                                      </ContextMenu>
                                     </div>
                                   )}
                                 </Draggable>
